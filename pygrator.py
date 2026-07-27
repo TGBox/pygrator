@@ -6,41 +6,12 @@ import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-from db_util import generate_id
+from db_util import format_date_iso, generate_id, parse_varchar_limit
 from schemas import SCHEMAS
 
 # Farbschema & Theme für modernere Optik
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
-
-def parse_varchar_limit(datatype_str: str) -> int | None:
-    """Extrahiert das Limit aus einem Typ-String wie 'VARCHAR(40)' -> 40. Bei 'TEXT' -> None."""
-    match = re.search(r'VARCHAR\((\d+)\)', str(datatype_str), re.IGNORECASE)
-    if match:
-        return int(match.group(1))
-    return None
-
-def format_date_iso(val) -> str:
-    """Wandelt Datumsangaben (z.B. '15.08.1985', '1985/08/15', '15.8.85') sauber in 'YYYY-MM-DD' um."""
-    if pd.isna(val):
-        return ""
-    val_str = str(val).strip()
-    if not val_str or val_str.lower() in ['nan', 'null', 'none', '']:
-        return ""
-
-    # Falls bereits YYYY-MM-DD
-    if re.match(r'^\d{4}-\d{2}-\d{2}$', val_str):
-        return val_str
-
-    try:
-        # Versuch per Pandas to_datetime mit automatischer/deutscher Formaterkennung
-        parsed_dt = pd.to_datetime(val_str, dayfirst=True, errors='coerce')
-        if pd.notna(parsed_dt):
-            return parsed_dt.strftime('%Y-%m-%d')
-    except Exception:
-        pass
-
-    return val_str
 
 class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: list[str]):
@@ -207,7 +178,6 @@ class RowValidationDialog(ctk.CTkToplevel):
 
     def get_resolved_values(self):
         return self.resolved_results
-
 
 class CSVMappingApp(ctk.CTk):
     def __init__(self):
@@ -660,7 +630,6 @@ class CSVMappingApp(ctk.CTk):
                     msg_rest = f"\n\nUngemappte Spalten gesichert in:\n{os.path.basename(rest_file_path)}"
 
             messagebox.showinfo("Erfolg!", f"Datei erfolgreich verarbeitet!{msg_rest}")
-
 
 if __name__ == "__main__":
     app = CSVMappingApp()
