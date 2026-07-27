@@ -1,4 +1,4 @@
-# Vorgedefinierte Zielschemas für die Data-Cur Datenbank Tabellen inklusive der Datentyp Beschränkungen.
+# Vorgedefinierte Zielschemas für die Datenbank Tabellen inklusive der Datentyp Beschränkungen.
 SCHEMAS = {
     "patienten": {
         "id": "VARCHAR(40)",
