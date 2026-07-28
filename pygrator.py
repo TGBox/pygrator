@@ -4,7 +4,7 @@ import re
 import pandas as pd
 import csv
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 
 from db_util import format_date_iso, generate_id, parse_varchar_limit
 from schemas import SCHEMAS
@@ -17,7 +17,7 @@ class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: list[str]):
         super().__init__(parent)
         self.title("⚠️ Individuelle Feldlängen-Konflikte lösen (Zellgenau)")
-        self.geometry("980x680")
+        self.geometry("980x730")
         self.grab_set()
 
         self.conflicts = conflicts
@@ -208,9 +208,11 @@ class CSVMappingApp(ctk.CTk):
         self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Spalten-Zuordnung & Schema-Limits")
         self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=10)
 
+        # UNTERE BEDIENLEISTE (EXPORT-OPTIONS)
         bottom_frame = ctk.CTkFrame(self)
         bottom_frame.pack(fill="x", padx=15, pady=10)
 
+        # Linker Bereich: Checkboxen
         chk_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
         chk_frame.pack(side="left", padx=10, pady=5)
 
@@ -226,47 +228,87 @@ class CSVMappingApp(ctk.CTk):
         )
         self.chk_export_unmapped.pack(anchor="w", pady=3)
         self.chk_export_unmapped.select()
-        self.chk_fill_null.select()
 
+        # Mittlerer Bereich: Format & Encoding Auswahlen
+        export_opts_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        export_opts_frame.pack(side="left", padx=20, pady=5)
+
+        # Format-Auswahl
+        ctk.CTkLabel(export_opts_frame, text="Export-Format:", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", padx=5)
+        self.combo_export_format = ctk.CTkOptionMenu(
+            export_opts_frame, 
+            values=["CSV (Semikolon ';')", "CSV (Komma ',')", "Excel (.xlsx)"],
+            width=160,
+            command=self.on_format_change
+        )
+        self.combo_export_format.grid(row=0, column=1, padx=5, pady=2)
+
+        # Encoding-Auswahl
+        ctk.CTkLabel(export_opts_frame, text="Encoding:", font=("Arial", 11, "bold")).grid(row=1, column=0, sticky="w", padx=5)
+        self.combo_encoding = ctk.CTkOptionMenu(
+            export_opts_frame, 
+            values=["utf-8-sig (Excel CSV)", "utf-8", "cp1252 (Windows)", "iso-8859-1"],
+            width=160
+        )
+        self.combo_encoding.grid(row=1, column=1, padx=5, pady=2)
+
+        # Rechter Bereich: Button Export
         ctk.CTkButton(
             bottom_frame, 
             text="Prüfen & Exportieren", 
             fg_color="green", 
             hover_color="darkgreen",
+            font=("Arial", 12, "bold"),
             command=self.process_and_export
         ).pack(side="right", padx=10, pady=10)
 
+    def on_format_change(self, choice):
+        """Aktiviert/Deaktiviert das Encoding-Dropdown je nach Format."""
+        if "Excel" in choice:
+            self.combo_encoding.configure(state="disabled")
+        else:
+            self.combo_encoding.configure(state="normal")
+    
     def load_csv(self):
-        file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv"), ("Text Files", "*.txt")])
+        file_path = filedialog.askopenfilename(filetypes=[("CSV/Excel Files", "*.csv;*.txt;*.xlsx;*.xls")])
         if not file_path:
             return
 
-        detected_sep = ';'
-        try:
-            with open(file_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
-                sample = f.read(4096)
-                sniffer = csv.Sniffer()
-                detected_sep = sniffer.sniff(sample).delimiter
-        except Exception:
-            pass
-
-        encodings_to_try = ['utf-8-sig', 'utf-8', 'cp1252', 'latin1']
+        ext = os.path.splitext(file_path)[1].lower()
         loaded_df = None
-        used_encoding = ""
+        used_encoding = "Binary"
+        detected_sep = "N/A"
 
-        for enc in encodings_to_try:
+        if ext in ['.xlsx', '.xls']:
             try:
-                loaded_df = pd.read_csv(
-                    file_path, 
-                    sep=detected_sep, 
-                    encoding=enc, 
-                    on_bad_lines='skip',
-                    dtype=str
-                )
-                used_encoding = enc
-                break
+                loaded_df = pd.read_excel(file_path, dtype=str)
+            except Exception as e:
+                messagebox.showerror("Fehler beim Laden", f"Konnte Excel-Datei nicht lesen:\n{str(e)}")
+                return
+        else:
+            detected_sep = ';'
+            try:
+                with open(file_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
+                    sample = f.read(4096)
+                    sniffer = csv.Sniffer()
+                    detected_sep = sniffer.sniff(sample).delimiter
             except Exception:
-                continue
+                pass
+
+            encodings_to_try = ['utf-8-sig', 'utf-8', 'cp1252', 'latin1']
+            for enc in encodings_to_try:
+                try:
+                    loaded_df = pd.read_csv(
+                        file_path, 
+                        sep=detected_sep, 
+                        encoding=enc, 
+                        on_bad_lines='skip',
+                        dtype=str
+                    )
+                    used_encoding = enc
+                    break
+                except Exception:
+                    continue
 
         if loaded_df is not None:
             self.source_df = loaded_df
@@ -277,7 +319,7 @@ class CSVMappingApp(ctk.CTk):
             )
             self.render_mapping_rows()
         else:
-            messagebox.showerror("Fehler beim Laden", "Konnte die Datei mit keinem gängigen Encoding lesen.")
+            messagebox.showerror("Fehler beim Laden", "Konnte die Datei nicht lesen.")
 
     def on_schema_change(self, choice):
         if self.source_df is not None:
@@ -348,8 +390,18 @@ class CSVMappingApp(ctk.CTk):
 
         r0 = ctk.CTkRadioButton(dialog, text="🔑 Neue UID generieren (Kompakt)", variable=rule_type, value="generate_uid")
         r0.pack(anchor="w", padx=20, pady=5)
+        
+        r_copy = ctk.CTkRadioButton(dialog, text="🔗 Wert aus anderer Zielspalte übernehmen", variable=rule_type, value="copy_target")
+        r_copy.pack(anchor="w", padx=20, pady=5)
 
-        # 📅 DATUMSFORMATIERUNG MIT NEUEM STANDARDWERT-FELD
+        copy_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        copy_frame.pack(anchor="w", padx=45, pady=2)
+        ctk.CTkLabel(copy_frame, text="Kopieren aus:").pack(side="left", padx=5)
+        combo_copy_target = ctk.CTkOptionMenu(copy_frame, values=other_target_cols if other_target_cols else ["Keine"])
+        combo_copy_target.pack(side="left")
+        if existing_rule.get('type') == 'copy_target' and existing_rule.get('param') in other_target_cols:
+            combo_copy_target.set(existing_rule.get('param'))
+
         r_date = ctk.CTkRadioButton(dialog, text="📅 Datumsformat anpassen -> YYYY-MM-DD", variable=rule_type, value="format_date")
         r_date.pack(anchor="w", padx=20, pady=5)
 
@@ -360,6 +412,9 @@ class CSVMappingApp(ctk.CTk):
         entry_date_default.pack(side="left")
         if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
             entry_date_default.insert(0, str(existing_rule.get('param')))
+        
+        separator = ctk.CTkFrame(dialog, height=2, fg_color="gray30")
+        separator.pack(fill="x", padx=20, pady=10)
 
         r_default = ctk.CTkRadioButton(dialog, text="✨ Standardwert nur für LEERE Felder setzen", variable=rule_type, value="default_value")
         r_default.pack(anchor="w", padx=20, pady=5)
@@ -383,22 +438,18 @@ class CSVMappingApp(ctk.CTk):
         if existing_rule.get('type') == 'static_value':
             entry_static_val.insert(0, str(existing_rule.get('param', '')))
 
-        r_copy = ctk.CTkRadioButton(dialog, text="🔗 Wert aus anderer Zielspalte übernehmen", variable=rule_type, value="copy_target")
-        r_copy.pack(anchor="w", padx=20, pady=5)
-
-        copy_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        copy_frame.pack(anchor="w", padx=45, pady=2)
-        ctk.CTkLabel(copy_frame, text="Kopieren aus:").pack(side="left", padx=5)
-        combo_copy_target = ctk.CTkOptionMenu(copy_frame, values=other_target_cols if other_target_cols else ["Keine"])
-        combo_copy_target.pack(side="left")
-        if existing_rule.get('type') == 'copy_target' and existing_rule.get('param') in other_target_cols:
-            combo_copy_target.set(existing_rule.get('param'))
+        
+        separator2 = ctk.CTkFrame(dialog, height=2, fg_color="gray30")
+        separator2.pack(fill="x", padx=20, pady=10)
 
         r_plz = ctk.CTkRadioButton(dialog, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
         r_plz.pack(anchor="w", padx=20, pady=5)
 
         r1 = ctk.CTkRadioButton(dialog, text="👫 Geschlecht mappen (M->Herr, W->Frau)", variable=rule_type, value="gender")
         r1.pack(anchor="w", padx=20, pady=5)
+        
+        separator3 = ctk.CTkFrame(dialog, height=2, fg_color="gray30")
+        separator3.pack(fill="x", padx=20, pady=10)
 
         r2 = ctk.CTkRadioButton(dialog, text="🏠 Straße/Hausnr. trennen -> Nur Text", variable=rule_type, value="split_street")
         r2.pack(anchor="w", padx=20, pady=5)
@@ -424,9 +475,7 @@ class CSVMappingApp(ctk.CTk):
             t_type = rule_type.get()
             param = None
 
-            if t_type == "merge_columns":
-                param = combo_merge_source.get()
-            elif t_type == "copy_target":
+            if t_type == "copy_target":
                 param = combo_copy_target.get()
             elif t_type == "static_value":
                 param = entry_static_val.get()
@@ -467,7 +516,7 @@ class CSVMappingApp(ctk.CTk):
 
         copy_rules = {}
 
-        # PASS 1: Reguläre Transformationen
+        # PASS 1: Transformationen
         for target_col, dtype_str in target_schema.items():
             source_col = self.mapping_dropdowns[target_col].get()
             rule = self.transformations.get(target_col, {})
@@ -493,33 +542,11 @@ class CSVMappingApp(ctk.CTk):
                 out_df[target_col] = [generate_id() for _ in range(row_count)]
                 if source_col != "-- Nicht zuordnen / Spezielle Regel --":
                     mapped_source_cols.add(source_col)
-                    
-            elif rule_type == "merge_columns":
-                second_source = rule.get('param')
-                
-                # Beide Quellspalten als gemappt markieren
-                if source_col != "-- Nicht zuordnen / Spezielle Regel --":
-                    mapped_source_cols.add(source_col)
-                if second_source and second_source in self.source_df.columns:
-                    mapped_source_cols.add(second_source)
-
-                # Werte aus beiden Spalten holen und säubern
-                val1 = self.source_df[source_col].fillna("").astype(str).str.strip() if source_col in self.source_df.columns else pd.Series([""] * row_count)
-                val2 = self.source_df[second_source].fillna("").astype(str).str.strip() if second_source and second_source in self.source_df.columns else pd.Series([""] * row_count)
-
-                # Mit Leerzeichen zusammenfügen (ohne führende/anhängende Leerzeichen bei leeren Feldern)
-                merged_series = (val1 + " " + val2).str.strip()
-
-                if self.chk_fill_null.get():
-                    merged_series = merged_series.replace(r'^\s*$', "NULL", regex=True)
-
-                out_df[target_col] = merged_series
 
             elif source_col != "-- Nicht zuordnen / Spezielle Regel --":
                 mapped_source_cols.add(source_col)
                 series = self.source_df[source_col].copy()
 
-                # DATUMSFORMATIERUNG HIER MIT DEFAULT-WERT
                 if rule_type == "format_date" or 'birth' in target_col.lower() or 'datum' in target_col.lower():
                     date_fallback = str(rule.get('param', '')).strip() if rule.get('param') else ""
                     if date_fallback:
@@ -582,7 +609,7 @@ class CSVMappingApp(ctk.CTk):
 
         out_df = out_df[list(target_schema.keys())]
 
-        # PASS 3: ZELLGENAUE ÜBERLÄNGEN-ERFASSUNG
+        # PASS 3: Überlängen-Erfassung
         conflicts = []
         for target_col, dtype_str in target_schema.items():
             limit = parse_varchar_limit(dtype_str)
@@ -612,24 +639,48 @@ class CSVMappingApp(ctk.CTk):
         unmapped_cols = list(all_source_cols - mapped_source_cols)
         unmapped_df = self.source_df[unmapped_cols] if unmapped_cols else pd.DataFrame()
 
+        # PASS 4: EXPORT NACH FORMAT UND ENCODING
+        format_choice = self.combo_export_format.get()
+        raw_encoding = self.combo_encoding.get().split()[0]  # Extrahiert z.B. 'utf-8-sig'
+
+        if "Excel" in format_choice:
+            file_ext = ".xlsx"
+            file_types = [("Excel Workbook", "*.xlsx")]
+        else:
+            file_ext = ".csv"
+            file_types = [("CSV Files", "*.csv")]
+
         save_path = filedialog.asksaveasfilename(
-            defaultextension=".csv",
-            filetypes=[("CSV Files", "*.csv")],
-            initialfile="patienten.csv"
+            defaultextension=file_ext,
+            filetypes=file_types,
+            initialfile=f"patienten{file_ext}"
         )
 
         if save_path:
-            out_df.to_csv(save_path, index=False, encoding="utf-8", sep=";")
+            try:
+                if "Excel" in format_choice:
+                    out_df.to_excel(save_path, index=False)
+                else:
+                    sep_char = ';' if ';' in format_choice else ','
+                    out_df.to_csv(save_path, index=False, encoding=raw_encoding, sep=sep_char)
 
-            msg_rest = ""
-            if self.chk_export_unmapped.get():
-                dir_name, file_name = os.path.split(save_path)
-                rest_file_path = os.path.join(dir_name, f"REST_UNMAPPED_{file_name}")
-                if not unmapped_df.empty:
-                    unmapped_df.to_csv(rest_file_path, index=False, encoding="utf-8", sep=";")
+                msg_rest = ""
+                if self.chk_export_unmapped.get() and not unmapped_df.empty:
+                    dir_name, file_name = os.path.split(save_path)
+                    rest_file_path = os.path.join(dir_name, f"REST_UNMAPPED_{file_name}")
+                    
+                    if "Excel" in format_choice:
+                        unmapped_df.to_excel(rest_file_path, index=False)
+                    else:
+                        sep_char = ';' if ';' in format_choice else ','
+                        unmapped_df.to_csv(rest_file_path, index=False, encoding=raw_encoding, sep=sep_char)
+
                     msg_rest = f"\n\nUngemappte Spalten gesichert in:\n{os.path.basename(rest_file_path)}"
 
-            messagebox.showinfo("Erfolg!", f"Datei erfolgreich verarbeitet!{msg_rest}")
+                messagebox.showinfo("Erfolg!", f"Datei erfolgreich exportiert!\nFormat: {format_choice}\nEncoding: {raw_encoding}{msg_rest}")
+
+            except Exception as e:
+                messagebox.showerror("Export-Fehler", f"Fehler beim Speichern der Datei:\n{str(e)}")
 
 if __name__ == "__main__":
     app = CSVMappingApp()
