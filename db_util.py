@@ -55,3 +55,18 @@ def format_date_iso(val) -> str:
         pass
 
     return val_str
+
+def center_window(window, width: int, height: int):
+    # Aktualisiert die Geometrie-Informationen des Fensters
+    window.update_idletasks()
+    
+    # Bildschirmmaße ermitteln
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    
+    # Position berechnen
+    x = int((screen_width - width) / 2)
+    y = int((screen_height - height) / 2)
+    
+    # Geometrie setzen: "Breite x Höhe + X-Offset + Y-Offset"
+    window.geometry(f"{width}x{height}+{x}+{y}")

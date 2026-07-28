@@ -6,7 +6,7 @@ import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, ttk
 
-from db_util import format_date_iso, generate_id, parse_varchar_limit
+from db_util import format_date_iso, generate_id, parse_varchar_limit, center_window
 from schemas import SCHEMAS
 
 # Farbschema & Theme für modernere Optik
@@ -17,7 +17,7 @@ class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: list[str]):
         super().__init__(parent)
         self.title("⚠️ Individuelle Feldlängen-Konflikte lösen (Zellgenau)")
-        self.geometry("980x730")
+        center_window(self, 980, 730)
         self.grab_set()
 
         self.conflicts = conflicts
@@ -184,7 +184,7 @@ class CSVMappingApp(ctk.CTk):
         super().__init__()
 
         self.title("CSV Data Mapper & Schema Validator")
-        self.geometry("1040x820")
+        center_window(self, 1040, 820)
 
         self.source_df = None
         self.source_file_path = ""
@@ -370,7 +370,7 @@ class CSVMappingApp(ctk.CTk):
 
         dialog = ctk.CTkToplevel(self)
         dialog.title(f"Transformation für '{target_col}'")
-        dialog.geometry("540x650")
+        center_window(dialog, 540, 690)
         dialog.grab_set()
 
         ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=("Arial", 12, "bold")).pack(pady=10)
