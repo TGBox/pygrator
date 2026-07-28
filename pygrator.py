@@ -13,6 +13,15 @@ from schemas import SCHEMAS
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
+# TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
+# TODO: Add validation for the values of the fields. Especially for removing special characters from names and cities.
+# TODO: Add a way to add the name of a city from its post code and vice versa. There might be a method like this already in the py-handelsregister repositry! CHECK THAT OUT!
+# DONE: TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
+# TODO: Add more comments to this file.
+# TODO: Split this file into multiple parts.
+# TODO: Add corrects type annotations to all files.
+# TODO: Add rule for always copying the contents of "id" to "p_nr" or "ext_id" if these fields exist.
+
 class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: list[str]):
         super().__init__(parent)
@@ -221,6 +230,7 @@ class CSVMappingApp(ctk.CTk):
             text="Unbelegte Felder mit 'NULL' auffüllen (statt leerem Text)"
         )
         self.chk_fill_null.pack(anchor="w", pady=3)
+        self.chk_fill_null.select()
 
         self.chk_export_unmapped = ctk.CTkCheckBox(
             chk_frame, 
@@ -343,15 +353,89 @@ class CSVMappingApp(ctk.CTk):
 
         for idx, (target_col, dtype) in enumerate(target_schema.items(), start=1):
             label_text = f"{target_col} ({dtype})"
-            ctk.CTkLabel(self.scroll_frame, text=label_text, font=("Consolas", 11)).grid(row=idx, column=0, padx=10, pady=5, sticky="w")
+            ctk.CTkLabel(self.scroll_frame, text=label_text, font=("Roboto", 11)).grid(row=idx, column=0, padx=10, pady=5, sticky="w")
 
             combo = ctk.CTkOptionMenu(self.scroll_frame, values=source_cols)
             combo.grid(row=idx, column=1, padx=10, pady=5, sticky="w")
             
-            for col in self.source_df.columns:
-                if col.lower() in target_col.lower() or target_col.lower() in col.lower():
-                    combo.set(col)
+            for src_col in self.source_df.columns:
+                # Matches on exact identity.
+                if src_col.lower() in target_col.lower() or target_col.lower() in src_col.lower():
+                    combo.set(src_col)
                     break
+                # Matches name1/title field. schema: adressen.
+                if src_col.lower() == "titel" and "name1" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches name2/first name field. schema: adressen.
+                if src_col.lower() == "vorname" and "name2" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches name3/last name field. schema: adressen.
+                if src_col.lower() == "nachname" and "name3" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches first name field. schema: patienten.
+                if src_col.lower() == "vorname" and "p_vname" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches last name field. schema: patienten.
+                if src_col.lower() == "nachname" and "p_name" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches city field. schema: patienten.
+                if src_col.lower() == "wohnort" and "p_ort" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches birthday field. schema: patienten.
+                if src_col.lower() == "geburtsdatum" and "p_birth" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches gender field. schema: adressen.
+                if src_col.lower() == "geschlecht" and "anrede" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches gender field. schema: patienten.
+                if src_col.lower() == "geschlecht" and "p_anrede" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches telephone field. schema: patienten.
+                if src_col.lower() == "telefon" and "p_tel" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches telephone2/telge field. schema: patienten.
+                if src_col.lower() == "telefon2" and "p_telge" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches mobile phone field. schema: patienten.
+                if src_col.lower() == "mobil" and "p_handy" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches mobile phone field. schema: adressen.
+                if src_col.lower() == "telefonmobil" and "mobil" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches street field. schema: patienten.
+                if src_col.lower() in ("strasse", "straße") and "p_street" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches house number field. schema: patienten.
+                if src_col.lower() in ("strasse", "straße") and "p_hausnummer" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches IK field. schema: patienten.
+                if src_col.lower() == "kas_ik" and "p_ik" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches insurance status field. schema: patienten.
+                if src_col.lower() == "status" and "p_vs" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                # Matches insurance number field. schema: patienten.
+                if src_col.lower() == "versichertennummer" and "p_vnr" in target_col.lower():
+                    combo.set(src_col)
+                    break
+                    
 
             self.mapping_dropdowns[target_col] = combo
 
@@ -384,6 +468,14 @@ class CSVMappingApp(ctk.CTk):
             default_rule = 'generate_uid'
         elif 'birth' in target_col.lower() or 'datum' in target_col.lower() or target_col.endswith('_bis'):
             default_rule = 'format_date'
+        elif 'anrede' in target_col.lower():
+            default_rule = 'gender'
+        elif 'hausnummer' in target_col.lower():
+            default_rule = 'split_number'
+        elif 'street' in target_col.lower():
+            default_rule = 'split_street'
+        elif 'p_nr' in target_col.lower():
+            default_rule = 'split_number'
 
         current_type = existing_rule.get('type', default_rule)
         rule_type = ctk.StringVar(value=current_type)
@@ -451,10 +543,10 @@ class CSVMappingApp(ctk.CTk):
         separator3 = ctk.CTkFrame(dialog, height=2, fg_color="gray30")
         separator3.pack(fill="x", padx=20, pady=10)
 
-        r2 = ctk.CTkRadioButton(dialog, text="🏠 Straße/Hausnr. trennen -> Nur Text", variable=rule_type, value="split_street")
+        r2 = ctk.CTkRadioButton(dialog, text="🏠 Straße/(Hausnr.) trennen -> Nur Straßenname", variable=rule_type, value="split_street")
         r2.pack(anchor="w", padx=20, pady=5)
 
-        r3 = ctk.CTkRadioButton(dialog, text="🔢 Straße/Hausnr. trennen -> Nur Nummer", variable=rule_type, value="split_number")
+        r3 = ctk.CTkRadioButton(dialog, text="🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer", variable=rule_type, value="split_number")
         r3.pack(anchor="w", padx=20, pady=5)
         
         r_merge = ctk.CTkRadioButton(dialog, text="🔗 Zwei Quellspalten zusammenführen (mit Leerzeichen)", variable=rule_type, value="merge_columns")
@@ -499,8 +591,8 @@ class CSVMappingApp(ctk.CTk):
 
         btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         btn_frame.pack(pady=15)
-        ctk.CTkButton(btn_frame, text="Speichern", command=save_rule).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="Regel löschen", fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="Speichern", command=save_rule).pack(side="left", padx=5, anchor="s")
+        ctk.CTkButton(btn_frame, text="Regel löschen", fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", padx=5, anchor="s")
 
     def process_and_export(self):
         if self.source_df is None:
