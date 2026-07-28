@@ -6,21 +6,24 @@ import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, ttk
 
-from db_util import format_date_iso, generate_id, parse_varchar_limit, center_window
+from db_util import format_date_iso, generate_id, parse_varchar_limit, center_window, sanitize_data_string
 from schemas import SCHEMAS
 
 # Farbschema & Theme für modernere Optik
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-# TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
-# TODO: Add validation for the values of the fields. Especially for removing special characters from names and cities.
-# TODO: Add a way to add the name of a city from its post code and vice versa. There might be a method like this already in the py-handelsregister repositry! CHECK THAT OUT!
 # DONE: TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
+# TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
+# TODO: Add validation for the values of the fields.
+# TODO: Add a way to add the name of a city from its post code and vice versa. There might be a method like this already in the py-handelsregister repositry! CHECK THAT OUT!
 # TODO: Add more comments to this file.
 # TODO: Split this file into multiple parts.
 # TODO: Add corrects type annotations to all files.
 # TODO: Add rule for always copying the contents of "id" to "p_nr" or "ext_id" if these fields exist.
+# TODO: Add a verification for the IK number. (Only format [explicitly only numerical with length 9] or maybe with proper check of the IK?) => Last part maybe not feasible because these IKs are always private therapists and not commonly known institutions!
+# TODO: Add a verification for the insurance number. (one letter followed by 9 digits)
+# TODO: Add a way to map the left over fields to the additional fields, if the target is a patients table.
 
 class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: list[str]):
@@ -400,11 +403,11 @@ class CSVMappingApp(ctk.CTk):
                     combo.set(src_col)
                     break
                 # Matches telephone field. schema: patienten.
-                if src_col.lower() == "telefon" and "p_tel" in target_col.lower():
+                if src_col.lower() == "telefon" and "p_tel" == target_col.lower():
                     combo.set(src_col)
                     break
                 # Matches telephone2/telge field. schema: patienten.
-                if src_col.lower() == "telefon2" and "p_telge" in target_col.lower():
+                if src_col.lower() == "telefon2" and "p_telge" == target_col.lower():
                     combo.set(src_col)
                     break
                 # Matches mobile phone field. schema: patienten.
@@ -412,7 +415,7 @@ class CSVMappingApp(ctk.CTk):
                     combo.set(src_col)
                     break
                 # Matches mobile phone field. schema: adressen.
-                if src_col.lower() == "telefonmobil" and "mobil" in target_col.lower():
+                if src_col.lower() == "telefonmobil" and "mobil" == target_col.lower():
                     combo.set(src_col)
                     break
                 # Matches street field. schema: patienten.
@@ -614,11 +617,18 @@ class CSVMappingApp(ctk.CTk):
             rule = self.transformations.get(target_col, {})
             rule_type = rule.get('type')
 
+            # Automatische Regel-Zuordnungen, falls keine explizite Regel gewählt wurde
             if not rule_type:
                 if 'birth' in target_col.lower() or 'datum' in target_col.lower() or target_col.endswith('_bis'):
                     rule_type = 'format_date'
                 elif 'plz' in target_col.lower():
                     rule_type = 'clean_plz'
+                elif 'anrede' in target_col.lower():
+                    rule_type = 'gender'
+                elif 'hausnummer' in target_col.lower():
+                    rule_type = 'split_number'
+                elif 'street' in target_col.lower():
+                    rule_type = 'split_street'
 
             if rule_type == "copy_target":
                 copy_rules[target_col] = rule.get('param')
@@ -639,6 +649,13 @@ class CSVMappingApp(ctk.CTk):
                 mapped_source_cols.add(source_col)
                 series = self.source_df[source_col].copy()
 
+                # 1. Grundlegende String-Bereinigung auf ALLE Textspalten anwenden
+                is_name_or_city = any(k in target_col.lower() for k in ['name', 'vname', 'ort', 'city', 'stadt'])
+                
+                # astype(str) garantiert saubere Strings für die Bereinigungsfunktion
+                series = series.astype(str).apply(lambda x: sanitize_data_string(x, remove_special_chars=is_name_or_city))
+
+                # 2. Transformationsregeln anwenden
                 if rule_type == "format_date" or 'birth' in target_col.lower() or 'datum' in target_col.lower():
                     date_fallback = str(rule.get('param', '')).strip() if rule.get('param') else ""
                     if date_fallback:
@@ -661,8 +678,11 @@ class CSVMappingApp(ctk.CTk):
                     series = series.apply(format_plz)
 
                 elif rule_type == "gender":
-                    mapping_dict = {"M": "Herr", "m": "Herr", "W": "Frau", "w": "Frau", "F": "Frau"}
-                    series = series.map(mapping_dict).fillna(default_empty_value)
+                    mapping_dict = {
+                        "M": "Herr", "m": "Herr", "HERR": "Herr", "Herr": "Herr", "männlich": "Herr", "1": "Herr",
+                        "W": "Frau", "w": "Frau", "FRAU": "Frau", "Frau": "Frau", "weiblich": "Frau", "F": "Frau", "f": "Frau", "2": "Frau"
+                    }
+                    series = series.apply(lambda x: mapping_dict.get(str(x).strip(), str(x).strip() if str(x).strip() else default_empty_value))
 
                 elif rule_type == "split_street":
                     def get_street_name(val):
@@ -678,6 +698,15 @@ class CSVMappingApp(ctk.CTk):
                         numbers = re.findall(r'\d+.*$', str(val))
                         return "".join(numbers).strip() if numbers else ""
                     series = series.apply(get_house_number)
+
+                elif rule_type == "merge_columns":
+                    second_col = rule.get('param')
+                    if second_col and second_col in self.source_df.columns:
+                        mapped_source_cols.add(second_col)
+                        s2 = self.source_df[second_col].astype(str).apply(
+                            lambda x: sanitize_data_string(x, remove_special_chars=is_name_or_city)
+                        )
+                        series = (series + " " + s2).str.strip()
 
                 if self.chk_fill_null.get() and rule_type != "default_value" and not (rule_type == "format_date" and rule.get('param')):
                     series = series.replace(r'^\s*$', "NULL", regex=True).fillna("NULL")

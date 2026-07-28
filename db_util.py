@@ -70,3 +70,26 @@ def center_window(window, width: int, height: int):
     
     # Geometrie setzen: "Breite x Höhe + X-Offset + Y-Offset"
     window.geometry(f"{width}x{height}+{x}+{y}")
+
+def sanitize_data_string(text, remove_special_chars: bool = True) -> str:
+    """
+    Bereinigt Strings von Steuerzeichen und unerwünschten Sonderzeichen.
+    Behält Leerzeichen zwischen Wörtern garantiert bei!
+    """
+    if pd.isna(text) or text is None:
+        return ""
+
+    text_str = str(text)
+
+    # 1. Steuerzeichen (\r, \n, \t) & geschützte Leerzeichen (\xa0) durch normale Leerzeichen ersetzen
+    text_str = text_str.replace('\xa0', ' ').replace('\x00', '')
+    text_str = re.sub(r'[\r\n\t]+', ' ', text_str)
+
+    # 2. Sonderzeichen entfernen – \s (alle Leerzeichen) IST EXPLIZIT ERLAUBT
+    if remove_special_chars:
+        # Erlaubt: A-Z, a-z, 0-9, Umlaute, ß, Leerzeichen (\s), Bindestrich, Apostroph, Punkt, Komma
+        pattern = r'[^a-zA-Z0-9äöüÄÖÜß\s\-\'.,()/]'
+        text_str = re.sub(pattern, '', text_str)
+
+    # 3. Mehrfache Leerzeichen ("  ") auf genau EIN Leerzeichen (" ") reduzieren & Ränder trimmen
+    return re.sub(r'\s+', ' ', text_str).strip()
