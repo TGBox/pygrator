@@ -8,7 +8,7 @@ from tkinter import filedialog, messagebox
 
 from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number
 from schemas import SCHEMAS
-from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog
+from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
 
 RULE_NAMES = {
     "generate_uid": "UID generieren",
@@ -137,7 +137,7 @@ class CSVMappingApp(ctk.CTk):
             fg_color="green", 
             hover_color="darkgreen",
             font=("Arial", 12, "bold"),
-            command=self.process_and_export
+            command=self.start_processing
         ).pack(side="right", padx=10, pady=10)
 
     def on_format_change(self, choice):
@@ -641,6 +641,77 @@ class CSVMappingApp(ctk.CTk):
         ctk.CTkButton(btn_frame, text="Speichern", command=save_rule).pack(side="left", padx=5, anchor="s")
         ctk.CTkButton(btn_frame, text="Regel löschen", fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", padx=5, anchor="s")
 
+    def start_processing(self):
+        """Startet den Gesamtablauf: Prüft Vorschaudialog und führt danach den Export aus."""
+        
+        if self.source_df is None:
+            messagebox.showerror("Fehler", "Keine Datei geladen!")
+            return
+
+        # ---------------------------------------------------------------------
+        # SCHRITT 1: Nur relevante Spalten ermitteln, die im Schema genutzt werden
+        # ---------------------------------------------------------------------
+        # Wir sammeln alle Quellspalten, die in der Mapping-Tabelle zugewiesen sind
+        active_source_cols = set()
+        if hasattr(self, 'mapping_rows'):
+            for row in self.mapping_rows:
+                # 'src_combo' enthält das Dropdown der Quellspalte
+                src_col = row['src_combo'].get()
+                if src_col and src_col != "-- Nicht zugeordnet --" and src_col in self.source_df.columns:
+                    active_source_cols.add(src_col)
+
+        # Fallback: Falls keine Mappings da sind, nehmen wir alle Spalten
+        if not active_source_cols:
+            active_source_cols = set(self.source_df.columns)
+
+        # ---------------------------------------------------------------------
+        # SCHRITT 2: String-Bereinigung NUR für relevante Spalten prüfen
+        # ---------------------------------------------------------------------
+        if hasattr(self, 'var_clean_strings') and self.var_clean_strings.get():
+            preview_items = []
+            
+            # Suchen nach betroffenen Zellen NUR in den aktiven Spalten
+            for col in active_source_cols:
+                for idx, original_val in self.source_df[col].items():
+                    if pd.isna(original_val):
+                        continue
+                    
+                    orig_str = str(original_val)
+                    if not orig_str.strip():
+                        continue
+
+                    cleaned_val = sanitize_data_string(orig_str, remove_special_chars=True)
+                    
+                    if cleaned_val != orig_str:
+                        preview_items.append({
+                            'row_idx': idx,
+                            'col_name': col,
+                            'original': orig_str,
+                            'cleaned': cleaned_val
+                        })
+            
+            # Vorschau-Dialog NUR anzeigen, wenn bei den RELEVANTEN Spalten Änderungen vorliegen
+            if preview_items:
+                self.cleanup_dialog = StringCleanupPreviewDialog(self, preview_items)
+                self.wait_window(self.cleanup_dialog)
+                
+                accepted_changes = self.cleanup_dialog.result
+                
+                # ABBRUCH durch den Nutzer
+                if accepted_changes is None:
+                    return
+                
+                # Nur die vom Nutzer bestätigten Bereinigungen übernehmen
+                for change in accepted_changes:
+                    r = change['row_idx']
+                    c = change['col_name']
+                    self.source_df.at[r, c] = change['cleaned']
+
+        # ---------------------------------------------------------------------
+        # SCHRITT 3: Export ausführen
+        # ---------------------------------------------------------------------
+        self.process_and_export()
+
     def process_and_export(self):
         if self.source_df is None:
             messagebox.showerror("Fehler", "Keine Datei geladen!")
@@ -939,21 +1010,6 @@ class CSVMappingApp(ctk.CTk):
                 elif action == 'custom':
                     out_df.at[r_idx, col] = item['custom_val'] if item['custom_val'] else default_empty_value
                 # Bei 'keep' bleibt der original ausgeleSubst/Rohwert im DataFrame erhalten
-
-        # PASS 2: Copy Rules
-        if self.var_clean_strings.get():
-            def clean_string_val(val):
-                if pd.isna(val) or val is None:
-                    return val
-                val_str = str(val)
-                # Entfernt führende/nachfolgende Whitespaces sowie unsichtbare Steuerzeichen (\r, \n, \t)
-                val_str = re.sub(r'[\r\n\t]+', ' ', val_str).strip()
-                # Mehrfache Leerzeichen im Text zu einem einzelnen Leerzeichen reduzieren
-                return re.sub(r'\s+', ' ', val_str)
-
-            # Auf alle Spalten anwenden, die Objekt-/Text-Typen sind
-            for col in out_df.columns:
-                out_df[col] = out_df[col].apply(clean_string_val)
         
         for target_col, source_target_col in copy_rules.items():
             if source_target_col in out_df.columns:

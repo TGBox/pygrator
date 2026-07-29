@@ -456,3 +456,138 @@ class ValidationFixDialog(ctk.CTkToplevel):
 
         self.is_accepted = True
         self.destroy()
+
+class StringCleanupPreviewDialog(ctk.CTkToplevel):
+    def __init__(self, parent, preview_items):
+        """
+        preview_items: Liste von Diktionären mit Folgender Struktur:
+        [
+            {
+                'row_idx': Index im DataFrame,
+                'col_name': Spaltenname,
+                'original': Ursprünglicher String,
+                'cleaned': Bereinigter String
+            }, ...
+        ]
+        """
+        super().__init__(parent)
+        self.title("🔍 Vorschau: String-Bereinigung")
+        self.geometry("750x550")
+        
+        # Modal machen (blockiert Hauptfenster)
+        self.grab_set()
+        
+        self.preview_items = preview_items
+        # Speichert pro Eintrag (Index): True = Ändern, False = Ignorieren (Original behalten)
+        self.decisions = {i: ctk.BooleanVar(value=True) for i in range(len(preview_items))}
+        self.result = None  # Wird bei Bestätigung befüllt
+
+        self._build_ui()
+
+    def _build_ui(self):
+        # Header / Beschreibung
+        header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        header_frame.pack(fill="x", padx=20, pady=10)
+        
+        ctk.CTkLabel(
+            header_frame, 
+            text="String-Bereinigung Vorschau", 
+            font=ctk.CTkFont(size=18, weight="bold")
+        ).pack(anchor="w")
+        
+        ctk.CTkLabel(
+            header_frame, 
+            text=f"Es wurden {len(self.preview_items)} Ersetzungen gefunden. Überprüfe und wähle die gewünschten Änderungen aus:",
+            wraplength=700
+        ).pack(anchor="w", pady=5)
+
+        # Global-Aktionen (Alle an-/abwählen)
+        global_btn_frame = ctk.CTkFrame(self, fg_color="transparent")
+        global_btn_frame.pack(fill="x", padx=20, pady=5)
+        
+        ctk.CTkButton(
+            global_btn_frame, 
+            text="✅ Alle auswählen", 
+            width=120, 
+            fg_color="gray30",
+            command=lambda: self._set_all(True)
+        ).pack(side="left", padx=(0, 10))
+        
+        ctk.CTkButton(
+            global_btn_frame, 
+            text="❌ Alle abwählen", 
+            width=120, 
+            fg_color="gray30",
+            command=lambda: self._set_all(False)
+        ).pack(side="left")
+
+        # Scrollbare Liste
+        self.scroll_frame = ctk.CTkScrollableFrame(self)
+        self.scroll_frame.pack(fill="both", expand=True, padx=20, pady=10)
+
+        # Spalten-Header für die Liste
+        list_header = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        list_header.pack(fill="x", pady=(0, 5))
+        ctk.CTkLabel(list_header, text="Anwenden", width=70, font=ctk.CTkFont(weight="bold")).pack(side="left")
+        ctk.CTkLabel(list_header, text="Zeile / Feld", width=120, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=5)
+        ctk.CTkLabel(list_header, text="Originalwert", width=220, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=5)
+        ctk.CTkLabel(list_header, text="Bereinigter Wert", width=220, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=5)
+
+        # Einzelne Einträge rendern
+        for i, item in enumerate(self.preview_items):
+            row = ctk.CTkFrame(self.scroll_frame)
+            row.pack(fill="x", pady=2, ipady=3)
+
+            # Checkbox für Einzelentscheidung
+            chk = ctk.CTkCheckBox(row, text="", variable=self.decisions[i], width=50)
+            chk.pack(side="left", padx=10)
+
+            # Info: Zeile & Spaltenname
+            info_txt = f"Z. {item['row_idx'] + 1} | {item['col_name']}"
+            ctk.CTkLabel(row, text=info_txt, width=120, anchor="w", font=ctk.CTkFont(size=11)).pack(side="left", padx=5)
+
+            # Original
+            ctk.CTkLabel(row, text=str(item['original']), width=220, anchor="w", text_color="gray70").pack(side="left", padx=5)
+
+            # Pfad-Pfeil
+            ctk.CTkLabel(row, text="➔", width=20).pack(side="left")
+
+            # Bereinigter Wert
+            ctk.CTkLabel(row, text=str(item['cleaned']), width=220, anchor="w", text_color="#2FA572", font=ctk.CTkFont(weight="bold")).pack(side="left", padx=5)
+
+        # Untere Buttons (Abbrechen / Uebernehmen)
+        bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
+        bottom_frame.pack(fill="x", padx=20, pady=15)
+
+        ctk.CTkButton(
+            bottom_frame, 
+            text="Abbrechen", 
+            fg_color="gray40", 
+            command=self._on_cancel
+        ).pack(side="right", padx=(10, 0))
+        
+        ctk.CTkButton(
+            bottom_frame, 
+            text="Änderungen übernehmen", 
+            fg_color="#2FA572", 
+            hover_color="#1E7A52", 
+            command=self._on_confirm
+        ).pack(side="right")
+
+    def _set_all(self, value: bool):
+        """Setzt alle Checkboxen auf True oder False."""
+        for var in self.decisions.values():
+            var.set(value)
+
+    def _on_confirm(self):
+        # Sammle alle akzeptierten Items
+        self.result = [
+            self.preview_items[i] 
+            for i, var in self.decisions.items() 
+            if var.get()
+        ]
+        self.destroy()
+
+    def _on_cancel(self):
+        self.result = None  # Signalisiert Abbruch des gesamten Prozesses
+        self.destroy()
