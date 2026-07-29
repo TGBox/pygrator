@@ -552,13 +552,6 @@ class CSVMappingApp(ctk.CTk):
         )
         self.chk_fill_null.pack(anchor="w", pady=3)
         self.chk_fill_null.select()
-
-        self.chk_export_unmapped = ctk.CTkCheckBox(
-            chk_frame, 
-            text="Rest-Datei für ungemappte Spalten erstellen"
-        )
-        self.chk_export_unmapped.pack(anchor="w", pady=3)
-        self.chk_export_unmapped.select()
         
         chk_clean_strings = ctk.CTkCheckBox(
             chk_frame, 
@@ -687,82 +680,68 @@ class CSVMappingApp(ctk.CTk):
             combo = ctk.CTkOptionMenu(self.scroll_frame, values=source_cols)
             combo.grid(row=idx, column=1, padx=10, pady=5, sticky="w")
             
-            # --- 1. Quellspalte automatisch matchen ---
+            target_lower = target_col.lower()
+            
             for src_col in self.source_df.columns:
-                # Matches on exact identity.
-                if src_col.lower() in target_col.lower() or target_col.lower() in src_col.lower():
+                src_lower = src_col.lower()
+
+                # A) EXAKTE ÜBEREINSTIMMUNG (Höchste Priorität)
+                if src_lower == target_lower:
                     combo.set(src_col)
                     break
-                # Matches name1/title field. schema: adressen.
-                if src_col.lower() == "titel" and "name1" in target_col.lower():
+
+                # B) EXPLIZITE SONDERREGELN
+                # Telefon & Mobilfunk (Spezifische Zuordnungen verhindern falsche Substring-Matches)
+                if target_lower in ["telefonmobil", "mobil", "p_handy"]:
+                    if src_lower in ["mobil", "handy", "mobile", "telefonmobil"]:
+                        combo.set(src_col)
+                        break
+                    continue  # Verhindert, dass "telefon" auf "telefonmobil" gematcht wird!
+
+                if target_lower in ["telefon", "p_tel", "tel"]:
+                    if src_lower in ["telefon", "p_tel", "tel", "telefon1"]:
+                        combo.set(src_col)
+                        break
+
+                # Schema "adressen": Namen
+                if src_lower == "titel" and "name1" in target_lower:
                     combo.set(src_col)
                     break
-                # Matches name2/first name field. schema: adressen.
-                if src_col.lower() == "vorname" and "name2" in target_col.lower():
+                if src_lower == "vorname" and ("name2" in target_lower or "p_vname" in target_lower):
                     combo.set(src_col)
                     break
-                # Matches name3/last name field. schema: adressen.
-                if src_col.lower() == "nachname" and "name3" in target_col.lower():
+                if src_lower == "nachname" and ("name3" in target_lower or "p_name" in target_lower):
                     combo.set(src_col)
                     break
-                # Matches first name field. schema: patienten.
-                if src_col.lower() == "vorname" and "p_vname" in target_col.lower():
+
+                # Weitere Feld-Typen
+                if src_lower == "wohnort" and "p_ort" in target_lower:
                     combo.set(src_col)
                     break
-                # Matches last name field. schema: patienten.
-                if src_col.lower() == "nachname" and "p_name" in target_col.lower():
+                if src_lower == "geburtsdatum" and "p_birth" in target_lower:
                     combo.set(src_col)
                     break
-                # Matches city field. schema: patienten.
-                if src_col.lower() == "wohnort" and "p_ort" in target_col.lower():
+                if src_lower == "geschlecht" and any(k in target_lower for k in ["anrede", "p_anrede"]):
                     combo.set(src_col)
                     break
-                # Matches birthday field. schema: patienten.
-                if src_col.lower() == "geburtsdatum" and "p_birth" in target_col.lower():
+                if src_lower == "telefon2" and "p_telge" in target_lower:
                     combo.set(src_col)
                     break
-                # Matches gender field. schema: adressen.
-                if src_col.lower() == "geschlecht" and "anrede" in target_col.lower():
+                if src_lower in ("strasse", "straße") and any(k in target_lower for k in ["p_street", "p_hausnummer", "strasse", "straße"]):
                     combo.set(src_col)
                     break
-                # Matches gender field. schema: patienten.
-                if src_col.lower() == "geschlecht" and "p_anrede" in target_col.lower():
+                if src_lower == "kas_ik" and "p_ik" in target_lower:
                     combo.set(src_col)
                     break
-                # Matches telephone field. schema: patienten.
-                if src_col.lower() == "telefon" and "p_tel" == target_col.lower():
+                if src_lower == "status" and "p_vs" in target_lower:
                     combo.set(src_col)
                     break
-                # Matches telephone2/telge field. schema: patienten.
-                if src_col.lower() == "telefon2" and "p_telge" == target_col.lower():
+                if src_lower == "versichertennummer" and "p_vnr" in target_lower:
                     combo.set(src_col)
                     break
-                # Matches mobile phone field. schema: patienten.
-                if src_col.lower() == "mobil" and "p_handy" in target_col.lower():
-                    combo.set(src_col)
-                    break
-                # Matches mobile phone field. schema: adressen.
-                if src_col.lower() == "telefonmobil" and "mobil" == target_col.lower():
-                    combo.set(src_col)
-                    break
-                # Matches street field. schema: patienten.
-                if src_col.lower() in ("strasse", "straße") and "p_street" in target_col.lower():
-                    combo.set(src_col)
-                    break
-                # Matches house number field. schema: patienten.
-                if src_col.lower() in ("strasse", "straße") and "p_hausnummer" in target_col.lower():
-                    combo.set(src_col)
-                    break
-                # Matches IK field. schema: patienten.
-                if src_col.lower() == "kas_ik" and "p_ik" in target_col.lower():
-                    combo.set(src_col)
-                    break
-                # Matches insurance status field. schema: patienten.
-                if src_col.lower() == "status" and "p_vs" in target_col.lower():
-                    combo.set(src_col)
-                    break
-                # Matches insurance number field. schema: patienten.
-                if src_col.lower() == "versichertennummer" and "p_vnr" in target_col.lower():
+
+                # C) ALLGEMEINES SUBSTRING-MATCHING (Fallback, nur wenn kein expliziter Ausschluss vorliegt)
+                if (src_lower in target_lower or target_lower in src_lower) and len(src_lower) > 3:
                     combo.set(src_col)
                     break
 
@@ -772,12 +751,24 @@ class CSVMappingApp(ctk.CTk):
             if target_col not in self.transformations:
                 if target_col == "id":
                     self.transformations[target_col] = {'type': 'generate_uid'}
+                elif target_col in ("ext_id", "p_nr"):
+                    self.transformations[target_col] = {'type': 'copy_target', 'param': "id"}
                 elif "birth" in target_col:
                     self.transformations[target_col] = {'type': 'format_date'}
                 elif "anrede" in target_col:
                     self.transformations[target_col] = {'type': 'gender'}
                 elif "plz" in target_col:
-                    self.transformations[target_col] = {'type': 'clean_plz'}
+                    # Case-insensitive Suche nach der Ortsspalte
+                    city_col = next((c for c in self.source_df.columns if c.lower() in ["ort", "wohnort", "stadt"]), None)
+                    if city_col:
+                        self.transformations[target_col] = {'type': 'lookup_plz_by_city', 'param': city_col}
+                    else:
+                        self.transformations[target_col] = {'type': 'clean_plz'}
+                elif target_col in ("p_ort", "ort"):
+                    # Case-insensitive Suche nach der PLZ-Spalte
+                    plz_col = next((c for c in self.source_df.columns if "plz" in c.lower()), None)
+                    if plz_col:
+                        self.transformations[target_col] = {'type': 'lookup_city_by_plz', 'param': plz_col}
                 elif "street" in target_col:
                     self.transformations[target_col] = {'type': 'split_street'}
                 elif "hausnummer" in target_col:
@@ -787,24 +778,6 @@ class CSVMappingApp(ctk.CTk):
                         if "ik" in src_col.lower():
                             self.transformations[target_col] = {
                                 'type': 'lookup_ik_provider',
-                                'param': src_col
-                            }
-                            break
-                elif target_col == "p_plz" or target_col == "plz":
-                    # Falls Orts-Spalte in CSV vorhanden ist:
-                    for src_col in self.source_df.columns:
-                        if "ort" in src_col.lower() or "stadt" in src_col.lower():
-                            self.transformations[target_col] = {
-                                'type': 'lookup_plz_by_city',
-                                'param': src_col
-                            }
-                            break
-                elif target_col == "p_ort" or target_col == "ort":
-                    # Falls PLZ-Spalte in CSV vorhanden ist:
-                    for src_col in self.source_df.columns:
-                        if "plz" in src_col.lower():
-                            self.transformations[target_col] = {
-                                'type': 'lookup_city_by_plz',
                                 'param': src_col
                             }
                             break
@@ -859,7 +832,7 @@ class CSVMappingApp(ctk.CTk):
             
             # Text für Button zusammenbauen
             if param:
-                button_text = f"✓ {rule_title} ({param})"
+                button_text = f"✓ {rule_title} (\"{param}\")"
             else:
                 button_text = f"✓ {rule_title}"
 
@@ -1023,6 +996,16 @@ class CSVMappingApp(ctk.CTk):
         combo_city_source = ctk.CTkOptionMenu(plz_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_city_source.pack(side="left")
 
+        # AUTO-MATCH für Orts-Spalte im Dialog:
+        if existing_rule.get('type') == 'lookup_plz_by_city' and existing_rule.get('param') in source_cols_list:
+            combo_city_source.set(existing_rule.get('param'))
+        elif self.source_df is not None:
+            for c in source_cols_list:
+                if c.lower() in ["ort", "wohnort", "stadt"]:
+                    combo_city_source.set(c)
+                    break
+
+        # --- Ort aus PLZ Lookup UI ---
         r_city_lookup = ctk.CTkRadioButton(
             dialog, 
             text="🏙️ Ort basierend auf PLZ-Quellspalte ergänzen", 
@@ -1036,6 +1019,15 @@ class CSVMappingApp(ctk.CTk):
         ctk.CTkLabel(city_frame, text="PLZ-Quellspalte:").pack(side="left", padx=5)
         combo_plz_source = ctk.CTkOptionMenu(city_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_plz_source.pack(side="left")
+
+        # AUTO-MATCH für PLZ-Spalte im Dialog:
+        if existing_rule.get('type') == 'lookup_city_by_plz' and existing_rule.get('param') in source_cols_list:
+            combo_plz_source.set(existing_rule.get('param'))
+        elif self.source_df is not None:
+            for c in source_cols_list:
+                if "plz" in c.lower():
+                    combo_plz_source.set(c)
+                    break
 
         r1 = ctk.CTkRadioButton(dialog, text="👫 Geschlecht mappen (M->Herr, W->Frau)", variable=rule_type, value="gender")
         r1.pack(anchor="w", padx=20, pady=5)
@@ -1468,19 +1460,14 @@ class CSVMappingApp(ctk.CTk):
         unmapped_source_cols = [c for c in self.source_df.columns if c not in used_source_cols]
 
         extra_fields_mappings = []
-        if unmapped_source_cols:
+        if unmapped_source_cols and self.combo_schema.get() == "patienten":
             extra_dialog = ExtraFieldsDialog(self, unmapped_source_cols)
             self.wait_window(extra_dialog)
 
             if extra_dialog.is_accepted:
                 extra_fields_mappings = extra_dialog.result_mappings
 
-
-        # --- 4. ZUSATZFELDER-TABELLEN ERZEUGEN (Falls ausgewählt) ---
-        extra_data_df = None
-        extra_mapping_df = None
-
-        # --- 5. EXPORT DER HAUPT- UND ZUSATZDATEIEN ---
+        # --- 4. EXPORT DER HAUPT- UND ZUSATZDATEIEN ---
         # Basis-Dateipfad vom Nutzer abfragen oder automatisch generieren
         export_path = filedialog.asksaveasfilename(
             defaultextension=".csv",
@@ -1551,23 +1538,14 @@ class CSVMappingApp(ctk.CTk):
         if ext.lower() == ".xlsx":
             with pd.ExcelWriter(export_path) as writer:
                 out_df.to_excel(writer, sheet_name="Patienten", index=False)
-                if extra_data_df is not None:
-                    extra_data_df.to_excel(writer, sheet_name="Zusatzfelder", index=False)
-                if extra_mapping_df is not None:
-                    extra_mapping_df.to_excel(writer, sheet_name="Zusatzfelder_Mapping", index=False)
         else:
             # CSV-Export (Separat mit Präfixen für die Zusatztabellen)
             out_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
             
-            if extra_data_df is not None:
-                extra_data_path = f"{base_path}_zusatzfelder.csv"
-                extra_data_df.to_csv(extra_data_path, index=False, sep=";", encoding="utf-8-sig")
-            
-            if extra_mapping_df is not None:
-                extra_mapping_path = f"{base_path}_zusatzfelder_mapping.csv"
-                extra_mapping_df.to_csv(extra_mapping_path, index=False, sep=";", encoding="utf-8-sig")
-
-        messagebox.showinfo("Export erfolgreich", "Die Daten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.")
+        if self.combo_schema.get() == "patienten":
+            messagebox.showinfo("Export erfolgreich", "Die Patientendaten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.")
+        elif self.combo_schema.get() == "adressen":
+                    messagebox.showinfo("Export erfolgreich", "Die Adressen wurden erfolgreich exportiert.")
         
 if __name__ == "__main__":
     app = CSVMappingApp()
