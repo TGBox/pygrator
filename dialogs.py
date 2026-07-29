@@ -3,7 +3,7 @@ import customtkinter as ctk
 from typing import List, Dict, Any
 from constants import *
 
-def center_window(window, width: int, height: int):
+def center_window(window: ctk.CTkToplevel, width: int, height: int):
     # Aktualisiert die Geometrie-Informationen des Fensters
     window.update_idletasks()
     

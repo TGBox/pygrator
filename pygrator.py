@@ -28,6 +28,7 @@ ctk.set_default_color_theme("blue")
 # DONE TODO: Add another dialog window, where a list with all elements gets shown, where the sanitize method will process the value. Then user selection single/batch for the operations that will get executed.
 # DONE TODO: Add email structure validation.
 # DONE TODO: Split this file into multiple parts.
+# DONE TODO: Move all magic numbers, color values and other hard coded values to a dedicated file to have a single source of truth where changes can be applied more easily.
 # TODO: Add validation for the values of the fields.
 # TODO: Add more comments to this file.
 # TODO: Add corrects type annotations to all files.
