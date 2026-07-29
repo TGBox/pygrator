@@ -34,16 +34,17 @@ ctk.set_default_color_theme("blue")
 
 # DONE: TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
 # DONE TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
-# TODO: Add validation for the values of the fields.
 # DONE TODO: Add a way to add the name of a city from its post code and vice versa. There might be a method like this already in the py-handelsregister repositry! CHECK THAT OUT!
+# DONE TODO: Add a verification for the IK number. (Only format [explicitly only numerical with length 9] or maybe with proper check of the IK?) => Last part maybe not feasible because these IKs are always private therapists and not commonly known institutions!
+# DONE TODO: Add a verification for the insurance number. (one letter followed by 9 digits)
+# DONE TODO: Add a way to map the left over fields to the additional fields, if the target is a patients table.
+# DONE TODO: Add a method that can get turned on optionally in the gui. The method should list all field values that have been altered or that would be altered. Also with batch select and single select options on how to handle these entries.
+# TODO: Add validation for the values of the fields.
 # TODO: Add more comments to this file.
 # TODO: Split this file into multiple parts.
 # TODO: Add corrects type annotations to all files.
 # TODO: Add rule for always copying the contents of "id" to "p_nr" or "ext_id" if these fields exist.
-# TODO: Add a verification for the IK number. (Only format [explicitly only numerical with length 9] or maybe with proper check of the IK?) => Last part maybe not feasible because these IKs are always private therapists and not commonly known institutions!
-# TODO: Add a verification for the insurance number. (one letter followed by 9 digits)
-# TODO: Add a way to map the left over fields to the additional fields, if the target is a patients table.
-# TODO: Add a method that can get turned on optionally in the gui. The method should list all field values that have been altered or that would be altered. Also with batch select and single select options on how to handle these entries.
+# TODO: BUG: The completion rules for finding the city via the post code and for finding the post code via the city name are not selecting the correct reference column by default.
 
 def center_window(window, width: int, height: int):
     # Aktualisiert die Geometrie-Informationen des Fensters
