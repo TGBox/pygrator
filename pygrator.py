@@ -20,7 +20,9 @@ RULE_NAMES = {
     "split_street": "Nur Straße",
     "split_number": "Nur Hausnummer",
     "merge_columns": "Spalten zusammenführen",
-    "lookup_ik_provider": "Krankenkasse aus IK"
+    "lookup_ik_provider": "Krankenkasse aus IK",
+    "lookup_plz_by_city": "PLZ aus Ort ergänzen",
+    "lookup_city_by_plz": "Ort aus PLZ ergänzen",
 }
 
 # Farbschema & Theme für modernere Optik
@@ -232,6 +234,14 @@ class CSVMappingApp(ctk.CTk):
         self.source_file_path = ""
         self.transformations = {}  
         self.mapping_dropdowns = {}
+        
+        self.var_clean_strings = ctk.BooleanVar(value=True)
+        
+        from ik_lookup import IKLookupService
+        from plz_lookup import PLZLookupService
+        
+        self.ik_service = IKLookupService()
+        self.plz_service = PLZLookupService()
 
         self._build_ui()
 
@@ -271,6 +281,13 @@ class CSVMappingApp(ctk.CTk):
         )
         self.chk_export_unmapped.pack(anchor="w", pady=3)
         self.chk_export_unmapped.select()
+        
+        chk_clean_strings = ctk.CTkCheckBox(
+            chk_frame, 
+            text="String-Werte bereinigen (Trim & Steuerzeichen entfernen)",
+            variable=self.var_clean_strings
+        )
+        chk_clean_strings.pack(side="left", pady=5)
 
         # Mittlerer Bereich: Format & Encoding Auswahlen
         export_opts_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
@@ -495,6 +512,24 @@ class CSVMappingApp(ctk.CTk):
                                 'param': src_col
                             }
                             break
+                elif target_col == "p_plz" or target_col == "plz":
+                    # Falls Orts-Spalte in CSV vorhanden ist:
+                    for src_col in self.source_df.columns:
+                        if "ort" in src_col.lower() or "stadt" in src_col.lower():
+                            self.transformations[target_col] = {
+                                'type': 'lookup_plz_by_city',
+                                'param': src_col
+                            }
+                            break
+                elif target_col == "p_ort" or target_col == "ort":
+                    # Falls PLZ-Spalte in CSV vorhanden ist:
+                    for src_col in self.source_df.columns:
+                        if "plz" in src_col.lower():
+                            self.transformations[target_col] = {
+                                'type': 'lookup_city_by_plz',
+                                'param': src_col
+                            }
+                            break
 
             # --- 3. Button erstellen & speichern ---
             btn_trans = ctk.CTkButton(
@@ -565,7 +600,7 @@ class CSVMappingApp(ctk.CTk):
 
         dialog = ctk.CTkToplevel(self)
         dialog.title(f"Transformation für '{target_col}'")
-        center_window(dialog, 540, 750)
+        center_window(dialog, 540, 850)
         dialog.grab_set()
 
         ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=("Arial", 12, "bold")).pack(pady=10)
@@ -674,6 +709,34 @@ class CSVMappingApp(ctk.CTk):
 
         r_plz = ctk.CTkRadioButton(dialog, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
         r_plz.pack(anchor="w", padx=20, pady=5)
+        
+        r_plz_lookup = ctk.CTkRadioButton(
+            dialog, 
+            text="📮 PLZ basierend auf Ortsname-Quellspalte ergänzen", 
+            variable=rule_type, 
+            value="lookup_plz_by_city"
+        )
+        r_plz_lookup.pack(anchor="w", padx=20, pady=5)
+
+        plz_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        plz_frame.pack(anchor="w", padx=45, pady=2)
+        ctk.CTkLabel(plz_frame, text="Ortsname-Quellspalte:").pack(side="left", padx=5)
+        combo_city_source = ctk.CTkOptionMenu(plz_frame, values=source_cols_list if source_cols_list else ["Keine"])
+        combo_city_source.pack(side="left")
+
+        r_city_lookup = ctk.CTkRadioButton(
+            dialog, 
+            text="🏙️ Ort basierend auf PLZ-Quellspalte ergänzen", 
+            variable=rule_type, 
+            value="lookup_city_by_plz"
+        )
+        r_city_lookup.pack(anchor="w", padx=20, pady=5)
+
+        city_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        city_frame.pack(anchor="w", padx=45, pady=2)
+        ctk.CTkLabel(city_frame, text="PLZ-Quellspalte:").pack(side="left", padx=5)
+        combo_plz_source = ctk.CTkOptionMenu(city_frame, values=source_cols_list if source_cols_list else ["Keine"])
+        combo_plz_source.pack(side="left")
 
         r1 = ctk.CTkRadioButton(dialog, text="👫 Geschlecht mappen (M->Herr, W->Frau)", variable=rule_type, value="gender")
         r1.pack(anchor="w", padx=20, pady=5)
@@ -707,6 +770,10 @@ class CSVMappingApp(ctk.CTk):
 
             if t_type == "copy_target":
                 param = combo_copy_target.get()
+            elif t_type == "lookup_plz_by_city":
+                param = combo_city_source.get()
+            elif t_type == "lookup_city_by_plz":
+                param = combo_plz_source.get()
             elif t_type == "lookup_ik_provider":
                 param = combo_ik_source.get()
             elif t_type == "static_value":
@@ -749,6 +816,10 @@ class CSVMappingApp(ctk.CTk):
         default_empty_value = "NULL" if self.chk_fill_null.get() else ""
 
         copy_rules = {}
+        
+        if not hasattr(self, 'plz_service'):
+            from plz_lookup import PLZLookupService
+            self.plz_service = PLZLookupService()
 
         # PASS 1: Transformationen
         for target_col, dtype_str in target_schema.items():
@@ -773,34 +844,90 @@ class CSVMappingApp(ctk.CTk):
                 copy_rules[target_col] = rule.get('param')
                 continue
             
-            elif rule_type == "lookup_ik_provider":
-                ik_source_col = rule.get('param')
-                
-                # Falls keine explizite IK-Spalte im Dialog gewählt wurde, 
-                # schauen wir, ob die Zielspalte im Dropdown gemappt war.
-                if (not ik_source_col or ik_source_col == "-- Nicht zuordnen / Spezielle Regel --") and source_col != "-- Nicht zuordnen / Spezielle Regel --":
-                    ik_source_col = source_col
+            # PASS 1: Transformationen pro Zielspalte durchführen
+        for target_col, dtype in target_schema.items():
+            rule = self.transformations.get(target_col, {})
+            
+            # --- NEU: rule_type UND param HIER VORAB DEFINIEREN ---
+            if isinstance(rule, dict):
+                rule_type = rule.get('type')
+                param = rule.get('param')
+            elif isinstance(rule, str):
+                rule_type = rule
+                param = None
+            else:
+                rule_type = None
+                param = None
 
+            # Quellspalte aus dem Dropdown holen
+            source_col = self.mapping_dropdowns[target_col].get() if target_col in self.mapping_dropdowns else None
+
+            # --- 1. PLZ aus Ortsnamen ermitteln ---
+            if rule_type == "lookup_plz_by_city":
+                city_source_col = param if (param and param in self.source_df.columns) else source_col
+                
+                def fill_plz(row):
+                    # 1. Bestehende PLZ aus Quellspalte holen (falls zugeordnet)
+                    val = row[source_col] if (source_col and source_col in self.source_df.columns) else None
+                    if pd.notna(val) and str(val).strip():
+                        return str(val).strip().zfill(5)
+                    
+                    # 2. Falls leer: Versuchen PLZ aus Ort zu ermitteln
+                    if city_source_col and city_source_col in self.source_df.columns:
+                        city_val = row[city_source_col]
+                        if pd.notna(city_val) and str(city_val).strip():
+                            found_plz = self.plz_service.get_plz_by_city(str(city_val))
+                            if found_plz:
+                                return found_plz
+                    return default_empty_value
+
+                out_df[target_col] = self.source_df.apply(fill_plz, axis=1)
+
+            # --- 2. Ort aus PLZ ermitteln ---
+            elif rule_type == "lookup_city_by_plz":
+                plz_source_col = param if (param and param in self.source_df.columns) else source_col
+
+                def fill_city(row):
+                    # 1. Bestehenden Ort aus Quellspalte holen (falls zugeordnet)
+                    val = row[source_col] if (source_col and source_col in self.source_df.columns) else None
+                    if pd.notna(val) and str(val).strip():
+                        return str(val).strip()
+
+                    # 2. Falls leer: Versuchen Ort aus PLZ zu ermitteln
+                    if plz_source_col and plz_source_col in self.source_df.columns:
+                        plz_val = row[plz_source_col]
+                        if pd.notna(plz_val) and str(plz_val).strip():
+                            found_city = self.plz_service.get_city_by_plz(str(plz_val))
+                            if found_city:
+                                return found_city
+                    return default_empty_value
+
+                out_df[target_col] = self.source_df.apply(fill_city, axis=1)
+
+            # --- 3. Krankenkasse aus IK ermitteln ---
+            elif rule_type == "lookup_ik_provider":
+                ik_source_col = param if (param and param in self.source_df.columns) else source_col
+                
                 if ik_source_col and ik_source_col in self.source_df.columns:
-                    mapped_source_cols.add(ik_source_col)
-                    
-                    # Einmalige Instanziierung des IK Services (z.B. aus ik_lookup.py)
-                    if not hasattr(self, 'ik_service'):
-                        from ik_lookup import IKLookupService
-                        self.ik_service = IKLookupService()
-                    
+                    # Fallback auf Haupt-App-Instanz sicherstellen
+                    ik_service = getattr(self, 'ik_service', None)
+
                     def resolve_ik(val):
                         if pd.isna(val) or not str(val).strip():
                             return default_empty_value
-                        cleaned_ik = str(val).strip().split('.')[0] # .0 bei Fließkommazahlen entfernen
-                        provider_name = self.ik_service.get_provider_by_ik(cleaned_ik)
-                        return provider_name if provider_name else default_empty_value
+                        
+                        cleaned_ik = str(val).strip().split('.')[0] # z. B. 109777509.0 -> 109777509
+                        
+                        if ik_service:
+                            provider_name = ik_service.get_provider_by_ik(cleaned_ik)
+                            return provider_name if provider_name else default_empty_value
+                        return default_empty_value
 
                     out_df[target_col] = self.source_df[ik_source_col].apply(resolve_ik)
                 else:
                     out_df[target_col] = default_empty_value
 
-            if rule_type == "static_value":
+            elif rule_type == "static_value":
                 static_val = str(rule.get('param', ''))
                 out_df[target_col] = static_val
                 if source_col != "-- Nicht zuordnen / Spezielle Regel --":
@@ -888,6 +1015,20 @@ class CSVMappingApp(ctk.CTk):
                     out_df[target_col] = default_empty_value
 
         # PASS 2: Copy Rules
+        if self.var_clean_strings.get():
+            def clean_string_val(val):
+                if pd.isna(val) or val is None:
+                    return val
+                val_str = str(val)
+                # Entfernt führende/nachfolgende Whitespaces sowie unsichtbare Steuerzeichen (\r, \n, \t)
+                val_str = re.sub(r'[\r\n\t]+', ' ', val_str).strip()
+                # Mehrfache Leerzeichen im Text zu einem einzelnen Leerzeichen reduzieren
+                return re.sub(r'\s+', ' ', val_str)
+
+            # Auf alle Spalten anwenden, die Objekt-/Text-Typen sind
+            for col in out_df.columns:
+                out_df[col] = out_df[col].apply(clean_string_val)
+        
         for target_col, source_target_col in copy_rules.items():
             if source_target_col in out_df.columns:
                 out_df[target_col] = out_df[source_target_col].copy()
