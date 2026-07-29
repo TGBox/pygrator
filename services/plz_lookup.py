@@ -3,7 +3,7 @@ import re
 from typing import Optional, List, Dict
 
 class PLZLookupService:
-    def __init__(self, filepath: str = "./plz/D.txt") -> None:
+    def __init__(self, filepath: str = "./services/plz/D.txt") -> None:
         """
         Lädt die PLZ-Datei und baut zwei Indizes für schnellen Zugriff auf:
         - self.plz_to_city: Map von PLZ -> Liste von Ortsnamen (da eine PLZ mehreren Orten gehören kann)

@@ -6,7 +6,7 @@ from rapidfuzz import process, fuzz
 
 
 class IKLookupService:
-    def __init__(self, filepath: str = "./gkv/gkvliste.txt") -> None:
+    def __init__(self, filepath: str = "./services/gkv/gkvliste.txt") -> None:
         """
         Lädt die IK-Datei und baut Indizes auf:
         - self.ik_to_provider: Map von IK -> Krankenkassen-Name
