@@ -472,7 +472,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         """
         super().__init__(parent)
         self.title("🔍 Vorschau: String-Bereinigung")
-        self.geometry("750x550")
+        center_window(self, 1000, 700)
         
         # Modal machen (blockiert Hauptfenster)
         self.grab_set()

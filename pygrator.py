@@ -6,7 +6,7 @@ import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number
+from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number, validate_email
 from schemas import SCHEMAS
 from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
 
@@ -26,6 +26,7 @@ RULE_NAMES = {
     "lookup_city_by_plz": "Ort aus PLZ ergänzen",
     "validate_ik": "IK-Nummer prüfen",
     "validate_kvnr": "Versichertennr. prüfen",
+    "validate_email": "E-Mail prüfen"
 }
 
 # Farbschema & Theme für modernere Optik
@@ -41,8 +42,8 @@ ctk.set_default_color_theme("blue")
 # DONE TODO: Add a method that can get turned on optionally in the gui. The method should list all field values that have been altered or that would be altered. Also with batch select and single select options on how to handle these entries.
 # DONE TODO: Add rule for always copying the contents of "id" to "p_nr" or "ext_id" if these fields exist.
 # DONE TODO: BUG: The completion rules for finding the city via the post code and for finding the post code via the city name are not selecting the correct reference column by default.
+# DONE TODO: Add another dialog window, where a list with all elements gets shown, where the sanitize method will process the value. Then user selection single/batch for the operations that will get executed.
 # TODO: Add email structure validation.
-# TODO: Add another dialog window, where a list with all elements gets shown, where the sanitize method will process the value. Then user selection single/batch for the operations that will get executed.
 # TODO: Add validation for the values of the fields.
 # TODO: Add more comments to this file.
 # TODO: Split this file into multiple parts.
@@ -333,6 +334,8 @@ class CSVMappingApp(ctk.CTk):
 
                 elif target_col in ("p_vnr", "vnr", "kvnr") or "versichertennummer" in target_col:
                     self.transformations[target_col] = {'type': 'validate_kvnr'}
+                elif target_col in ("p_email", "email", "mail", "Email", "E-Mail"):
+                    self.transformations[target_col] = {'type': 'validate_email'}
 
             # --- 3. Button erstellen & speichern ---
             btn_trans = ctk.CTkButton(
@@ -425,6 +428,8 @@ class CSVMappingApp(ctk.CTk):
             default_rule = 'split_street'
         elif 'p_nr' in target_col.lower():
             default_rule = 'split_number'
+        elif 'mail' in target_col.lower():
+            default_rule = 'validate_email'
 
         current_type = existing_rule.get('type', default_rule)
         rule_type = ctk.StringVar(value=current_type)
@@ -525,6 +530,14 @@ class CSVMappingApp(ctk.CTk):
             value="validate_kvnr"
         )
         r_val_kvnr.pack(anchor="w", padx=20, pady=5)
+        
+        r_val_mail = ctk.CTkRadioButton(
+            dialog, 
+            text="✔️ E-Mailadresse auf Gültigkeit prüfen", 
+            variable=rule_type, 
+            value="validate_email"
+        )
+        r_val_mail.pack(anchor="w", padx=20, pady=5)
 
         r_plz = ctk.CTkRadioButton(dialog, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
         r_plz.pack(anchor="w", padx=20, pady=5)
@@ -653,16 +666,25 @@ class CSVMappingApp(ctk.CTk):
         # ---------------------------------------------------------------------
         # Wir sammeln alle Quellspalten, die in der Mapping-Tabelle zugewiesen sind
         active_source_cols = set()
-        if hasattr(self, 'mapping_rows'):
-            for row in self.mapping_rows:
-                # 'src_combo' enthält das Dropdown der Quellspalte
-                src_col = row['src_combo'].get()
-                if src_col and src_col != "-- Nicht zugeordnet --" and src_col in self.source_df.columns:
+        
+        # 1. Aus den aktiven Dropdowns im Schema abfragen
+        if hasattr(self, 'mapping_dropdowns'):
+            for combo in self.mapping_dropdowns.values():
+                src_col = combo.get()
+                if src_col and src_col != "-- Nicht zuordnen / Spezielle Regel --" and src_col in self.source_df.columns:
                     active_source_cols.add(src_col)
 
-        # Fallback: Falls keine Mappings da sind, nehmen wir alle Spalten
+        # 2. Zusätzlich Spalten berücksichtigen, die in Transformations-Parametern gewählt wurden (z.B. bei PLZ-, IK- oder Ort-Lookups)
+        for rule in self.transformations.values():
+            if isinstance(rule, dict) and rule.get('param'):
+                p_col = rule['param']
+                if p_col in self.source_df.columns:
+                    active_source_cols.add(p_col)
+
+        # Falls gar keine Zuordnungen getroffen wurden, Abbruch/keine Bereinigung nötig
         if not active_source_cols:
-            active_source_cols = set(self.source_df.columns)
+            self.process_and_export()
+            return
 
         # ---------------------------------------------------------------------
         # SCHRITT 2: String-Bereinigung NUR für relevante Spalten prüfen
@@ -765,6 +787,24 @@ class CSVMappingApp(ctk.CTk):
                         if pd.notna(val) and str(val).strip():
                             cleaned_kvnr = str(val).strip().upper()
                             if not validate_insurance_number(cleaned_kvnr):
+                                invalid_records.append({
+                                    'row_idx': row_idx,
+                                    'target_col': target_col,
+                                    'rule_type': rule_type,
+                                    'original_val': str(val),
+                                    'action': 'keep',
+                                    'custom_val': ''
+                                })
+                    out_df[target_col] = self.source_df[source_col]
+                else:
+                    out_df[target_col] = default_empty_value
+                    
+            elif rule_type == "validate_email":
+                if source_col and source_col in self.source_df.columns:
+                    for row_idx, val in self.source_df[source_col].items():
+                        if pd.notna(val) and str(val).strip():
+                            cleaned_email = str(val).strip()
+                            if not validate_email(cleaned_email):
                                 invalid_records.append({
                                     'row_idx': row_idx,
                                     'target_col': target_col,
@@ -903,7 +943,19 @@ class CSVMappingApp(ctk.CTk):
                     out_df[target_col] = self.source_df[source_col].apply(check_kvnr_val)
                 else:
                     out_df[target_col] = default_empty_value
+                    
+            elif rule_type == "validate_email":
+                if source_col and source_col in self.source_df.columns:
+                    def check_email_val(val):
+                        if pd.isna(val) or not str(val).strip():
+                            return default_empty_value
+                        cleaned_email = str(val).strip()
+                        return cleaned_email if validate_email(cleaned_email) else default_empty_value
 
+                    out_df[target_col] = self.source_df[source_col].apply(check_email_val)
+                else:
+                    out_df[target_col] = default_empty_value
+            
             elif rule_type == "static_value":
                 static_val = str(rule.get('param', ''))
                 out_df[target_col] = static_val
@@ -919,11 +971,20 @@ class CSVMappingApp(ctk.CTk):
                 mapped_source_cols.add(source_col)
                 series = self.source_df[source_col].copy()
 
-                # 1. Grundlegende String-Bereinigung auf ALLE Textspalten anwenden
-                is_name_or_city = any(k in target_col.lower() for k in ['name', 'vname', 'ort', 'city', 'stadt'])
+                # 1. Grundlegende String-Bereinigung auf Textspalten anwenden
+                is_email = rule_type == "validate_email" or any(k in target_col.lower() for k in ['email', 'mail'])
+                is_city = any(k in target_col.lower() for k in ['ort', 'city', 'stadt'])
+                is_name = any(k in target_col.lower() for k in ['name', 'vname'])
                 
-                # astype(str) garantiert saubere Strings für die Bereinigungsfunktion
-                series = series.astype(str).apply(lambda x: sanitize_data_string(x, remove_special_chars=is_name_or_city))
+                if is_email:
+                    # E-Mails: Nur trimmen
+                    series = series.astype(str).apply(lambda x: x.strip() if pd.notna(x) else "")
+                elif is_city:
+                    # Ortsnamen: Normalisieren, aber Sonderzeichen-Filter deaktivieren (Klammern/Slashes behalten)
+                    series = series.astype(str).apply(lambda x: sanitize_data_string(x, remove_special_chars=False))
+                else:
+                    # Restliche Namensfelder
+                    series = series.astype(str).apply(lambda x: sanitize_data_string(x, remove_special_chars=is_name))
 
                 # 2. Transformationsregeln anwenden
                 if rule_type == "format_date" or 'birth' in target_col.lower() or 'datum' in target_col.lower():

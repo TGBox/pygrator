@@ -5,6 +5,8 @@ import random
 import string
 import pandas as pd
 
+import email_validator as eval
+
 def encode_base36(num: int) -> str:
     """Function to generate a base 36 string from an int."""
     alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
@@ -56,28 +58,22 @@ def format_date_iso(val) -> str:
 
     return val_str
 
-def sanitize_data_string(text, remove_special_chars: bool = True) -> str:
-    """
-    Bereinigt Strings von Steuerzeichen und unerwünschten Sonderzeichen.
-    Behält Leerzeichen zwischen Wörtern garantiert bei!
-    """
-    if pd.isna(text) or text is None:
+def sanitize_data_string(val: str, remove_special_chars: bool = False) -> str:
+    if not val or pd.isna(val):
         return ""
-
-    text_str = str(text)
-
-    # 1. Steuerzeichen (\r, \n, \t) & geschützte Leerzeichen (\xa0) durch normale Leerzeichen ersetzen
-    text_str = text_str.replace('\xa0', ' ').replace('\x00', '')
-    text_str = re.sub(r'[\r\n\t]+', ' ', text_str)
-
-    # 2. Sonderzeichen entfernen – \s (alle Leerzeichen) IST EXPLIZIT ERLAUBT
+    
+    val = str(val).strip()
+    
+    # 1. Steuerzeichen entfernen (Null-Bytes, Linefeeds etc.)
+    val = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', val)
+    
+    # 2. Nur wirklich störende Zeichen entfernen
     if remove_special_chars:
-        # Erlaubt: A-Z, a-z, 0-9, Umlaute, ß, Leerzeichen (\s), Bindestrich, Apostroph, Punkt, Komma
-        pattern = r'[^a-zA-Z0-9äöüÄÖÜß\s\-\'.,()/]'
-        text_str = re.sub(pattern, '', text_str)
-
-    # 3. Mehrfache Leerzeichen ("  ") auf genau EIN Leerzeichen (" ") reduzieren & Ränder trimmen
-    return re.sub(r'\s+', ' ', text_str).strip()
+        # Erlaubt: \w (Buchstaben/Zahlen/Akzente), Leerzeichen, '&', Apostrophe, 
+        # Klammern, Slashes, Bindestriche, Plus, Punkte, @
+        val = re.sub(r'[^\w\s&\'`’\(\)/@\._\+-]', '', val, flags=re.UNICODE)
+        
+    return val
 
 def validate_ik_number(ik: str) -> bool:
     """Prüft, ob die IK-Nummer genau aus 9 Ziffern besteht."""
@@ -90,3 +86,13 @@ def validate_insurance_number(vnr: str) -> bool:
     if not vnr:
         return True
     return bool(re.match(r'^[A-Z-a-z]\d{9}$', vnr.strip()))
+
+def validate_email(email: str) -> bool:
+    try:
+        # Normalisiert die E-Mail (z.B. Kleinbuchstaben für Domains) und prüft Syntax
+        valid = eval.validate_email(email, check_deliverability=False)
+        
+        # Returns True if condition is True: normalized_email = valid.normalized
+        return True
+    except eval.EmailNotValidError:
+        return False
