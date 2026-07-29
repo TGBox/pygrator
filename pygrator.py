@@ -5,6 +5,7 @@ import pandas as pd
 import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, ttk
+from typing import List, Dict, Any, Set
 
 from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number
 from schemas import SCHEMAS
@@ -225,8 +226,138 @@ class RowValidationDialog(ctk.CTkToplevel):
     def get_resolved_values(self):
         return self.resolved_results
 
-import customtkinter as ctk
-from typing import List, Dict, Any
+class ExtraFieldsDialog(ctk.CTkToplevel):
+    def __init__(self, parent, unmapped_columns: List[str]):
+        """
+        unmapped_columns: Liste aller CSV-Quellspalten, die bisher keinem Zielschema-Feld zugeordnet wurden.
+        """
+        super().__init__(parent)
+        self.parent = parent
+        self.unmapped_columns = unmapped_columns
+        self.result_mappings: List[Dict[str, str]] = []  # Liste der ausgewählten Zusatzfelder
+        self.is_accepted = False
+
+        self.title("⚙️ Zusatzfelder für ungemappte Spalten definieren")
+        center_window(self, 800, 600)
+        self.attributes("-topmost", True)
+        self.grab_set()
+
+        self._build_ui()
+
+    def _build_ui(self):
+        # Header
+        header_lbl = ctk.CTkLabel(
+            self, 
+            text="Unbenutzte Quellspalten als Zusatzfelder registrieren", 
+            font=("Arial", 14, "bold")
+        )
+        header_lbl.pack(padx=15, pady=(15, 5), anchor="w")
+
+        sub_lbl = ctk.CTkLabel(
+            self, 
+            text="Wähle Spalten aus, die in die Zusatzdaten-Tabellen übernommen werden sollen:", 
+            font=("Arial", 11)
+        )
+        sub_lbl.pack(padx=15, pady=(0, 10), anchor="w")
+
+        # Scrollbare Liste für alle ungemappten Spalten
+        self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Nicht zugeordnete Quellspalten")
+        self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        # Spaltenköpfe in der Liste
+        headers_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
+        headers_frame.pack(fill="x", padx=5, pady=2)
+        ctk.CTkLabel(headers_frame, text="Übernehmen?", font=("Arial", 10, "bold"), width=90).pack(side="left", padx=5)
+        ctk.CTkLabel(headers_frame, text="Quellspalte (CSV)", font=("Arial", 10, "bold"), width=180, anchor="w").pack(side="left", padx=5)
+        ctk.CTkLabel(headers_frame, text="Zusatzfeld-Name (DB)", font=("Arial", 10, "bold"), width=200, anchor="w").pack(side="left", padx=5)
+        ctk.CTkLabel(headers_frame, text="Datentyp", font=("Arial", 10, "bold"), width=120, anchor="w").pack(side="left", padx=5)
+
+        self.row_widgets = []
+        for idx, col_name in enumerate(self.unmapped_columns):
+            self._render_column_row(col_name)
+
+        # Footer
+        footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        footer_frame.pack(fill="x", padx=15, pady=15)
+
+        btn_cancel = ctk.CTkButton(
+            footer_frame, text="Überspringen", fg_color="gray40", 
+            command=self.destroy
+        )
+        btn_cancel.pack(side="left")
+
+        btn_apply = ctk.CTkButton(
+            footer_frame, text="Zusatzfelder übernehmen & Exportieren", 
+            fg_color="#1E7E34", hover_color="#145A24", font=("Arial", 12, "bold"),
+            height=35, command=self._on_apply
+        )
+        btn_apply.pack(side="right")
+
+    def _render_column_row(self, col_name: str):
+        row_frame = ctk.CTkFrame(self.scroll_frame)
+        row_frame.pack(fill="x", padx=5, pady=3)
+
+        # 1. Checkbox (Soll übernommen werden?)
+        var_include = ctk.BooleanVar(value=False)
+        chk = ctk.CTkCheckBox(row_frame, text="", variable=var_include, width=30)
+        chk.pack(side="left", padx=10)
+
+        # 2. Quellspalten-Name
+        lbl_src = ctk.CTkLabel(row_frame, text=col_name, font=("Roboto", 11, "bold"), width=180, anchor="w")
+        lbl_src.pack(side="left", padx=5)
+
+        # Bereinigten Vorschlag für den DB-Spaltennamen erzeugen
+        default_db_name = col_name.lower().strip().replace(" ", "_").replace("-", "_")
+        default_db_name = "".join(c for c in default_db_name if c.isalnum() or c == "_")
+
+        # 3. Eingabefeld für DB-Feldnamen / Label
+        entry_name = ctk.CTkEntry(row_frame, width=190)
+        entry_name.insert(0, default_db_name)
+        entry_name.pack(side="left", padx=5)
+
+        # 4. Proptyp-Dropdown (TXT, NUM, DATE, BOOL)
+        combo_proptyp = ctk.CTkOptionMenu(
+            row_frame, 
+            values=["TXT", "NUM", "DATE", "BOOL"],
+            width=130
+        )
+        combo_proptyp.set("TXT")
+        combo_proptyp.pack(side="left", padx=5)
+
+        # --- Interaktivität erst definieren, WENN ALLE WIDGETS ERSTELLT WURDEN ---
+        def toggle_inputs():
+            state = "normal" if var_include.get() else "disabled"
+            entry_name.configure(state=state)
+            combo_proptyp.configure(state=state)
+
+        # Event-Verknüpfung & Initialisierung
+        chk.configure(command=toggle_inputs)
+        toggle_inputs()  # Setzt den initialen Zustand auf "disabled"
+
+        # Daten für _on_apply speichern
+        self.row_widgets.append({
+            'source_col': col_name,
+            'var_include': var_include,
+            'entry_name': entry_name,
+            'combo_proptyp': combo_proptyp
+        })
+
+    def _on_apply(self):
+        self.result_mappings = []
+        for rw in self.row_widgets:
+            if rw['var_include'].get():
+                target_field_name = rw['entry_name'].get().strip()
+                if not target_field_name:
+                    target_field_name = rw['source_col']
+                
+                self.result_mappings.append({
+                    'source_col': rw['source_col'],
+                    'field_name': target_field_name,
+                    'data_type': rw['combo_proptyp'].get()
+                })
+
+        self.is_accepted = True
+        self.destroy()
 
 class ValidationFixDialog(ctk.CTkToplevel):
     def __init__(self, parent, invalid_items: List[Dict[str, Any]]):
@@ -751,7 +882,7 @@ class CSVMappingApp(ctk.CTk):
 
         dialog = ctk.CTkToplevel(self)
         dialog.title(f"Transformation für '{target_col}'")
-        center_window(dialog, 540, 850)
+        center_window(dialog, 540, 950)
         dialog.grab_set()
 
         ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=("Arial", 12, "bold")).pack(pady=10)
@@ -1321,50 +1452,122 @@ class CSVMappingApp(ctk.CTk):
         all_source_cols = set(self.source_df.columns)
         unmapped_cols = list(all_source_cols - mapped_source_cols)
         unmapped_df = self.source_df[unmapped_cols] if unmapped_cols else pd.DataFrame()
+        
+        used_source_cols = set()
+        for target_col, dropdown in self.mapping_dropdowns.items():
+            val = dropdown.get()
+            if val and val != "-- Nicht zuordnen / Spezielle Regel --":
+                used_source_cols.add(val)
 
-        # PASS 4: EXPORT NACH FORMAT UND ENCODING
-        format_choice = self.combo_export_format.get()
-        raw_encoding = self.combo_encoding.get().split()[0]  # Extrahiert z.B. 'utf-8-sig'
+        # Ebenfalls Spalten berücksichtigen, die in Transformations-Parametern verwendet wurden
+        for rule in self.transformations.values():
+            if isinstance(rule, dict) and rule.get('param'):
+                used_source_cols.add(rule['param'])
 
-        if "Excel" in format_choice:
-            file_ext = ".xlsx"
-            file_types = [("Excel Workbook", "*.xlsx")]
-        else:
-            file_ext = ".csv"
-            file_types = [("CSV Files", "*.csv")]
+        unmapped_source_cols = [c for c in self.source_df.columns if c not in used_source_cols]
 
-        save_path = filedialog.asksaveasfilename(
-            defaultextension=file_ext,
-            filetypes=file_types,
-            initialfile=f"patienten{file_ext}"
+        extra_fields_mappings = []
+        if unmapped_source_cols:
+            extra_dialog = ExtraFieldsDialog(self, unmapped_source_cols)
+            self.wait_window(extra_dialog)
+
+            if extra_dialog.is_accepted:
+                extra_fields_mappings = extra_dialog.result_mappings
+
+
+        # --- 4. ZUSATZFELDER-TABELLEN ERZEUGEN (Falls ausgewählt) ---
+        extra_data_df = None
+        extra_mapping_df = None
+
+        # --- 5. EXPORT DER HAUPT- UND ZUSATZDATEIEN ---
+        # Basis-Dateipfad vom Nutzer abfragen oder automatisch generieren
+        export_path = filedialog.asksaveasfilename(
+            defaultextension=".csv",
+            filetypes=[("CSV Dateien", "*.csv"), ("Excel Dateien", "*.xlsx")]
         )
 
-        if save_path:
-            try:
-                if "Excel" in format_choice:
-                    out_df.to_excel(save_path, index=False)
-                else:
-                    sep_char = ';' if ';' in format_choice else ','
-                    out_df.to_csv(save_path, index=False, encoding=raw_encoding, sep=sep_char)
+        if not export_path:
+            return  # Abgebrochen
+        
+        if extra_fields_mappings:
+            # A) Eigenschafts-Definitionen: pat_property.csv
+            property_rows = []
+            for item in extra_fields_mappings:
+                # DB-Bezeichner sicherstellen (immer mit führendem '#')
+                raw_name = item['field_name'].lstrip('#')
+                property_id = f"#{raw_name}"
+                
+                property_rows.append({
+                    'id': property_id,              # z. B. "#hausarzt_tel"
+                    'label': item['source_col'],    # GUI-Labeltext aus CSV
+                    'proptyp': item['data_type'],   # z. B. "TXT"
+                    'options': "NULL",                # NULL
+                    'maxwidth': 255,                # Festwert 255
+                    'bereich': "NULL",                # NULL
+                    'sortierung': 0,                # Festwert 0
+                    'system': 202,                  # Festwert 202
+                    'kartei_id': "NULL"               # NULL
+                })
+            
+            df_pat_property = pd.DataFrame(property_rows)
 
-                msg_rest = ""
-                if self.chk_export_unmapped.get() and not unmapped_df.empty:
-                    dir_name, file_name = os.path.split(save_path)
-                    rest_file_path = os.path.join(dir_name, f"REST_UNMAPPED_{file_name}")
-                    
-                    if "Excel" in format_choice:
-                        unmapped_df.to_excel(rest_file_path, index=False)
-                    else:
-                        sep_char = ';' if ';' in format_choice else ','
-                        unmapped_df.to_csv(rest_file_path, index=False, encoding=raw_encoding, sep=sep_char)
+            # B) Werte-Zuordnung: pat_property_map.csv
+            # Patient-ID ermitteln
+            patient_ids = out_df['id'] if 'id' in out_df.columns else self.source_df.index
 
-                    msg_rest = f"\n\nUngemappte Spalten gesichert in:\n{os.path.basename(rest_file_path)}"
+            map_rows = []
+            for item in extra_fields_mappings:
+                raw_name = item['field_name'].lstrip('#')
+                property_id = f"#{raw_name}"
+                src_col = item['source_col']
 
-                messagebox.showinfo("Erfolg!", f"Datei erfolgreich exportiert!\nFormat: {format_choice}\nEncoding: {raw_encoding}{msg_rest}")
+                # Für jeden Patienten mit vorhandenem Wert einen Eintrag mit eigener UID erzeugen
+                for p_id, raw_val in zip(patient_ids, self.source_df[src_col]):
+                    if pd.notna(raw_val) and str(raw_val).strip() != "":
+                        map_rows.append({
+                            'id': str(generate_id()),      # Eigene selbstgenerierte UID
+                            'property_id': property_id,   # Referenz mit # (z. B. "#hausarzt_tel")
+                            'patienten_id': p_id,         # Referenz auf die Patienten-ID
+                            'content': str(raw_val).strip() # Eigentlicher Wert
+                        })
 
-            except Exception as e:
-                messagebox.showerror("Export-Fehler", f"Fehler beim Speichern der Datei:\n{str(e)}")
+            df_pat_property_map = pd.DataFrame(map_rows)
 
+
+            # --- 5. EXPORT DER ZUSATZDATEIEN ---
+            # Erzeugt 'pat_property.csv' und 'pat_property_map.csv' im selben Ordner wie die Hauptdatei
+            output_dir = os.path.dirname(export_path)
+
+            path_property = os.path.join(output_dir, "pat_property.csv")
+            path_property_map = os.path.join(output_dir, "pat_property_map.csv")
+
+            df_pat_property.to_csv(path_property, index=False, sep=";", encoding="utf-8-sig")
+            df_pat_property_map.to_csv(path_property_map, index=False, sep=";", encoding="utf-8-sig")
+
+        base_path, ext = os.path.splitext(export_path)
+
+        # 1. Haupt-Tabelle exportieren (z.B. patienten.csv)
+        if ext.lower() == ".xlsx":
+            with pd.ExcelWriter(export_path) as writer:
+                out_df.to_excel(writer, sheet_name="Patienten", index=False)
+                if extra_data_df is not None:
+                    extra_data_df.to_excel(writer, sheet_name="Zusatzfelder", index=False)
+                if extra_mapping_df is not None:
+                    extra_mapping_df.to_excel(writer, sheet_name="Zusatzfelder_Mapping", index=False)
+        else:
+            # CSV-Export (Separat mit Präfixen für die Zusatztabellen)
+            out_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
+            
+            if extra_data_df is not None:
+                extra_data_path = f"{base_path}_zusatzfelder.csv"
+                extra_data_df.to_csv(extra_data_path, index=False, sep=";", encoding="utf-8-sig")
+            
+            if extra_mapping_df is not None:
+                extra_mapping_path = f"{base_path}_zusatzfelder_mapping.csv"
+                extra_mapping_df.to_csv(extra_mapping_path, index=False, sep=";", encoding="utf-8-sig")
+
+        messagebox.showinfo("Export erfolgreich", "Die Daten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.")
+        
 if __name__ == "__main__":
     app = CSVMappingApp()
     app.mainloop()
