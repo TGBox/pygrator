@@ -43,10 +43,10 @@ ctk.set_default_color_theme("blue")
 # DONE TODO: Add rule for always copying the contents of "id" to "p_nr" or "ext_id" if these fields exist.
 # DONE TODO: BUG: The completion rules for finding the city via the post code and for finding the post code via the city name are not selecting the correct reference column by default.
 # DONE TODO: Add another dialog window, where a list with all elements gets shown, where the sanitize method will process the value. Then user selection single/batch for the operations that will get executed.
-# TODO: Add email structure validation.
+# DONE TODO: Add email structure validation.
+# DONE TODO: Split this file into multiple parts.
 # TODO: Add validation for the values of the fields.
 # TODO: Add more comments to this file.
-# TODO: Split this file into multiple parts.
 # TODO: Add corrects type annotations to all files.
 
 class CSVMappingApp(ctk.CTk):
