@@ -225,6 +225,150 @@ class RowValidationDialog(ctk.CTkToplevel):
     def get_resolved_values(self):
         return self.resolved_results
 
+import customtkinter as ctk
+from typing import List, Dict, Any
+
+class ValidationFixDialog(ctk.CTkToplevel):
+    def __init__(self, parent, invalid_items: List[Dict[str, Any]]):
+        """
+        invalid_items ist eine Liste von Dictionaries:
+        [
+            {
+                'row_idx': 0,
+                'target_col': 'p_ik',
+                'rule_type': 'validate_ik',
+                'original_val': '12345',
+                'action': 'keep', # 'keep', 'clear', 'custom'
+                'custom_val': ''
+            }, ...
+        ]
+        """
+        super().__init__(parent)
+        self.parent = parent
+        self.invalid_items = invalid_items
+        self.is_accepted = False
+
+        self.title("⚠️ Validierungsfehler korrigieren")
+        center_window(self, 850, 550)
+        self.attributes("-topmost", True)
+        self.grab_set()  # Modal machen
+
+        # Erstelle Widgets
+        self._build_ui()
+
+    def _build_ui(self):
+        # Header
+        header_lbl = ctk.CTkLabel(
+            self, 
+            text=f"Es wurden {len(self.invalid_items)} ungültige Werte gefunden.", 
+            font=("Arial", 14, "bold"),
+            text_color="#FF6B6B"
+        )
+        header_lbl.pack(padx=15, pady=(15, 5), anchor="w")
+
+        sub_lbl = ctk.CTkLabel(
+            self, 
+            text="Wähle eine globale Aktion oder korrigiere die Einträge einzeln:", 
+            font=("Arial", 11)
+        )
+        sub_lbl.pack(padx=15, pady=(0, 10), anchor="w")
+
+        # --- Frame für Globale Aktionen (Batch) ---
+        batch_frame = ctk.CTkFrame(self)
+        batch_frame.pack(fill="x", padx=15, pady=5)
+
+        ctk.CTkLabel(batch_frame, text="Alle Eintrags-Aktionen:", font=("Arial", 11, "bold")).pack(side="left", padx=10, pady=10)
+        
+        btn_batch_keep = ctk.CTkButton(
+            batch_frame, text="Alle beibehalten (Ignorieren)", fg_color="gray40", 
+            command=lambda: self._apply_batch_action("keep")
+        )
+        btn_batch_keep.pack(side="left", padx=5, pady=10)
+
+        btn_batch_clear = ctk.CTkButton(
+            batch_frame, text="Alle leeren (NULL)", fg_color="#C0392B", 
+            command=lambda: self._apply_batch_action("clear")
+        )
+        btn_batch_clear.pack(side="left", padx=5, pady=10)
+
+        # --- Scrollbare Liste der einzelnen Fehler ---
+        self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Fehlerhafte Einträge")
+        self.scroll_frame.pack(fill="both", expand=True, padx=15, pady=10)
+
+        self.row_widgets = []
+        for idx, item in enumerate(self.invalid_items):
+            self._render_item_row(idx, item)
+
+        # --- Footer (Bestätigen) ---
+        footer_frame = ctk.CTkFrame(self, fg_color="transparent")
+        footer_frame.pack(fill="x", padx=15, pady=15)
+
+        btn_apply = ctk.CTkButton(
+            footer_frame, text="Änderungen übernehmen & Exportieren", 
+            fg_color="#1E7E34", hover_color="#145A24", font=("Arial", 12, "bold"),
+            height=35, command=self._on_apply
+        )
+        btn_apply.pack(side="right")
+
+    def _render_item_row(self, idx: int, item: Dict[str, Any]):
+        row_frame = ctk.CTkFrame(self.scroll_frame)
+        row_frame.pack(fill="x", padx=5, pady=5)
+
+        # Info-Label (Zeile, Spalte, Fehler)
+        rule_desc = "Ungültige IK" if item['rule_type'] == 'validate_ik' else "Ungültige KVNR"
+        info_text = f"Zeile {item['row_idx'] + 1} | [{item['target_col']}] ({rule_desc}): '{item['original_val']}'"
+        
+        lbl = ctk.CTkLabel(row_frame, text=info_text, font=("Roboto", 11, "bold"), anchor="w", width=300)
+        lbl.pack(side="left", padx=10, pady=5)
+
+        # Variable für Radiobutton-Auswahl
+        action_var = ctk.StringVar(value=item.get('action', 'keep'))
+
+        # Manuelles Eingabefeld
+        entry_custom = ctk.CTkEntry(row_frame, placeholder_text="Manuelle Korrektur", width=140)
+        if item.get('custom_val'):
+            entry_custom.insert(0, item['custom_val'])
+
+        def on_action_change():
+            if action_var.get() == "custom":
+                entry_custom.configure(state="normal")
+            else:
+                entry_custom.configure(state="disabled")
+
+        r_keep = ctk.CTkRadioButton(row_frame, text="Beibehalten", variable=action_var, value="keep", command=on_action_change, width=90)
+        r_keep.pack(side="left", padx=5)
+
+        r_clear = ctk.CTkRadioButton(row_frame, text="Leeren", variable=action_var, value="clear", command=on_action_change, width=70)
+        r_clear.pack(side="left", padx=5)
+
+        r_custom = ctk.CTkRadioButton(row_frame, text="Manuell:", variable=action_var, value="custom", command=on_action_change, width=80)
+        r_custom.pack(side="left", padx=5)
+
+        entry_custom.pack(side="left", padx=5)
+        on_action_change()  # Initialen Zustand setzen
+
+        self.row_widgets.append({
+            'item': item,
+            'action_var': action_var,
+            'entry_custom': entry_custom
+        })
+
+    def _apply_batch_action(self, action: str):
+        """Wendet 'keep' oder 'clear' auf alle Einträge an."""
+        for rw in self.row_widgets:
+            rw['action_var'].set(action)
+            rw['entry_custom'].configure(state="disabled")
+
+    def _on_apply(self):
+        # Werte aus den UI-Elementen zurück ins item-Dict schreiben
+        for rw in self.row_widgets:
+            action = rw['action_var'].get()
+            rw['item']['action'] = action
+            rw['item']['custom_val'] = rw['entry_custom'].get().strip()
+
+        self.is_accepted = True
+        self.destroy()
+
 class CSVMappingApp(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -839,16 +983,57 @@ class CSVMappingApp(ctk.CTk):
         default_empty_value = "NULL" if self.chk_fill_null.get() else ""
 
         copy_rules = {}
+        invalid_records = []
         
         if not hasattr(self, 'plz_service'):
             from plz_lookup import PLZLookupService
             self.plz_service = PLZLookupService()
 
-        # PASS 1: Transformationen
-        for target_col, dtype_str in target_schema.items():
-            source_col = self.mapping_dropdowns[target_col].get()
+        # PASS 1: Transformationen ausführen
+        for target_col, dtype in target_schema.items():
             rule = self.transformations.get(target_col, {})
-            rule_type = rule.get('type')
+            rule_type = rule.get('type') if isinstance(rule, dict) else rule
+            param = rule.get('param') if isinstance(rule, dict) else None
+            source_col = self.mapping_dropdowns[target_col].get() if target_col in self.mapping_dropdowns else None
+
+            # --- Validierung IK-Nummer ---
+            if rule_type == "validate_ik":
+                if source_col and source_col in self.source_df.columns:
+                    for row_idx, val in self.source_df[source_col].items():
+                        if pd.notna(val) and str(val).strip():
+                            cleaned_ik = str(val).strip().split('.')[0].zfill(9)
+                            if not validate_ik_number(cleaned_ik):
+                                invalid_records.append({
+                                    'row_idx': row_idx,
+                                    'target_col': target_col,
+                                    'rule_type': rule_type,
+                                    'original_val': str(val),
+                                    'action': 'keep',
+                                    'custom_val': ''
+                                })
+                    # Vorerst Standardwerte/Rohwerte übernehmen
+                    out_df[target_col] = self.source_df[source_col]
+                else:
+                    out_df[target_col] = default_empty_value
+
+            # --- Validierung Versichertennummer (KVNR) ---
+            elif rule_type == "validate_kvnr":
+                if source_col and source_col in self.source_df.columns:
+                    for row_idx, val in self.source_df[source_col].items():
+                        if pd.notna(val) and str(val).strip():
+                            cleaned_kvnr = str(val).strip().upper()
+                            if not validate_insurance_number(cleaned_kvnr):
+                                invalid_records.append({
+                                    'row_idx': row_idx,
+                                    'target_col': target_col,
+                                    'rule_type': rule_type,
+                                    'original_val': str(val),
+                                    'action': 'keep',
+                                    'custom_val': ''
+                                })
+                    out_df[target_col] = self.source_df[source_col]
+                else:
+                    out_df[target_col] = default_empty_value
 
             # Automatische Regel-Zuordnungen, falls keine explizite Regel gewählt wurde
             if not rule_type:
@@ -958,7 +1143,7 @@ class CSVMappingApp(ctk.CTk):
                             return default_empty_value
                         cleaned_ik = str(val).strip().split('.')[0].zfill(9)
                         # Gibt den Wert zurück, wenn gültig; ansonsten default_empty_value (oder z.B. Invalid-Marker)
-                        return cleaned_ik if is_valid_ik(cleaned_ik) else default_empty_value
+                        return cleaned_ik if validate_ik_number(cleaned_ik) else default_empty_value
 
                     out_df[target_col] = self.source_df[source_col].apply(check_ik_val)
                 else:
@@ -971,7 +1156,7 @@ class CSVMappingApp(ctk.CTk):
                         if pd.isna(val) or not str(val).strip():
                             return default_empty_value
                         cleaned_kvnr = str(val).strip().upper()
-                        return cleaned_kvnr if is_valid_kvnr(cleaned_kvnr) else default_empty_value
+                        return cleaned_kvnr if validate_insurance_number(cleaned_kvnr) else default_empty_value
 
                     out_df[target_col] = self.source_df[source_col].apply(check_kvnr_val)
                 else:
@@ -1063,6 +1248,26 @@ class CSVMappingApp(ctk.CTk):
                     out_df[target_col] = str(rule.get('param'))
                 else:
                     out_df[target_col] = default_empty_value
+        
+        if invalid_records:
+            dialog = ValidationFixDialog(self, invalid_records)
+            self.wait_window(dialog)  # Warten bis Dialog geschlossen wurde
+
+            if not dialog.is_accepted:
+                # Abbrechen geklickt / Fenster geschlossen -> Export abbrechen
+                return
+
+            # Entscheidungen des Benutzers in out_df anwenden
+            for item in invalid_records:
+                r_idx = item['row_idx']
+                col = item['target_col']
+                action = item['action']
+
+                if action == 'clear':
+                    out_df.at[r_idx, col] = default_empty_value
+                elif action == 'custom':
+                    out_df.at[r_idx, col] = item['custom_val'] if item['custom_val'] else default_empty_value
+                # Bei 'keep' bleibt der original ausgeleSubst/Rohwert im DataFrame erhalten
 
         # PASS 2: Copy Rules
         if self.var_clean_strings.get():
