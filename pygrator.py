@@ -24,6 +24,7 @@ ctk.set_default_color_theme("blue")
 # TODO: Add a verification for the IK number. (Only format [explicitly only numerical with length 9] or maybe with proper check of the IK?) => Last part maybe not feasible because these IKs are always private therapists and not commonly known institutions!
 # TODO: Add a verification for the insurance number. (one letter followed by 9 digits)
 # TODO: Add a way to map the left over fields to the additional fields, if the target is a patients table.
+# TODO: Add a method that can get turned on optionally in the gui. The method should list all field values that have been altered or that would be altered. Also with batch select and single select options on how to handle these entries.
 
 class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: list[str]):
