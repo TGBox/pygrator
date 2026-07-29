@@ -6,8 +6,22 @@ import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, ttk
 
-from db_util import format_date_iso, generate_id, parse_varchar_limit, center_window, sanitize_data_string
+from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string
 from schemas import SCHEMAS
+
+RULE_NAMES = {
+    "generate_uid": "🔑 UID generieren",
+    "copy_target": "🔗 Aus Zielspalte kopieren",
+    "format_date": "📅 Datumsformat YYYY-MM-DD",
+    "default_value": "✨ Standardwert bei Leerfeld",
+    "static_value": "📌 Statischer Festwert",
+    "clean_plz": "📮 PLZ auf 5 Stellen bereinigen",
+    "gender": "👫 Geschlecht mappen (M->Herr, F/W->Frau)",
+    "split_street": "🏠 Nur Straßenname",
+    "split_number": "🔢 Nur Hausnummer",
+    "merge_columns": "🔗 Spalten zusammenführen",
+    "lookup_ik_provider": "🏢 Krankenkasse via IK ermitteln"
+}
 
 # Farbschema & Theme für modernere Optik
 ctk.set_appearance_mode("System")
@@ -25,6 +39,64 @@ ctk.set_default_color_theme("blue")
 # TODO: Add a verification for the insurance number. (one letter followed by 9 digits)
 # TODO: Add a way to map the left over fields to the additional fields, if the target is a patients table.
 # TODO: Add a method that can get turned on optionally in the gui. The method should list all field values that have been altered or that would be altered. Also with batch select and single select options on how to handle these entries.
+
+def center_window(window, width: int, height: int):
+    # Aktualisiert die Geometrie-Informationen des Fensters
+    window.update_idletasks()
+    
+    # Bildschirmmaße ermitteln
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    
+    # Position berechnen
+    x = int((screen_width - width) / 2)
+    y = int((screen_height - height) / 2)
+    
+    # Geometrie setzen: "Breite x Höhe + X-Offset + Y-Offset"
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
+class CTkTooltip:
+    """Erzeugt einen schwebenden Info-Text beim Hovern über einem Widget."""
+    def __init__(self, widget: ctk.CTkBase, text: str = ""):
+        self.widget = widget
+        self.text = text
+        self.tooltip_window: Optional[ctk.CTkToplevel] = None
+        
+        self.widget.bind("<Enter>", self.show_tooltip)
+        self.widget.bind("<Leave>", self.hide_tooltip)
+
+    def set_text(self, text: str):
+        self.text = text
+
+    def show_tooltip(self, event=None):
+        if not self.text or self.tooltip_window is not None:
+            return
+
+        x, y, _, _ = self.widget.bbox("insert") if hasattr(self.widget, "bbox") else (0, 0, 0, 0)
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 25
+
+        self.tooltip_window = ctk.CTkToplevel(self.widget)
+        self.tooltip_window.wm_overrideredirect(True)  # Rahmen & Titelleiste ausblenden
+        self.tooltip_window.wm_geometry(f"+{x}+{y}")
+        self.tooltip_window.attributes("-topmost", True)
+
+        label = ctk.CTkLabel(
+            self.tooltip_window,
+            text=self.text,
+            fg_color="#2B2B2B",
+            text_color="#FFFFFF",
+            corner_radius=6,
+            padx=8,
+            pady=4,
+            font=("Arial", 11)
+        )
+        label.pack()
+
+    def hide_tooltip(self, event=None):
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+            self.tooltip_window = None
 
 class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: list[str]):
@@ -203,6 +275,8 @@ class CSVMappingApp(ctk.CTk):
         self.source_file_path = ""
         self.transformations = {}  
         self.mapping_dropdowns = {}
+        self.trans_buttons = {}    # Spaltenname -> CTkButton
+        self.trans_tooltips = {}   # Spaltenname -> CTkTooltip
 
         self._build_ui()
 
@@ -354,6 +428,8 @@ class CSVMappingApp(ctk.CTk):
         ctk.CTkLabel(self.scroll_frame, text="Spezielle Transformation", font=("Arial", 12, "bold")).grid(row=0, column=2, padx=10, pady=5, sticky="w")
 
         self.mapping_dropdowns = {}
+        self.trans_buttons = {}
+        self.trans_tooltips = {}
 
         for idx, (target_col, dtype) in enumerate(target_schema.items(), start=1):
             label_text = f"{target_col} ({dtype})"
@@ -439,10 +515,20 @@ class CSVMappingApp(ctk.CTk):
                 if src_col.lower() == "versichertennummer" and "p_vnr" in target_col.lower():
                     combo.set(src_col)
                     break
+                # Automatische Vorauswahl / Vorschlag für Krankenkassenname per IK
+                if target_col == "p_krankenkasse":
+                    for src_col in self.source_df.columns:
+                        if "ik" in src_col.lower():
+                            self.transformations[target_col] = {
+                                'type': 'lookup_ik_provider',
+                                'param': src_col
+                            }
+                            break
                     
 
             self.mapping_dropdowns[target_col] = combo
-
+            
+            # Button erstellen
             btn_trans = ctk.CTkButton(
                 self.scroll_frame, 
                 text="Regel hinzufügen...", 
@@ -451,6 +537,47 @@ class CSVMappingApp(ctk.CTk):
                 command=lambda t=target_col: self.open_transformation_dialog(t)
             )
             btn_trans.grid(row=idx, column=2, padx=10, pady=5, sticky="w")
+            
+            # Button & Tooltip speichern
+            self.trans_buttons[target_col] = btn_trans
+            self.trans_tooltips[target_col] = CTkTooltip(btn_trans, text="")
+
+            # Optik sofort anwenden (falls z. B. durch Schema-Wechsel bereits Regeln existieren)
+            self.update_rule_button_state(target_col)
+            
+    def update_rule_button_state(self, target_col: str):
+        """Aktualisiert die visuelle Darstellung des Buttons und des Tooltips je nach Regel-Status."""
+        btn = self.trans_buttons.get(target_col)
+        tooltip = self.trans_tooltips.get(target_col)
+        
+        if not btn or not tooltip:
+            return
+
+        rule = self.transformations.get(target_col, {})
+        rule_type = rule.get('type')
+
+        if rule_type and rule_type != "none":
+            # Regel ist AKTIV: Grünes Design & Status-Text
+            btn.configure(
+                text="✓ Regel aktiv",
+                fg_color="#1E7E34",        # Dunkelgrün
+                hover_color="#145A24"
+            )
+            
+            # Tooltip-Text zusammenbauen (inkl. Parameter falls vorhanden)
+            rule_title = RULE_NAMES.get(rule_type, rule_type)
+            param = rule.get('param')
+            param_str = f" ({param})" if param else ""
+            
+            tooltip.set_text(f"Aktive Regel: {rule_title}{param_str}")
+        else:
+            # Keine Regel: Standard-Grau
+            btn.configure(
+                text="Regel hinzufügen...",
+                fg_color="gray30",
+                hover_color="gray40"
+            )
+            tooltip.set_text("Keine spezielle Regel konfiguriert")
 
     def open_transformation_dialog(self, target_col):
         target_schema = SCHEMAS[self.combo_schema.get()]
@@ -537,6 +664,33 @@ class CSVMappingApp(ctk.CTk):
         
         separator2 = ctk.CTkFrame(dialog, height=2, fg_color="gray30")
         separator2.pack(fill="x", padx=20, pady=10)
+        
+        # Radiobutton & UI für IK-Lookup hinzufügen
+        r_ik_lookup = ctk.CTkRadioButton(
+            dialog, 
+            text="🏢 Krankenkassenname aus IK-Quellspalte ermitteln", 
+            variable=rule_type, 
+            value="lookup_ik_provider"
+        )
+        r_ik_lookup.pack(anchor="w", padx=20, pady=5)
+
+        ik_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        ik_frame.pack(anchor="w", padx=45, pady=2)
+        ctk.CTkLabel(ik_frame, text="IK-Quellspalte:").pack(side="left", padx=5)
+
+        source_cols_list = list(self.source_df.columns) if self.source_df is not None else []
+        combo_ik_source = ctk.CTkOptionMenu(ik_frame, values=source_cols_list if source_cols_list else ["Keine"])
+        combo_ik_source.pack(side="left")
+
+        # Falls diese Regel bereits gesetzt war, Vorauswahl wiederherstellen:
+        if existing_rule.get('type') == 'lookup_ik_provider' and existing_rule.get('param') in source_cols_list:
+            combo_ik_source.set(existing_rule.get('param'))
+        elif self.source_df is not None:
+            # Versuche automatisch die spalte kas_ik vorauszuauswählen, falls vorhanden
+            for c in source_cols_list:
+                if 'ik' in c.lower():
+                    combo_ik_source.set(c)
+                    break
 
         r_plz = ctk.CTkRadioButton(dialog, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
         r_plz.pack(anchor="w", padx=20, pady=5)
@@ -573,6 +727,8 @@ class CSVMappingApp(ctk.CTk):
 
             if t_type == "copy_target":
                 param = combo_copy_target.get()
+            elif t_type == "lookup_ik_provider":
+                param = combo_ik_source.get()
             elif t_type == "static_value":
                 param = entry_static_val.get()
             elif t_type == "default_value":
@@ -584,12 +740,14 @@ class CSVMappingApp(ctk.CTk):
                 'type': t_type,
                 'param': param
             }
+            self.update_rule_button_state(target_col)  # <--- NEU: Visuellen Status updaten
             messagebox.showinfo("Gespeichert", f"Regel '{t_type}' für '{target_col}' hinterlegt.")
             dialog.destroy()
 
         def remove_rule():
             if target_col in self.transformations:
                 del self.transformations[target_col]
+            self.update_rule_button_state(target_col)  # <--- NEU: Visuellen Status updaten
             messagebox.showinfo("Entfernt", f"Keine Regel mehr für '{target_col}' aktiv.")
             dialog.destroy()
 
@@ -634,6 +792,33 @@ class CSVMappingApp(ctk.CTk):
             if rule_type == "copy_target":
                 copy_rules[target_col] = rule.get('param')
                 continue
+            
+            elif rule_type == "lookup_ik_provider":
+                ik_source_col = rule.get('param')
+                
+                # Falls keine explizite IK-Spalte im Dialog gewählt wurde, 
+                # schauen wir, ob die Zielspalte im Dropdown gemappt war.
+                if (not ik_source_col or ik_source_col == "-- Nicht zuordnen / Spezielle Regel --") and source_col != "-- Nicht zuordnen / Spezielle Regel --":
+                    ik_source_col = source_col
+
+                if ik_source_col and ik_source_col in self.source_df.columns:
+                    mapped_source_cols.add(ik_source_col)
+                    
+                    # Einmalige Instanziierung des IK Services (z.B. aus ik_lookup.py)
+                    if not hasattr(self, 'ik_service'):
+                        from ik_lookup import IKLookupService
+                        self.ik_service = IKLookupService("krankenkassen.txt")
+                    
+                    def resolve_ik(val):
+                        if pd.isna(val) or not str(val).strip():
+                            return default_empty_value
+                        cleaned_ik = str(val).strip().split('.')[0] # .0 bei Fließkommazahlen entfernen
+                        provider_name = self.ik_service.get_provider_by_ik(cleaned_ik)
+                        return provider_name if provider_name else default_empty_value
+
+                    out_df[target_col] = self.source_df[ik_source_col].apply(resolve_ik)
+                else:
+                    out_df[target_col] = default_empty_value
 
             if rule_type == "static_value":
                 static_val = str(rule.get('param', ''))

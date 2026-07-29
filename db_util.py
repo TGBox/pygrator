@@ -56,21 +56,6 @@ def format_date_iso(val) -> str:
 
     return val_str
 
-def center_window(window, width: int, height: int):
-    # Aktualisiert die Geometrie-Informationen des Fensters
-    window.update_idletasks()
-    
-    # Bildschirmmaße ermitteln
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
-    
-    # Position berechnen
-    x = int((screen_width - width) / 2)
-    y = int((screen_height - height) / 2)
-    
-    # Geometrie setzen: "Breite x Höhe + X-Offset + Y-Offset"
-    window.geometry(f"{width}x{height}+{x}+{y}")
-
 def sanitize_data_string(text, remove_special_chars: bool = True) -> str:
     """
     Bereinigt Strings von Steuerzeichen und unerwünschten Sonderzeichen.
@@ -93,3 +78,15 @@ def sanitize_data_string(text, remove_special_chars: bool = True) -> str:
 
     # 3. Mehrfache Leerzeichen ("  ") auf genau EIN Leerzeichen (" ") reduzieren & Ränder trimmen
     return re.sub(r'\s+', ' ', text_str).strip()
+
+def validate_ik_number(ik: str) -> bool:
+    """Prüft, ob die IK-Nummer genau aus 9 Ziffern besteht."""
+    if not ik:
+        return True
+    return bool(re.match(r'^\d{9}$', ik.strip()))
+
+def validate_insurance_number(vnr: str) -> bool:
+    """Prüft, ob die Versichertennummer dem Format A123456789 (1 Buchstabe + 9 Ziffern) entspricht."""
+    if not vnr:
+        return True
+    return bool(re.match(r'^[A-Z-a-z]\d{9}$', vnr.strip()))
