@@ -6,7 +6,7 @@ import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, ttk
 
-from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string
+from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number
 from schemas import SCHEMAS
 
 RULE_NAMES = {
@@ -23,6 +23,8 @@ RULE_NAMES = {
     "lookup_ik_provider": "Krankenkasse aus IK",
     "lookup_plz_by_city": "PLZ aus Ort ergänzen",
     "lookup_city_by_plz": "Ort aus PLZ ergänzen",
+    "validate_ik": "IK-Nummer prüfen",
+    "validate_kvnr": "Versichertennr. prüfen",
 }
 
 # Farbschema & Theme für modernere Optik
@@ -30,9 +32,9 @@ ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
 # DONE: TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
-# TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
+# DONE TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
 # TODO: Add validation for the values of the fields.
-# TODO: Add a way to add the name of a city from its post code and vice versa. There might be a method like this already in the py-handelsregister repositry! CHECK THAT OUT!
+# DONE TODO: Add a way to add the name of a city from its post code and vice versa. There might be a method like this already in the py-handelsregister repositry! CHECK THAT OUT!
 # TODO: Add more comments to this file.
 # TODO: Split this file into multiple parts.
 # TODO: Add corrects type annotations to all files.
@@ -530,6 +532,11 @@ class CSVMappingApp(ctk.CTk):
                                 'param': src_col
                             }
                             break
+                elif target_col in ("p_ik", "ik") or "ik_nummer" in target_col:
+                    self.transformations[target_col] = {'type': 'validate_ik'}
+
+                elif target_col in ("p_vnr", "vnr", "kvnr") or "versichertennummer" in target_col:
+                    self.transformations[target_col] = {'type': 'validate_kvnr'}
 
             # --- 3. Button erstellen & speichern ---
             btn_trans = ctk.CTkButton(
@@ -706,6 +713,22 @@ class CSVMappingApp(ctk.CTk):
                 if 'ik' in c.lower():
                     combo_ik_source.set(c)
                     break
+                
+        r_val_ik = ctk.CTkRadioButton(
+            dialog, 
+            text="✔️ IK-Nummer auf Gültigkeit prüfen (Prüfziffer)", 
+            variable=rule_type, 
+            value="validate_ik"
+        )
+        r_val_ik.pack(anchor="w", padx=20, pady=5)
+
+        r_val_kvnr = ctk.CTkRadioButton(
+            dialog, 
+            text="✔️ Krankenversichertennummer (KVNR) auf Gültigkeit prüfen", 
+            variable=rule_type, 
+            value="validate_kvnr"
+        )
+        r_val_kvnr.pack(anchor="w", padx=20, pady=5)
 
         r_plz = ctk.CTkRadioButton(dialog, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
         r_plz.pack(anchor="w", padx=20, pady=5)
@@ -924,6 +947,33 @@ class CSVMappingApp(ctk.CTk):
                         return default_empty_value
 
                     out_df[target_col] = self.source_df[ik_source_col].apply(resolve_ik)
+                else:
+                    out_df[target_col] = default_empty_value
+                    
+            # --- Validierung IK-Nummer ---
+            elif rule_type == "validate_ik":
+                if source_col and source_col in self.source_df.columns:
+                    def check_ik_val(val):
+                        if pd.isna(val) or not str(val).strip():
+                            return default_empty_value
+                        cleaned_ik = str(val).strip().split('.')[0].zfill(9)
+                        # Gibt den Wert zurück, wenn gültig; ansonsten default_empty_value (oder z.B. Invalid-Marker)
+                        return cleaned_ik if is_valid_ik(cleaned_ik) else default_empty_value
+
+                    out_df[target_col] = self.source_df[source_col].apply(check_ik_val)
+                else:
+                    out_df[target_col] = default_empty_value
+
+            # --- Validierung Versichertennummer (KVNR) ---
+            elif rule_type == "validate_kvnr":
+                if source_col and source_col in self.source_df.columns:
+                    def check_kvnr_val(val):
+                        if pd.isna(val) or not str(val).strip():
+                            return default_empty_value
+                        cleaned_kvnr = str(val).strip().upper()
+                        return cleaned_kvnr if is_valid_kvnr(cleaned_kvnr) else default_empty_value
+
+                    out_df[target_col] = self.source_df[source_col].apply(check_kvnr_val)
                 else:
                     out_df[target_col] = default_empty_value
 
