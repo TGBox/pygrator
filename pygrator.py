@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox
 from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number, validate_email
 from schemas import SCHEMAS
 from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
+from constants import *
 
 
 # Farbschema & Theme für modernere Optik
@@ -36,7 +37,7 @@ class CSVMappingApp(ctk.CTk):
         super().__init__()
 
         self.title("CSV Data Mapper & Schema Validator")
-        center_window(self, 1040, 880)
+        center_window(self, APP_WIDTH, APP_HEIGHT)
 
         self.source_df = None
         self.source_file_path = ""
@@ -95,21 +96,21 @@ class CSVMappingApp(ctk.CTk):
         export_opts_frame.pack(side="left", padx=20, pady=5)
 
         # Format-Auswahl
-        ctk.CTkLabel(export_opts_frame, text="Export-Format:", font=("Arial", 11, "bold")).grid(row=0, column=0, sticky="w", padx=5)
+        ctk.CTkLabel(export_opts_frame, text="Export-Format:", font=LABEL_FONT_BOLD).grid(row=0, column=0, sticky="w", padx=5)
         self.combo_export_format = ctk.CTkOptionMenu(
             export_opts_frame, 
             values=["CSV (Semikolon ';')", "CSV (Komma ',')", "Excel (.xlsx)"],
-            width=160,
+            width=OPTIONS_MENU_WIDTH,
             command=self.on_format_change
         )
         self.combo_export_format.grid(row=0, column=1, padx=5, pady=2)
 
         # Encoding-Auswahl
-        ctk.CTkLabel(export_opts_frame, text="Encoding:", font=("Arial", 11, "bold")).grid(row=1, column=0, sticky="w", padx=5)
+        ctk.CTkLabel(export_opts_frame, text="Encoding:", font=LABEL_FONT_BOLD).grid(row=1, column=0, sticky="w", padx=5)
         self.combo_encoding = ctk.CTkOptionMenu(
             export_opts_frame, 
             values=["utf-8-sig (Excel CSV)", "utf-8", "cp1252 (Windows)", "iso-8859-1"],
-            width=160
+            width=OPTIONS_MENU_WIDTH
         )
         self.combo_encoding.grid(row=1, column=1, padx=5, pady=2)
 
@@ -119,7 +120,7 @@ class CSVMappingApp(ctk.CTk):
             text="Prüfen & Exportieren", 
             fg_color="green", 
             hover_color="darkgreen",
-            font=("Arial", 12, "bold"),
+            font=BUTTON_FONT,
             command=self.start_processing
         ).pack(side="right", padx=10, pady=10)
 
@@ -150,7 +151,7 @@ class CSVMappingApp(ctk.CTk):
             detected_sep = ';'
             try:
                 with open(file_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
-                    sample = f.read(4096)
+                    sample = f.read(MAX_CHAR_READ)
                     sniffer = csv.Sniffer()
                     detected_sep = sniffer.sniff(sample).delimiter
             except Exception:
@@ -196,9 +197,9 @@ class CSVMappingApp(ctk.CTk):
         source_cols = ["-- Nicht zuordnen / Spezielle Regel --"] + list(self.source_df.columns)
         target_schema = SCHEMAS[self.combo_schema.get()]
 
-        ctk.CTkLabel(self.scroll_frame, text="Zielspalte (Datentyp)", font=("Arial", 12, "bold")).grid(row=0, column=0, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(self.scroll_frame, text="Quellspalte (CSV)", font=("Arial", 12, "bold")).grid(row=0, column=1, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(self.scroll_frame, text="Spezielle Transformation", font=("Arial", 12, "bold")).grid(row=0, column=2, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text="Zielspalte (Datentyp)", font=BUTTON_FONT).grid(row=0, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text="Quellspalte (CSV)", font=BUTTON_FONT).grid(row=0, column=1, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text="Spezielle Transformation", font=BUTTON_FONT).grid(row=0, column=2, padx=10, pady=5, sticky="w")
 
         self.mapping_dropdowns = {}
         self.trans_buttons = {}
@@ -323,7 +324,7 @@ class CSVMappingApp(ctk.CTk):
             btn_trans = ctk.CTkButton(
                 self.scroll_frame, 
                 text="Regel hinzufügen...", 
-                width=240,
+                width=RULE_BUTTON_WIDTH,
                 fg_color="gray30",
                 command=lambda t=target_col: self.open_transformation_dialog(t)
             )
@@ -371,8 +372,8 @@ class CSVMappingApp(ctk.CTk):
             # Grüner Button mit sprechendem Regel-Text
             btn.configure(
                 text=button_text,
-                fg_color="#1E7E34",        # Dunkelgrün
-                hover_color="#145A24"
+                fg_color=COL_DARK_GREEN,        # Dunkelgrün
+                hover_color=COL_DARKER_GREEN
             )
         else:
             # Standardzustand ohne Regel
@@ -388,10 +389,10 @@ class CSVMappingApp(ctk.CTk):
 
         dialog = ctk.CTkToplevel(self)
         dialog.title(f"Transformation für '{target_col}'")
-        center_window(dialog, 540, 950)
+        center_window(dialog, TRANSFORMATION_DIALOG_WIDTH, TRANSFORMATION_DIALOG_HEIGHT)
         dialog.grab_set()
 
-        ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=("Arial", 12, "bold")).pack(pady=10)
+        ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=BUTTON_FONT).pack(pady=10)
 
         existing_rule = self.transformations.get(target_col, {})
         
@@ -436,7 +437,7 @@ class CSVMappingApp(ctk.CTk):
         date_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         date_frame.pack(anchor="w", padx=45, pady=2)
         ctk.CTkLabel(date_frame, text="Standardwert bei leeren Feldern (optional):", font=("Arial", 10), text_color="gray70").pack(side="left", padx=5)
-        entry_date_default = ctk.CTkEntry(date_frame, width=160, placeholder_text="z. B. 1900-01-01")
+        entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
         entry_date_default.pack(side="left")
         if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
             entry_date_default.insert(0, str(existing_rule.get('param')))
@@ -450,7 +451,7 @@ class CSVMappingApp(ctk.CTk):
         default_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         default_frame.pack(anchor="w", padx=45, pady=2)
         ctk.CTkLabel(default_frame, text="Ersatzwert:").pack(side="left", padx=5)
-        entry_default_val = ctk.CTkEntry(default_frame, width=200, placeholder_text="z. B. Unbekannt")
+        entry_default_val = ctk.CTkEntry(default_frame, width=VALUE_FIELD_WIDTH, placeholder_text="z. B. Unbekannt")
         entry_default_val.pack(side="left")
         if existing_rule.get('type') == 'default_value':
             entry_default_val.insert(0, str(existing_rule.get('param', '')))
@@ -461,7 +462,7 @@ class CSVMappingApp(ctk.CTk):
         static_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         static_frame.pack(anchor="w", padx=45, pady=2)
         ctk.CTkLabel(static_frame, text="Wert:").pack(side="left", padx=5)
-        entry_static_val = ctk.CTkEntry(static_frame, width=200)
+        entry_static_val = ctk.CTkEntry(static_frame, width=VALUE_FIELD_WIDTH)
         entry_static_val.pack(side="left")
         if existing_rule.get('type') == 'static_value':
             entry_static_val.insert(0, str(existing_rule.get('param', '')))
