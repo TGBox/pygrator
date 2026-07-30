@@ -1,33 +1,25 @@
-# type: ignore
 import customtkinter as ctk
 from typing import List, Dict, Any
 from constants import *
 
-def center_window(window: ctk.CTkToplevel, width: int, height: int):
-    # Aktualisiert die Geometrie-Informationen des Fensters
+def center_window(window: ctk.CTkToplevel, width: int, height: int) -> None:
     window.update_idletasks()
-    
-    # Bildschirmmaße ermitteln
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
-    
-    # Position berechnen
     x = int((screen_width - width) / 2)
     y = int((screen_height - height) / 2)
-    
-    # Geometrie setzen: "Breite x Höhe + X-Offset + Y-Offset"
     window.geometry(f"{width}x{height}+{x}+{y}")
 
 class RowValidationDialog(ctk.CTkToplevel):
-    def __init__(self, parent: ctk.CTk, conflicts: list[str]):
+    def __init__(self, parent: ctk.CTk, conflicts: List[Dict[str, Any]]):
         super().__init__(parent)
         self.title("⚠️ Individuelle Feldlängen-Konflikte lösen (Zellgenau)")
         center_window(self, ROW_VALIDATION_DIALOG_WIDTH, ROW_VALIDATION_DIALOG_HEIGHT)
         self.grab_set()
 
         self.conflicts = conflicts
-        self.rows_data = []
-        self.resolved_results = []
+        self.rows_data: List[Dict[str, Any]] = []
+        self.resolved_results: List[Dict[str, Any]] = []
         self.confirmed = False
 
         top_frame: ctk.CTkFrame = ctk.CTkFrame(self)
@@ -73,10 +65,10 @@ class RowValidationDialog(ctk.CTkToplevel):
         self.scroll.pack(fill="both", expand=True, padx=PADDING_L, pady=PADDING_M)
 
         for item in conflicts:
-            row_idx = item['row_idx']
-            col_name = item['col_name']
-            limit = item['limit']
-            orig_val = item['orig_val']
+            row_idx: int = int(item['row_idx'])
+            col_name: str = str(item['col_name'])
+            limit: int = int(item['limit'])
+            orig_val: str = str(item['orig_val'])
             orig_len = len(orig_val)
 
             card = ctk.CTkFrame(self.scroll)
@@ -153,24 +145,27 @@ class RowValidationDialog(ctk.CTkToplevel):
         )
         btn_cancel.pack(side="right", padx=PADDING_XS, pady=PADDING_M)
 
-    def bulk_truncate(self):
+    def bulk_truncate(self) -> None:
         for r in self.rows_data:
             r['var_action'].set("truncate")
 
-    def bulk_ignore(self):
+    def bulk_ignore(self) -> None:
         for r in self.rows_data:
             r['var_action'].set("ignore")
 
-    def on_apply(self):
+    def on_apply(self) -> None:
         self.resolved_results = []
         for r in self.rows_data:
             action = r['var_action'].get()
+            limit = int(r['limit'])
+            orig_val = str(r['orig_val'])
+            
             if action == "truncate":
-                final_val = r['orig_val'][:r['limit']]
+                final_val = orig_val[:limit]
             elif action == "custom":
                 final_val = r['entry_custom'].get()
             else:
-                final_val = r['orig_val']
+                final_val = orig_val
 
             self.resolved_results.append({
                 'row_idx': r['row_idx'],
@@ -181,28 +176,25 @@ class RowValidationDialog(ctk.CTkToplevel):
         self.confirmed = True
         self.destroy()
 
-    def get_resolved_values(self):
+    def get_resolved_values(self) -> List[Dict[str, Any]]:
         return self.resolved_results
 
 class ExtraFieldsDialog(ctk.CTkToplevel):
-    def __init__(self, parent, unmapped_columns: List[str]):
-        """
-        unmapped_columns: Liste aller CSV-Quellspalten, die bisher keinem Zielschema-Feld zugeordnet wurden.
-        """
+    def __init__(self, parent: ctk.CTk, unmapped_columns: List[str]):
         super().__init__(parent)
         self.parent = parent
         self.unmapped_columns = unmapped_columns
-        self.result_mappings: List[Dict[str, str]] = []  # Liste der ausgewählten Zusatzfelder
+        self.result_mappings: List[Dict[str, str]] = []
         self.is_accepted = False
 
         self.title("⚙️ Zusatzfelder für ungemappte Spalten definieren")
         center_window(self, EXTRA_FIELDS_DIALOG_WIDTH, EXTRA_FIELDS_DIALOG_HEIGHT)
-        self.attributes("-topmost", True)
+        self.attributes("-topmost", True)  # pyright: ignore[reportUnknownMemberType]
         self.grab_set()
 
         self._build_ui()
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         # Header
         header_lbl = ctk.CTkLabel(
             self, 
@@ -218,11 +210,9 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         )
         sub_lbl.pack(padx=PADDING_L, pady=(0, PADDING_M), anchor="w")
 
-        # Scrollbare Liste für alle ungemappten Spalten
         self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Nicht zugeordnete Quellspalten")
         self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_L, pady=PADDING_M)
 
-        # Spaltenköpfe in der Liste
         headers_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
         headers_frame.pack(fill="x", padx=PADDING_XS, pady=2)
         ctk.CTkLabel(headers_frame, text="Übernehmen?", font=SMALL_LABEL_FONT_BOLD, width=HEADER_LABEL_WIDTH).pack(side="left", padx=PADDING_XS)
@@ -230,11 +220,10 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         ctk.CTkLabel(headers_frame, text="Zusatzfeld-Name (DB)", font=SMALL_LABEL_FONT_BOLD, width=VALUE_FIELD_WIDTH, anchor="w").pack(side="left", padx=PADDING_XS)
         ctk.CTkLabel(headers_frame, text="Datentyp", font=SMALL_LABEL_FONT_BOLD, width=BUTTON_WIDTH, anchor="w").pack(side="left", padx=PADDING_XS)
 
-        self.row_widgets = []
-        for idx, col_name in enumerate(self.unmapped_columns):
+        self.row_widgets: List[Dict[str, Any]] = []
+        for col_name in self.unmapped_columns:
             self._render_column_row(col_name)
 
-        # Footer
         footer_frame = ctk.CTkFrame(self, fg_color="transparent")
         footer_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_L)
 
@@ -251,29 +240,24 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         )
         btn_apply.pack(side="right")
 
-    def _render_column_row(self, col_name: str):
+    def _render_column_row(self, col_name: str) -> None:
         row_frame = ctk.CTkFrame(self.scroll_frame)
         row_frame.pack(fill="x", padx=PADDING_XS, pady=PADDING_XXS)
 
-        # 1. Checkbox (Soll übernommen werden?)
         var_include = ctk.BooleanVar(value=False)
         chk = ctk.CTkCheckBox(row_frame, text="", variable=var_include, width=CHECKBOX_WIDTH)
         chk.pack(side="left", padx=PADDING_M)
 
-        # 2. Quellspalten-Name
         lbl_src = ctk.CTkLabel(row_frame, text=col_name, font=LABEL_FONT_BOLD, width=REPLACEMENT_INPUT_WIDTH, anchor="w")
         lbl_src.pack(side="left", padx=PADDING_XS)
 
-        # Bereinigten Vorschlag für den DB-Spaltennamen erzeugen
         default_db_name = col_name.lower().strip().replace(" ", "_").replace("-", "_")
         default_db_name = "".join(c for c in default_db_name if c.isalnum() or c == "_")
 
-        # 3. Eingabefeld für DB-Feldnamen / Label
         entry_name = ctk.CTkEntry(row_frame, width=DB_FIELD_NAMES_WIDTH)
         entry_name.insert(0, default_db_name)
         entry_name.pack(side="left", padx=PADDING_XS)
 
-        # 4. Proptyp-Dropdown (TXT, NUM, DATE, BOOL)
         combo_proptyp = ctk.CTkOptionMenu(
             row_frame, 
             values=["TXT", "NUM", "DATE", "BOOL"],
@@ -282,17 +266,14 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         combo_proptyp.set("TXT")
         combo_proptyp.pack(side="left", padx=PADDING_XS)
 
-        # --- Interaktivität erst definieren, WENN ALLE WIDGETS ERSTELLT WURDEN ---
-        def toggle_inputs():
+        def toggle_inputs() -> None:
             state = "normal" if var_include.get() else "disabled"
             entry_name.configure(state=state)
             combo_proptyp.configure(state=state)
 
-        # Event-Verknüpfung & Initialisierung
         chk.configure(command=toggle_inputs)
-        toggle_inputs()  # Setzt den initialen Zustand auf "disabled"
+        toggle_inputs()
 
-        # Daten für _on_apply speichern
         self.row_widgets.append({
             'source_col': col_name,
             'var_include': var_include,
@@ -300,38 +281,25 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
             'combo_proptyp': combo_proptyp
         })
 
-    def _on_apply(self):
+    def _on_apply(self) -> None:
         self.result_mappings = []
         for rw in self.row_widgets:
             if rw['var_include'].get():
                 target_field_name = rw['entry_name'].get().strip()
                 if not target_field_name:
-                    target_field_name = rw['source_col']
+                    target_field_name = str(rw['source_col'])
                 
                 self.result_mappings.append({
-                    'source_col': rw['source_col'],
+                    'source_col': str(rw['source_col']),
                     'field_name': target_field_name,
-                    'data_type': rw['combo_proptyp'].get()
+                    'data_type': str(rw['combo_proptyp'].get())
                 })
 
         self.is_accepted = True
         self.destroy()
 
 class ValidationFixDialog(ctk.CTkToplevel):
-    def __init__(self, parent, invalid_items: List[Dict[str, Any]]):
-        """
-        invalid_items ist eine Liste von Dictionaries:
-        [
-            {
-                'row_idx': 0,
-                'target_col': 'p_ik',
-                'rule_type': 'validate_ik',
-                'original_val': '12345',
-                'action': 'keep', # 'keep', 'clear', 'custom'
-                'custom_val': ''
-            }, ...
-        ]
-        """
+    def __init__(self, parent: ctk.CTk, invalid_items: List[Dict[str, Any]]):
         super().__init__(parent)
         self.parent = parent
         self.invalid_items = invalid_items
@@ -339,14 +307,12 @@ class ValidationFixDialog(ctk.CTkToplevel):
 
         self.title("⚠️ Validierungsfehler korrigieren")
         center_window(self, VALIDATION_DIALOG_WIDTH, VALIDATION_DIALOG_HEIGHT)
-        self.attributes("-topmost", True)
-        self.grab_set()  # Modal machen
+        self.attributes("-topmost", True)  # pyright: ignore[reportUnknownMemberType]
+        self.grab_set()
 
-        # Erstelle Widgets
         self._build_ui()
 
-    def _build_ui(self):
-        # Header
+    def _build_ui(self) -> None:
         header_lbl = ctk.CTkLabel(
             self, 
             text=f"Es wurden {len(self.invalid_items)} ungültige Werte gefunden.", 
@@ -362,7 +328,6 @@ class ValidationFixDialog(ctk.CTkToplevel):
         )
         sub_lbl.pack(padx=PADDING_L, pady=(0, PADDING_M), anchor="w")
 
-        # --- Frame für Globale Aktionen (Batch) ---
         batch_frame = ctk.CTkFrame(self)
         batch_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_XS)
 
@@ -380,15 +345,13 @@ class ValidationFixDialog(ctk.CTkToplevel):
         )
         btn_batch_clear.pack(side="left", padx=PADDING_XS, pady=PADDING_M)
 
-        # --- Scrollbare Liste der einzelnen Fehler ---
         self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Fehlerhafte Einträge")
         self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_L, pady=PADDING_M)
 
-        self.row_widgets = []
+        self.row_widgets: List[Dict[str, Any]] = []
         for idx, item in enumerate(self.invalid_items):
             self._render_item_row(idx, item)
 
-        # --- Footer (Bestätigen) ---
         footer_frame = ctk.CTkFrame(self, fg_color="transparent")
         footer_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_L)
 
@@ -399,26 +362,23 @@ class ValidationFixDialog(ctk.CTkToplevel):
         )
         btn_apply.pack(side="right")
 
-    def _render_item_row(self, idx: int, item: Dict[str, Any]):
+    def _render_item_row(self, idx: int, item: Dict[str, Any]) -> None:
         row_frame = ctk.CTkFrame(self.scroll_frame)
         row_frame.pack(fill="x", padx=PADDING_XS, pady=PADDING_XS)
 
-        # Info-Label (Zeile, Spalte, Fehler)
-        rule_desc = "Ungültige IK" if item['rule_type'] == 'validate_ik' else "Ungültige KVNR"
-        info_text = f"Zeile {item['row_idx'] + 1} | [{item['target_col']}] ({rule_desc}): '{item['original_val']}'"
+        rule_desc = "Ungültige IK" if item.get('rule_type') == 'validate_ik' else "Ungültige KVNR"
+        info_text = f"Zeile {int(item['row_idx']) + 1} | [{item['target_col']}] ({rule_desc}): '{item['original_val']}'"
         
         lbl = ctk.CTkLabel(row_frame, text=info_text, font=LABEL_FONT_BOLD, anchor="w", width=INFO_LABEL_WIDTH)
         lbl.pack(side="left", padx=PADDING_M, pady=PADDING_XS)
 
-        # Variable für Radiobutton-Auswahl
-        action_var = ctk.StringVar(value=item.get('action', 'keep'))
+        action_var = ctk.StringVar(value=str(item.get('action', 'keep')))
 
-        # Manuelles Eingabefeld
         entry_custom = ctk.CTkEntry(row_frame, placeholder_text="Manuelle Korrektur", width=MANUAL_CHANGE_FIELD_WIDTH)
         if item.get('custom_val'):
-            entry_custom.insert(0, item['custom_val'])
+            entry_custom.insert(0, str(item['custom_val']))
 
-        def on_action_change():
+        def on_action_change() -> None:
             if action_var.get() == "custom":
                 entry_custom.configure(state="normal")
             else:
@@ -434,7 +394,7 @@ class ValidationFixDialog(ctk.CTkToplevel):
         r_custom.pack(side="left", padx=PADDING_XS)
 
         entry_custom.pack(side="left", padx=PADDING_XS)
-        on_action_change()  # Initialen Zustand setzen
+        on_action_change()
 
         self.row_widgets.append({
             'item': item,
@@ -442,14 +402,12 @@ class ValidationFixDialog(ctk.CTkToplevel):
             'entry_custom': entry_custom
         })
 
-    def _apply_batch_action(self, action: str):
-        """Wendet 'keep' oder 'clear' auf alle Einträge an."""
+    def _apply_batch_action(self, action: str) -> None:
         for rw in self.row_widgets:
             rw['action_var'].set(action)
             rw['entry_custom'].configure(state="disabled")
 
-    def _on_apply(self):
-        # Werte aus den UI-Elementen zurück ins item-Dict schreiben
+    def _on_apply(self) -> None:
         for rw in self.row_widgets:
             action = rw['action_var'].get()
             rw['item']['action'] = action
@@ -459,34 +417,19 @@ class ValidationFixDialog(ctk.CTkToplevel):
         self.destroy()
 
 class StringCleanupPreviewDialog(ctk.CTkToplevel):
-    def __init__(self, parent, preview_items):
-        """
-        preview_items: Liste von Diktionären mit Folgender Struktur:
-        [
-            {
-                'row_idx': Index im DataFrame,
-                'col_name': Spaltenname,
-                'original': Ursprünglicher String,
-                'cleaned': Bereinigter String
-            }, ...
-        ]
-        """
+    def __init__(self, parent: ctk.CTk, preview_items: List[Dict[str, Any]]):
         super().__init__(parent)
         self.title("🔍 Vorschau: String-Bereinigung")
         center_window(self, STRING_CLEANUP_DIALOG_WIDTH, STRING_CLEANUP_DIALOG_HEIGHT)
-        
-        # Modal machen (blockiert Hauptfenster)
         self.grab_set()
         
         self.preview_items = preview_items
-        # Speichert pro Eintrag (Index): True = Ändern, False = Ignorieren (Original behalten)
-        self.decisions = {i: ctk.BooleanVar(value=True) for i in range(len(preview_items))}
-        self.result = None  # Wird bei Bestätigung befüllt
+        self.decisions: Dict[int, ctk.BooleanVar] = {i: ctk.BooleanVar(value=True) for i in range(len(preview_items))}
+        self.result: List[Dict[str, Any]] | None = None
 
         self._build_ui()
 
-    def _build_ui(self):
-        # Header / Beschreibung
+    def _build_ui(self) -> None:
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
         header_frame.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
         
@@ -502,7 +445,6 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             wraplength=REPLACEMENT_WRAP_LENGTH
         ).pack(anchor="w", pady=PADDING_XS)
 
-        # Global-Aktionen (Alle an-/abwählen)
         global_btn_frame = ctk.CTkFrame(self, fg_color="transparent")
         global_btn_frame.pack(fill="x", padx=PADDING_XL, pady=PADDING_XS)
         
@@ -522,11 +464,9 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             command=lambda: self._set_all(False)
         ).pack(side="left")
 
-        # Scrollbare Liste
         self.scroll_frame = ctk.CTkScrollableFrame(self)
         self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_XL, pady=PADDING_M)
 
-        # Spalten-Header für die Liste
         list_header = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
         list_header.pack(fill="x", pady=(0, PADDING_XS))
         ctk.CTkLabel(list_header, text="Anwenden", width=SMALL_HEADER_WIDTH, font=ctk.CTkFont(weight="bold")).pack(side="left")
@@ -534,29 +474,20 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         ctk.CTkLabel(list_header, text="Originalwert", width=LARGE_HEADER_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
         ctk.CTkLabel(list_header, text="Bereinigter Wert", width=LARGE_HEADER_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
 
-        # Einzelne Einträge rendern
         for i, item in enumerate(self.preview_items):
             row = ctk.CTkFrame(self.scroll_frame)
             row.pack(fill="x", pady=2, ipady=PADDING_XXS)
 
-            # Checkbox für Einzelentscheidung
             chk = ctk.CTkCheckBox(row, text="", variable=self.decisions[i], width=CHECKBOX_LABEL_WIDTH)
             chk.pack(side="left", padx=PADDING_M)
 
-            # Info: Zeile & Spaltenname
-            info_txt = f"Z. {item['row_idx'] + 1} | {item['col_name']}"
+            info_txt = f"Z. {int(item['row_idx']) + 1} | {item['col_name']}"
             ctk.CTkLabel(row, text=info_txt, width=BUTTON_WIDTH, anchor="w", font=ctk.CTkFont(LABEL_FONT)).pack(side="left", padx=PADDING_XS)
 
-            # Original
             ctk.CTkLabel(row, text=str(item['original']), width=LARGE_HEADER_WIDTH, anchor="w", text_color=COL_GRAY_70).pack(side="left", padx=PADDING_XS)
-
-            # Pfad-Pfeil
             ctk.CTkLabel(row, text="➔", width=PADDING_XL).pack(side="left")
-
-            # Bereinigter Wert
             ctk.CTkLabel(row, text=str(item['cleaned']), width=LARGE_HEADER_WIDTH, anchor="w", text_color=COL_LIGHT_GREEN, font=ctk.CTkFont(weight="bold")).pack(side="left", padx=PADDING_XS)
 
-        # Untere Buttons (Abbrechen / Uebernehmen)
         bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
         bottom_frame.pack(fill="x", padx=PADDING_XL, pady=PADDING_L)
 
@@ -575,13 +506,11 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             command=self._on_confirm
         ).pack(side="right")
 
-    def _set_all(self, value: bool):
-        """Setzt alle Checkboxen auf True oder False."""
+    def _set_all(self, value: bool) -> None:
         for var in self.decisions.values():
             var.set(value)
 
-    def _on_confirm(self):
-        # Sammle alle akzeptierten Items
+    def _on_confirm(self) -> None:
         self.result = [
             self.preview_items[i] 
             for i, var in self.decisions.items() 
@@ -589,6 +518,6 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         ]
         self.destroy()
 
-    def _on_cancel(self):
-        self.result = None  # Signalisiert Abbruch des gesamten Prozesses
+    def _on_cancel(self) -> None:
+        self.result = None
         self.destroy()

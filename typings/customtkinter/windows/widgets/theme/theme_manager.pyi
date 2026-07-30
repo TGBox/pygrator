@@ -1,0 +1,6 @@
+class ThemeManager:
+    theme: dict
+    @classmethod
+    def load_theme(cls, theme_name_or_path: str): ...
+    @classmethod
+    def save_theme(cls) -> None: ...
