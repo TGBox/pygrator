@@ -63,7 +63,7 @@ class CSVMappingApp(ctk.CTk):
         self.lbl_file = ctk.CTkLabel(top_frame, text="Keine Datei ausgewählt", text_color="gray")
         self.lbl_file.pack(side="left", padx=PADDING_M)
 
-        ctk.CTkLabel(top_frame, text="Zielschema:").pack(side="left", padx=(20, 5))
+        ctk.CTkLabel(top_frame, text="Zielschema:").pack(side="left", padx=(PADDING_XL, PADDING_XS))
         self.combo_schema = ctk.CTkOptionMenu(top_frame, values=list(SCHEMAS.keys()), command=self.on_schema_change)
         self.combo_schema.pack(side="left", padx=PADDING_XS)
 

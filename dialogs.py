@@ -37,14 +37,14 @@ class RowValidationDialog(ctk.CTkToplevel):
             top_frame, 
             text=f"Es wurden {len(conflicts)} überlange Einzelwerte gefunden.", 
             font=LARGER_LABEL_FONT_BOLD
-        ).pack(anchor="w", padx=PADDING_M, pady=(5, 2))
+        ).pack(anchor="w", padx=PADDING_M, pady=(PADDING_XS, 2))
 
         ctk.CTkLabel(
             top_frame, 
             text="Du kannst für jeden einzelnen Wert entscheiden oder oben Schnellaktionen für alle Werte anwenden:", 
             font=LABEL_FONT,
             text_color=COL_GRAY_70
-        ).pack(anchor="w", padx=PADDING_M, pady=(0, 5))
+        ).pack(anchor="w", padx=PADDING_M, pady=(0, PADDING_XS))
 
         global_bar = ctk.CTkFrame(self, fg_color=COL_GRAY_20)
         global_bar.pack(fill="x", padx=PADDING_L, pady=PADDING_XS)
@@ -84,13 +84,13 @@ class RowValidationDialog(ctk.CTkToplevel):
 
             info_txt = f"Zeile {row_idx + 1} | Spalte: '{col_name}' | Max: VARCHAR({limit}) | Aktuell: {orig_len} Zeichen"
             lbl_info = ctk.CTkLabel(card, text=info_txt, font=LABEL_FONT_BOLD, text_color=COL_LIGHT_RED)
-            lbl_info.pack(anchor="w", padx=PADDING_M, pady=(5, 2))
+            lbl_info.pack(anchor="w", padx=PADDING_M, pady=(PADDING_XS, 2))
 
             lbl_val = ctk.CTkLabel(card, text=f'Originaler Wert: "{orig_val}"', font=SMALL_LABEL_FONT, text_color=COL_GRAY_70)
-            lbl_val.pack(anchor="w", padx=PADDING_M, pady=(0, 5))
+            lbl_val.pack(anchor="w", padx=PADDING_M, pady=(0, PADDING_XS))
 
             action_frame = ctk.CTkFrame(card, fg_color="transparent")
-            action_frame.pack(fill="x", padx=PADDING_M, pady=(0, 8))
+            action_frame.pack(fill="x", padx=PADDING_M, pady=(0, PADDING_S))
 
             var_action = ctk.StringVar(value="truncate")
 
@@ -100,7 +100,7 @@ class RowValidationDialog(ctk.CTkToplevel):
                 variable=var_action, 
                 value="truncate"
             )
-            r_trunc.pack(side="left", padx=(0, 15))
+            r_trunc.pack(side="left", padx=(0, PADDING_L))
 
             r_custom = ctk.CTkRadioButton(
                 action_frame, 
@@ -108,11 +108,11 @@ class RowValidationDialog(ctk.CTkToplevel):
                 variable=var_action, 
                 value="custom"
             )
-            r_custom.pack(side="left", padx=(0, 5))
+            r_custom.pack(side="left", padx=(0, PADDING_XS))
 
             entry_custom = ctk.CTkEntry(action_frame, width=REPLACEMENT_INPUT_WIDTH, placeholder_text="Ersatzwert eingeben...")
             entry_custom.insert(0, orig_val[:limit])
-            entry_custom.pack(side="left", padx=(0, 15))
+            entry_custom.pack(side="left", padx=(0, PADDING_L))
 
             r_ignore = ctk.CTkRadioButton(
                 action_frame, 
@@ -209,14 +209,14 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
             text="Unbenutzte Quellspalten als Zusatzfelder registrieren", 
             font=LARGER_LABEL_FONT_BOLD
         )
-        header_lbl.pack(padx=PADDING_L, pady=(15, 5), anchor="w")
+        header_lbl.pack(padx=PADDING_L, pady=(PADDING_L, PADDING_XS), anchor="w")
 
         sub_lbl = ctk.CTkLabel(
             self, 
             text="Wähle Spalten aus, die in die Zusatzdaten-Tabellen übernommen werden sollen:", 
             font=LABEL_FONT
         )
-        sub_lbl.pack(padx=PADDING_L, pady=(0, 10), anchor="w")
+        sub_lbl.pack(padx=PADDING_L, pady=(0, PADDING_M), anchor="w")
 
         # Scrollbare Liste für alle ungemappten Spalten
         self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Nicht zugeordnete Quellspalten")
@@ -353,14 +353,14 @@ class ValidationFixDialog(ctk.CTkToplevel):
             font=LARGER_LABEL_FONT_BOLD,
             text_color=COL_LIGHT_RED
         )
-        header_lbl.pack(padx=PADDING_L, pady=(15, 5), anchor="w")
+        header_lbl.pack(padx=PADDING_L, pady=(PADDING_L, PADDING_XS), anchor="w")
 
         sub_lbl = ctk.CTkLabel(
             self, 
             text="Wähle eine globale Aktion oder korrigiere die Einträge einzeln:", 
             font=LABEL_FONT
         )
-        sub_lbl.pack(padx=PADDING_L, pady=(0, 10), anchor="w")
+        sub_lbl.pack(padx=PADDING_L, pady=(0, PADDING_M), anchor="w")
 
         # --- Frame für Globale Aktionen (Batch) ---
         batch_frame = ctk.CTkFrame(self)
@@ -512,7 +512,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             width=BUTTON_WIDTH, 
             fg_color=COL_GRAY_30,
             command=lambda: self._set_all(True)
-        ).pack(side="left", padx=(0, 10))
+        ).pack(side="left", padx=(0, PADDING_M))
         
         ctk.CTkButton(
             global_btn_frame, 
@@ -528,7 +528,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
 
         # Spalten-Header für die Liste
         list_header = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
-        list_header.pack(fill="x", pady=(0, 5))
+        list_header.pack(fill="x", pady=(0, PADDING_XS))
         ctk.CTkLabel(list_header, text="Anwenden", width=SMALL_HEADER_WIDTH, font=ctk.CTkFont(weight="bold")).pack(side="left")
         ctk.CTkLabel(list_header, text="Zeile / Feld", width=BUTTON_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
         ctk.CTkLabel(list_header, text="Originalwert", width=LARGE_HEADER_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
@@ -565,7 +565,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             text="Abbrechen", 
             fg_color=COL_GRAY_40, 
             command=self._on_cancel
-        ).pack(side="right", padx=(10, 0))
+        ).pack(side="right", padx=(PADDING_M, 0))
         
         ctk.CTkButton(
             bottom_frame, 
