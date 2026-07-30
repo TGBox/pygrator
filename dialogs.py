@@ -43,20 +43,20 @@ class RowValidationDialog(ctk.CTkToplevel):
             top_frame, 
             text="Du kannst für jeden einzelnen Wert entscheiden oder oben Schnellaktionen für alle Werte anwenden:", 
             font=LABEL_FONT,
-            text_color="gray70"
+            text_color=COL_GRAY_70
         ).pack(anchor="w", padx=10, pady=(0, 5))
 
-        global_bar = ctk.CTkFrame(self, fg_color="gray20")
+        global_bar = ctk.CTkFrame(self, fg_color=COL_GRAY_20)
         global_bar.pack(fill="x", padx=15, pady=5)
 
-        ctk.CTkLabel(global_bar, text="Massenaktion auf alle:", font=("Arial", 11, "bold")).pack(side="left", padx=10, pady=8)
+        ctk.CTkLabel(global_bar, text="Massenaktion auf alle:", font=LABEL_FONT_BOLD).pack(side="left", padx=10, pady=8)
         
         ctk.CTkButton(
             global_bar, 
             text="Alle automatisch kürzen", 
             width=BATCH_PROCESS_BUTTON_WIDTH, 
-            fg_color="gray35", 
-            hover_color="gray45",
+            fg_color=COL_GRAY_35, 
+            hover_color=COL_GRAY_45,
             command=self.bulk_truncate
         ).pack(side="left", padx=5, pady=8)
 
@@ -64,8 +64,8 @@ class RowValidationDialog(ctk.CTkToplevel):
             global_bar, 
             text="Alle unverändert lassen", 
             width=BATCH_PROCESS_BUTTON_WIDTH, 
-            fg_color="gray35", 
-            hover_color="gray45",
+            fg_color=COL_GRAY_35, 
+            hover_color=COL_GRAY_45,
             command=self.bulk_ignore
         ).pack(side="left", padx=5, pady=8)
 
@@ -86,7 +86,7 @@ class RowValidationDialog(ctk.CTkToplevel):
             lbl_info = ctk.CTkLabel(card, text=info_txt, font=LABEL_FONT_BOLD, text_color=COL_LIGHT_RED)
             lbl_info.pack(anchor="w", padx=10, pady=(5, 2))
 
-            lbl_val = ctk.CTkLabel(card, text=f'Originaler Wert: "{orig_val}"', font=SMALL_LABEL_FONT, text_color="gray70")
+            lbl_val = ctk.CTkLabel(card, text=f'Originaler Wert: "{orig_val}"', font=SMALL_LABEL_FONT, text_color=COL_GRAY_70)
             lbl_val.pack(anchor="w", padx=10, pady=(0, 5))
 
             action_frame = ctk.CTkFrame(card, fg_color="transparent")
@@ -137,8 +137,8 @@ class RowValidationDialog(ctk.CTkToplevel):
         btn_apply = ctk.CTkButton(
             bottom_bar, 
             text="Entscheidungen anwenden & Exportieren", 
-            fg_color="green", 
-            hover_color="darkgreen",
+            fg_color=COL_GREEN, 
+            hover_color=COL_DARK_GREEN,
             font=BUTTON_FONT,
             command=self.on_apply
         )
@@ -147,8 +147,8 @@ class RowValidationDialog(ctk.CTkToplevel):
         btn_cancel = ctk.CTkButton(
             bottom_bar, 
             text="Abbrechen", 
-            fg_color="gray30", 
-            hover_color="gray40",
+            fg_color=COL_GRAY_30, 
+            hover_color=COL_GRAY_40,
             command=self.destroy
         )
         btn_cancel.pack(side="right", padx=5, pady=10)
@@ -225,10 +225,10 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         # Spaltenköpfe in der Liste
         headers_frame = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
         headers_frame.pack(fill="x", padx=5, pady=2)
-        ctk.CTkLabel(headers_frame, text="Übernehmen?", font=("Arial", 10, "bold"), width=90).pack(side="left", padx=5)
-        ctk.CTkLabel(headers_frame, text="Quellspalte (CSV)", font=("Arial", 10, "bold"), width=REPLACEMENT_INPUT_WIDTH, anchor="w").pack(side="left", padx=5)
-        ctk.CTkLabel(headers_frame, text="Zusatzfeld-Name (DB)", font=("Arial", 10, "bold"), width=200, anchor="w").pack(side="left", padx=5)
-        ctk.CTkLabel(headers_frame, text="Datentyp", font=("Arial", 10, "bold"), width=BUTTON_WIDTH, anchor="w").pack(side="left", padx=5)
+        ctk.CTkLabel(headers_frame, text="Übernehmen?", font=SMALL_LABEL_FONT_BOLD, width=HEADER_LABEL_WIDTH).pack(side="left", padx=5)
+        ctk.CTkLabel(headers_frame, text="Quellspalte (CSV)", font=SMALL_LABEL_FONT_BOLD, width=REPLACEMENT_INPUT_WIDTH, anchor="w").pack(side="left", padx=5)
+        ctk.CTkLabel(headers_frame, text="Zusatzfeld-Name (DB)", font=SMALL_LABEL_FONT_BOLD, width=VALUE_FIELD_WIDTH, anchor="w").pack(side="left", padx=5)
+        ctk.CTkLabel(headers_frame, text="Datentyp", font=SMALL_LABEL_FONT_BOLD, width=BUTTON_WIDTH, anchor="w").pack(side="left", padx=5)
 
         self.row_widgets = []
         for idx, col_name in enumerate(self.unmapped_columns):
@@ -239,7 +239,7 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         footer_frame.pack(fill="x", padx=15, pady=15)
 
         btn_cancel = ctk.CTkButton(
-            footer_frame, text="Überspringen", fg_color="gray40", 
+            footer_frame, text="Überspringen", fg_color=COL_GRAY_40, 
             command=self.destroy
         )
         btn_cancel.pack(side="left")
@@ -257,7 +257,7 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
 
         # 1. Checkbox (Soll übernommen werden?)
         var_include = ctk.BooleanVar(value=False)
-        chk = ctk.CTkCheckBox(row_frame, text="", variable=var_include, width=30)
+        chk = ctk.CTkCheckBox(row_frame, text="", variable=var_include, width=CHECKBOX_WIDTH)
         chk.pack(side="left", padx=10)
 
         # 2. Quellspalten-Name
@@ -366,10 +366,10 @@ class ValidationFixDialog(ctk.CTkToplevel):
         batch_frame = ctk.CTkFrame(self)
         batch_frame.pack(fill="x", padx=15, pady=5)
 
-        ctk.CTkLabel(batch_frame, text="Alle Eintrags-Aktionen:", font=("Arial", 11, "bold")).pack(side="left", padx=10, pady=10)
+        ctk.CTkLabel(batch_frame, text="Alle Eintrags-Aktionen:", font=LABEL_FONT_BOLD).pack(side="left", padx=10, pady=10)
         
         btn_batch_keep = ctk.CTkButton(
-            batch_frame, text="Alle beibehalten (Ignorieren)", fg_color="gray40", 
+            batch_frame, text="Alle beibehalten (Ignorieren)", fg_color=COL_GRAY_40, 
             command=lambda: self._apply_batch_action("keep")
         )
         btn_batch_keep.pack(side="left", padx=5, pady=10)
@@ -510,7 +510,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             global_btn_frame, 
             text="✅ Alle auswählen", 
             width=BUTTON_WIDTH, 
-            fg_color="gray30",
+            fg_color=COL_GRAY_30,
             command=lambda: self._set_all(True)
         ).pack(side="left", padx=(0, 10))
         
@@ -518,7 +518,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             global_btn_frame, 
             text="❌ Alle abwählen", 
             width=BUTTON_WIDTH, 
-            fg_color="gray30",
+            fg_color=COL_GRAY_30,
             command=lambda: self._set_all(False)
         ).pack(side="left")
 
@@ -548,7 +548,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             ctk.CTkLabel(row, text=info_txt, width=BUTTON_WIDTH, anchor="w", font=ctk.CTkFont(LABEL_FONT)).pack(side="left", padx=5)
 
             # Original
-            ctk.CTkLabel(row, text=str(item['original']), width=LARGE_HEADER_WIDTH, anchor="w", text_color="gray70").pack(side="left", padx=5)
+            ctk.CTkLabel(row, text=str(item['original']), width=LARGE_HEADER_WIDTH, anchor="w", text_color=COL_GRAY_70).pack(side="left", padx=5)
 
             # Pfad-Pfeil
             ctk.CTkLabel(row, text="➔", width=20).pack(side="left")
@@ -563,7 +563,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         ctk.CTkButton(
             bottom_frame, 
             text="Abbrechen", 
-            fg_color="gray40", 
+            fg_color=COL_GRAY_40, 
             command=self._on_cancel
         ).pack(side="right", padx=(10, 0))
         

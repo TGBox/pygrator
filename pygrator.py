@@ -13,8 +13,8 @@ from constants import *
 
 
 # Farbschema & Theme für modernere Optik
-ctk.set_appearance_mode("System")
-ctk.set_default_color_theme("blue")
+ctk.set_appearance_mode(APP_APPEARANCE_MODE)
+ctk.set_default_color_theme(APP_COLOR_THEME)
 
 # DONE: TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
 # DONE TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
@@ -119,8 +119,8 @@ class CSVMappingApp(ctk.CTk):
         ctk.CTkButton(
             bottom_frame, 
             text="Prüfen & Exportieren", 
-            fg_color="green", 
-            hover_color="darkgreen",
+            fg_color=COL_GREEN, 
+            hover_color=COL_DARK_GREEN,
             font=BUTTON_FONT,
             command=self.start_processing
         ).pack(side="right", padx=10, pady=10)
@@ -178,7 +178,7 @@ class CSVMappingApp(ctk.CTk):
             self.source_file_path = file_path
             self.lbl_file.configure(
                 text=f"{os.path.basename(file_path)} (Trennzeichen: '{detected_sep}', Encoding: {used_encoding})", 
-                text_color="white"
+                text_color=COL_WHITE
             )
             self.render_mapping_rows()
         else:
@@ -207,7 +207,7 @@ class CSVMappingApp(ctk.CTk):
 
         for idx, (target_col, dtype) in enumerate(target_schema.items(), start=1):
             label_text = f"{target_col} ({dtype})"
-            ctk.CTkLabel(self.scroll_frame, text=label_text, font=("Roboto", 11)).grid(row=idx, column=0, padx=10, pady=5, sticky="w")
+            ctk.CTkLabel(self.scroll_frame, text=label_text, font=SMALL_LABEL_FONT).grid(row=idx, column=0, padx=10, pady=5, sticky="w")
 
             combo = ctk.CTkOptionMenu(self.scroll_frame, values=source_cols)
             combo.grid(row=idx, column=1, padx=10, pady=5, sticky="w")
@@ -326,7 +326,7 @@ class CSVMappingApp(ctk.CTk):
                 self.scroll_frame, 
                 text="Regel hinzufügen...", 
                 width=RULE_BUTTON_WIDTH,
-                fg_color="gray30",
+                fg_color=COL_GRAY_30,
                 command=lambda t=target_col: self.open_transformation_dialog(t)
             )
             btn_trans.grid(row=idx, column=2, padx=10, pady=5, sticky="w")
@@ -380,8 +380,8 @@ class CSVMappingApp(ctk.CTk):
             # Standardzustand ohne Regel
             btn.configure(
                 text="Regel hinzufügen...",
-                fg_color="gray30",
-                hover_color="gray40"
+                fg_color=COL_GRAY_30,
+                hover_color=COL_GRAY_40
             )
 
     def open_transformation_dialog(self, target_col):
@@ -437,13 +437,13 @@ class CSVMappingApp(ctk.CTk):
 
         date_frame = ctk.CTkFrame(dialog, fg_color="transparent")
         date_frame.pack(anchor="w", padx=45, pady=2)
-        ctk.CTkLabel(date_frame, text="Standardwert bei leeren Feldern (optional):", font=("Arial", 10), text_color="gray70").pack(side="left", padx=5)
+        ctk.CTkLabel(date_frame, text="Standardwert bei leeren Feldern (optional):", font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=5)
         entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
         entry_date_default.pack(side="left")
         if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
             entry_date_default.insert(0, str(existing_rule.get('param')))
         
-        separator = ctk.CTkFrame(dialog, height=2, fg_color="gray30")
+        separator = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
         separator.pack(fill="x", padx=20, pady=10)
 
         r_default = ctk.CTkRadioButton(dialog, text="✨ Standardwert nur für LEERE Felder setzen", variable=rule_type, value="default_value")
@@ -469,7 +469,7 @@ class CSVMappingApp(ctk.CTk):
             entry_static_val.insert(0, str(existing_rule.get('param', '')))
 
         
-        separator2 = ctk.CTkFrame(dialog, height=2, fg_color="gray30")
+        separator2 = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
         separator2.pack(fill="x", padx=20, pady=10)
         
         # Radiobutton & UI für IK-Lookup hinzufügen
@@ -576,7 +576,7 @@ class CSVMappingApp(ctk.CTk):
         r1 = ctk.CTkRadioButton(dialog, text="👫 Geschlecht mappen (M->Herr, W->Frau)", variable=rule_type, value="gender")
         r1.pack(anchor="w", padx=20, pady=5)
         
-        separator3 = ctk.CTkFrame(dialog, height=2, fg_color="gray30")
+        separator3 = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
         separator3.pack(fill="x", padx=20, pady=10)
 
         r2 = ctk.CTkRadioButton(dialog, text="🏠 Straße/(Hausnr.) trennen -> Nur Straßenname", variable=rule_type, value="split_street")
