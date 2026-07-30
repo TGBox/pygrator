@@ -72,26 +72,25 @@ def sanitize_data_string(val: str, remove_special_chars: bool = False) -> str:
     if remove_special_chars:
         # Erlaubt: \w (Buchstaben/Zahlen/Akzente), Leerzeichen, '&', Apostrophe, 
         # Klammern, Slashes, Bindestriche, Plus, Punkte, @
-        val = re.sub(r'[^\w\s&\'`’\(\)/@\._\+-]', '', val, flags=re.UNICODE)
+        val = re.sub(r'[^\w\s&\'`´’\(\)/@\._\+-]', '', val, flags=re.UNICODE)
         
     return val
 
 def validate_ik_number(ik: str) -> bool:
-    """Validiert Form und Prüfziffer (Stelle 9) einer 9-stelligen IK-Nummer."""
-    ik = str(ik).strip()
+    """Validiert Form und Prüfziffer (Stelle 9) einer 9-stelligen IK-Nummer (§ 293 SGB V)."""
+    ik = str(ik).strip().split('.')[0].zfill(9)
     if not ik.isdigit() or len(ik) != 9:
         return False
 
-    # Auswertung Ziffer 3 bis 8 (Index 2 bis 7)
-    weights = [1, 2, 1, 2, 1, 2]
+    # Ziffern 3 bis 8 mit Gewichtung 2, 1, 2, 1, 2, 1
+    weights = [2, 1, 2, 1, 2, 1]
     total_sum = 0
 
     for digit_char, weight in zip(ik[2:8], weights):
         prod = int(digit_char) * weight
-        # Quersumme bilden (z. B. 12 -> 1+2 = 3 / analog prod - 9)
         total_sum += prod if prod < 10 else (prod - 9)
 
-    calc_check_digit = (10 - (total_sum % 10)) % 10
+    calc_check_digit = total_sum % 10
     actual_check_digit = int(ik[8])
 
     return calc_check_digit == actual_check_digit
@@ -264,30 +263,44 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
     if len(vnr) == 10:
         # Case 1: Form wie JO12345678 => J012345678
         if vnr[0].isalpha() and vnr[1] == "O":
-            return True, f"{vnr[0]}0{vnr[2:]}"
+            tmp_fix = f"{vnr[0]}0{vnr[2:]}"
+            if validate_insurance_number(tmp_fix):
+                return True, tmp_fix
             
         # Case 2: Form wie 0123456789 => O123456789
         elif vnr.isnumeric() and vnr.startswith("0"):
-            return True, f"O{vnr[1:]}"
+            tmp_fix = f"O{vnr[1:]}"
+            if validate_insurance_number(tmp_fix):
+                return True, tmp_fix
         
         # Case 3: Form wie 1200006986 => I200006986
         elif vnr.isnumeric() and vnr.startswith("1"):
-            return True, f"I{vnr[1:]}"
+            tmp_fix = f"I{vnr[1:]}"
+            if validate_insurance_number(tmp_fix):
+                return True, tmp_fix
         
         # Case 4: Form wie )823672510 => O823672510
         elif vnr[1:].isnumeric() and vnr.startswith(")"):
-            return True, f"O{vnr[1:]}"
+            tmp_fix = f"O{vnr[1:]}"
+            if validate_insurance_number(tmp_fix):
+                return True, tmp_fix
         
         # Case 5: Form wie (823672510 => I823672510
         elif vnr[1:].isnumeric() and vnr.startswith("("):
-            return True, f"I{vnr[1:]}"
+            tmp_fix = f"I{vnr[1:]}"
+            if validate_insurance_number(tmp_fix):
+                return True, tmp_fix
         
         # Case 6: Form wie =823672510 => P823672510
         elif vnr[1:].isnumeric() and vnr.startswith("="):
-            return True, f"P{vnr[1:]}"
+            tmp_fix = f"P{vnr[1:]}"
+            if validate_insurance_number(tmp_fix):
+                return True, tmp_fix
         
         # Case 7: Form wie /823672510 => U823672510
         elif vnr[1:].isnumeric() and vnr.startswith("/"):
-            return True, f"U{vnr[1:]}"
+            tmp_fix = f"U{vnr[1:]}"
+            if validate_insurance_number(tmp_fix):
+                return True, tmp_fix
             
     return False, vnr

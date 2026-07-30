@@ -20,14 +20,14 @@ from tkinter import filedialog, messagebox
 # DONE TODO: Add email structure validation.
 # DONE TODO: Split this file into multiple parts.
 # DONE TODO: Move all magic numbers, color values and other hard coded values to a dedicated file to have a single source of truth where changes can be applied more easily.
+# DONE TODO: FEATURE: Add a check sum digit calculation for the IK as well.
+# DONE TODO: FEATURE: The corrections for the insurance number must only get applied, when we can be sure, that our correction is useful. So we need to add an additional check to calculate the check sum digit at the end, after we applied our correction. And only if the result is viable, we want to change this value!
 # TODO: FEATURE: When a dataset export from another program already has a unique identifier for the individual elements, we want to transfer these values instead of just copying the rolf ID that was generated. (Also we may want to update the program in general, so that the p_nr will be a continuos counter that is easier for humans to reference.)
-# TODO: FEATURE: The corrections for the insurance number must only get applied, when we can be sure, that our correction is useful. So we need to add an additional check to calculate the check sum digit at the end, after we applied our correction. And only if the result is viable, we want to change this value!
-# TODO: FEATURE: Add a check sum digit calculation for the IK as well.
+# TODO: FEATURE: For doctors, we can just use the LANR (Lebenslange Arztnummer) to habe unique identifiers. For other input sources, we need to check what their IDs are called.
 # TODO: FEATURE: Currently we only account for an empty database on our side. But the program should also be applicable when the database already has values and we get an updated table to update the individual data entries with the new information. Should only update certain fields where a change can be expected. (Maybe add a way to let the user decide, which fields need to adapt to the new source of truth and which will stay the same.)
 # TODO: Rename the constants to better reflect their usage throughout the application. Also the names should apply to the elements which are being represented by them and not with the description of the current value. (So we currently have "COL_GREEN", but this could get renamed to "COL_BTN_FG" for example. So that a future change in the appearance of the app wouldn't result in a faulty descriptor for this constant!)
 # TODO: Add validation for the values of the fields.
 # TODO: Add more comments to this file.
-# TODO: Add corrects type annotations to all files.
 
 from db_util import (
     format_date_iso, 
