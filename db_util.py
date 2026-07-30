@@ -1,8 +1,9 @@
-# type: ignore
+from collections.abc import Hashable
 import re
 import time
 import random
 import string
+from typing import Any, Dict, List
 import pandas as pd
 
 import email_validator as eval
@@ -36,7 +37,7 @@ def parse_varchar_limit(datatype_str: str) -> int | None:
         return int(match.group(1))
     return None
 
-def format_date_iso(val) -> str:
+def format_date_iso(val: str) -> str:
     """Wandelt Datumsangaben (z.B. '15.08.1985', '1985/08/15', '15.8.85') sauber in 'YYYY-MM-DD' um."""
     if pd.isna(val):
         return ""
@@ -90,7 +91,7 @@ def validate_insurance_number(vnr: str) -> bool:
 def validate_email(email: str) -> bool:
     try:
         # Normalisiert die E-Mail (z.B. Kleinbuchstaben für Domains) und prüft Syntax
-        valid = eval.validate_email(email, check_deliverability=False)
+        _valid = eval.validate_email(email, check_deliverability=False)
         
         # Returns True if condition is True: normalized_email = valid.normalized
         return True
@@ -133,21 +134,27 @@ def apply_rule_transform(val_str: str, rule_type: str, target_col: str) -> str:
 
 def extract_flagged_records(
     df: pd.DataFrame, 
-    mappings: List[Dict[str, Any]]
+    mappings: List[Dict[str, str]]
 ) -> pd.DataFrame:
     """
     Identifiziert exakt die Datensätze mit echten Validierungs- oder Überlängenfehlern.
     """
-    flagged_rows = []
+    # 1. Any erlauben, da row.to_dict() und Zeilennummern verschiedene Typen enthalten
+    flagged_rows: list[dict[Hashable, Any]] = []
 
-    for idx, row in df.iterrows():
-        row_flags = []
+    for idx, (_, row) in enumerate(df.iterrows()):
+        row_flags: list[str] = []
 
         for m in mappings:
             source_col = m['source_col']
             target_col = m['target_col']
             limit = m['limit']
-            rule_type = m.get('rule_type')
+            tmp_rule_type = m.get('rule_type')
+            if type(tmp_rule_type) == str: 
+                rule_type = str(m.get('rule_type'))
+            else:
+                rule_type = "" #TODO: Check if this causes problems!
+                
 
             if source_col not in df.columns:
                 continue
@@ -176,7 +183,7 @@ def extract_flagged_records(
 
             # --- 2. Überlänge auf dem EXTRAHIERTEN Wert prüfen ---
             if limit:
-                if len(transformed_val) > limit:
+                if len(transformed_val) > int(limit):
                     row_flags.append(
                         f"Überlänge in '{target_col}' (aus '{source_col}'): "
                         f"'{transformed_val}' hat {len(transformed_val)} Zeichen (max. {limit})"
@@ -206,6 +213,7 @@ def extract_flagged_records(
         # Nur hinzufügen, wenn Abweichungen im transformierten Wert gefunden wurden
         if row_flags:
             row_dict = row.to_dict()
+            # 2. idx explizit zu int konvertieren
             row_dict['__quell_zeile'] = idx + 2
             row_dict['__gefundene_fehler'] = " | ".join(row_flags)
             flagged_rows.append(row_dict)
