@@ -122,22 +122,26 @@ class CSVMappingApp(ctk.CTk):
         # NEUER BUTTON: Manuelle Kontrolle vorab
         ctk.CTkButton(
             btn_frame, 
-            text="⚠️ Nur Abweichungen prüfen", 
-            fg_color=COL_GRAY_35, 
-            hover_color=COL_GRAY_45,
+            text="⚠️ Nur Abweichungen prüfen",
+            text_color=COL_WHITE,
+            fg_color=COL_ORANGE,
+            hover_color=COL_DARK_ORANGE,
             font=BUTTON_FONT,
+            width=PROCESS_BUTTON_WIDTH,
             command=self.run_pre_check_export
-        ).pack(side="left", padx=(0, PADDING_S))
+        ).pack(anchor="w", padx=(0, PADDING_S), pady=(0, PADDING_S), side="top")
 
         # Bestehender Export-Button
         ctk.CTkButton(
             btn_frame, 
             text="Prüfen & Exportieren", 
+            text_color=COL_WHITE,
             fg_color=COL_GREEN, 
             hover_color=COL_DARK_GREEN,
             font=BUTTON_FONT,
+            width=PROCESS_BUTTON_WIDTH,
             command=self.start_processing
-        ).pack(side="left")
+        ).pack(anchor="w", padx=(0, PADDING_S), pady=(0, PADDING_S), side="top")
 
     def on_format_change(self, choice):
         """Aktiviert/Deaktiviert das Encoding-Dropdown je nach Format."""
