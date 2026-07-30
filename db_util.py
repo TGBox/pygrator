@@ -77,16 +77,47 @@ def sanitize_data_string(val: str, remove_special_chars: bool = False) -> str:
     return val
 
 def validate_ik_number(ik: str) -> bool:
-    """Prüft, ob die IK-Nummer genau aus 9 Ziffern besteht."""
-    if not ik:
-        return True
-    return bool(re.match(r'^\d{9}$', ik.strip()))
+    """Validiert Form und Prüfziffer (Stelle 9) einer 9-stelligen IK-Nummer."""
+    ik = str(ik).strip()
+    if not ik.isdigit() or len(ik) != 9:
+        return False
 
-def validate_insurance_number(vnr: str) -> bool:
-    """Prüft, ob die Versichertennummer dem Format A123456789 (1 Buchstabe + 9 Ziffern) entspricht."""
-    if not vnr:
-        return True
-    return bool(re.match(r'^[A-Z-a-z]\d{9}$', vnr.strip()))
+    # Auswertung Ziffer 3 bis 8 (Index 2 bis 7)
+    weights = [1, 2, 1, 2, 1, 2]
+    total_sum = 0
+
+    for digit_char, weight in zip(ik[2:8], weights):
+        prod = int(digit_char) * weight
+        # Quersumme bilden (z. B. 12 -> 1+2 = 3 / analog prod - 9)
+        total_sum += prod if prod < 10 else (prod - 9)
+
+    calc_check_digit = (10 - (total_sum % 10)) % 10
+    actual_check_digit = int(ik[8])
+
+    return calc_check_digit == actual_check_digit
+
+def validate_insurance_number(kvnr: str) -> bool:
+    """Validiert Form und Prüfziffer (Stelle 10) der ungebundenen KVNR (1 Buchstaben + 9 Ziffern)."""
+    kvnr = str(kvnr).strip().upper()
+    if len(kvnr) != 10 or not kvnr[0].isalpha() or not kvnr[1:].isdigit():
+        return False
+
+    # Buchstabe in 2-stellige Zahl umwandeln (A=01, B=02, ..., Z=26)
+    letter_code = str(ord(kvnr[0]) - ord('A') + 1).zfill(2)
+    
+    # 10 Prüfziffern bilden (2 Ziffern Buchstabe + 8 Folgeziffern)
+    digits_to_check = letter_code + kvnr[1:9]
+    weights = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
+
+    total_sum = 0
+    for char, weight in zip(digits_to_check, weights):
+        prod = int(char) * weight
+        total_sum += prod if prod < 10 else (prod - 9)
+
+    calc_check_digit = total_sum % 10
+    actual_check_digit = int(kvnr[9])
+
+    return calc_check_digit == actual_check_digit
 
 def validate_email(email: str) -> bool:
     try:
