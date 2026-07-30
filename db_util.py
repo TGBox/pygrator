@@ -189,8 +189,18 @@ def extract_flagged_records(
                     row_flags.append(f"Ungültige IK in '{source_col}' ({val_str})")
 
             if rule_type == "validate_kvnr" or "kvnr" in target_col.lower() or "vnr" in target_col.lower():
-                clean_kvnr_input = transformed_val.upper()
-                if not validate_insurance_number(clean_kvnr_input):
+                clean_kvnr_input = transformed_val.upper().strip()
+
+                # 1. Versuche die Nummer zu reparieren (O <-> 0 Verwechslung)
+                was_fixed, fixed_vnr = try_to_fix_insurance_number(clean_kvnr_input)
+                
+                # 2. Prüfe die (evtl. reparierte) Nummer mit deiner echten Validierung
+                if validate_insurance_number(fixed_vnr):
+                    if was_fixed:
+                        # Optional: Als Hinweis flaggen, dass der Wert automatisch korrigiert werden kann
+                        row_flags.append(f"KVNR in '{source_col}' korrigiert: ({clean_kvnr_input} -> {fixed_vnr})")
+                else:
+                    # Bleibt ungültig, selbst nach Reparaturversuch
                     row_flags.append(f"Ungültige KVNR in '{source_col}' ({val_str})")
 
         # Nur hinzufügen, wenn Abweichungen im transformierten Wert gefunden wurden
@@ -209,20 +219,16 @@ def extract_flagged_records(
     return result_df
 
 def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
-    """Methode um in besonderen Einzelfällen eine fehlerhaft notierte Versicherungsnummer wieder zu vervollständigen.
-    Prüft ob klar ersichtliche Fehler gemacht wurden indem eine 0 und ein O verwechselt wurden.
-
-    Args:
-        vnr (str): Die Versichertennummer die geprüft werden soll.
-
-    Returns:
-        tuple[bool, str]: Tupel mit einem boolean Wert, der angibt, ob eine Korrektur stattgefunden hat und dem (un-)veränderten String an zweiter Stelle.
-    """
+    """Methode um fehlerhaft notierte Versicherungsnummern zu vervollständigen."""
+    vnr = vnr.strip().upper()
+    
     if len(vnr) == 10:
-        # Case 1: Insurance number has a form like JO12345678 => J012345678
-        if vnr[:2].isalpha() and vnr[1:2] == "O":
-            return [True, f"{vnr[:1]}0{vnr[2:]}"]
-        # Case 2: Insurance number has a form like 0123456789 => O123456789
-        elif vnr.isnumeric() and vnr[:1] == "0":
-            return [True, f"O{vnr[1:]}"]
-    return [False, vnr]
+        # Case 1: Form wie JO12345678 => J012345678
+        if vnr[0].isalpha() and vnr[1] == "O":
+            return True, f"{vnr[0]}0{vnr[2:]}"
+            
+        # Case 2: Form wie 0123456789 => O123456789
+        elif vnr.isnumeric() and vnr.startswith("0"):
+            return True, f"O{vnr[1:]}"
+            
+    return False, vnr

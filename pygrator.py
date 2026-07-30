@@ -781,10 +781,22 @@ class CSVMappingApp(ctk.CTk):
             # --- Validierung Versichertennummer (KVNR) ---
             elif rule_type == "validate_kvnr":
                 if source_col and source_col in self.source_df.columns:
+                    # Spalte für out_df vorbereiten (Kopie der Quelldaten)
+                    out_df[target_col] = self.source_df[source_col].copy()
+
                     for row_idx, val in self.source_df[source_col].items():
                         if pd.notna(val) and str(val).strip():
                             cleaned_kvnr = str(val).strip().upper()
-                            if not validate_insurance_number(cleaned_kvnr):
+
+                            # 1. Reparaturversuch ausführen (O <-> 0 Verwechslung)
+                            is_fixed, fixed_kvnr = try_to_fix_insurance_number(cleaned_kvnr)
+
+                            # 2. Falls korrigiert wurde: Direkt in den Ziel-Dataframe zurückschreiben!
+                            if is_fixed:
+                                out_df.at[row_idx, target_col] = fixed_kvnr
+
+                            # 3. Nun die (ggf. korrigierte) Nummer validieren
+                            if not validate_insurance_number(fixed_kvnr):
                                 invalid_records.append({
                                     'row_idx': row_idx,
                                     'target_col': target_col,
@@ -793,7 +805,6 @@ class CSVMappingApp(ctk.CTk):
                                     'action': 'keep',
                                     'custom_val': ''
                                 })
-                    out_df[target_col] = self.source_df[source_col]
                 else:
                     out_df[target_col] = default_empty_value
                     
