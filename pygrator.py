@@ -6,7 +6,7 @@ import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number, validate_email
+from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number, validate_email, extract_flagged_records, try_to_fix_insurance_number
 from schemas import SCHEMAS
 from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
 from constants import *
@@ -14,7 +14,7 @@ from constants import *
 
 # Farbschema & Theme für modernere Optik
 ctk.set_appearance_mode(APP_APPEARANCE_MODE)
-ctk.set_default_color_theme(APP_COLOR_SCHEMA)
+ctk.set_default_color_theme(APP_COLOR_THEME)
 
 # DONE: TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
 # DONE TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
@@ -29,6 +29,11 @@ ctk.set_default_color_theme(APP_COLOR_SCHEMA)
 # DONE TODO: Add email structure validation.
 # DONE TODO: Split this file into multiple parts.
 # DONE TODO: Move all magic numbers, color values and other hard coded values to a dedicated file to have a single source of truth where changes can be applied more easily.
+# TODO: FEATURE: When a dataset export from another program already has a unique identifier for the individual elements, we want to transfer these values instead of just copying the rolf ID that was generated. (Also we may want to update the program in general, so that the p_nr will be a continuos counter that is easier for humans to reference.)
+# TODO: FEATURE: The corrections for the insurance number must only get applied, when we can be sure, that our correction is useful. So we need to add an additional check to calculate the check sum digit at the end, after we applied our correction. And only if the result is viable, we want to change this value!
+# TODO: FEATURE: Add a check sum digit calculation for the IK as well.
+# TODO: FEATURE: Currently we only account for an empty database on our side. But the program should also be applicable when the database already has values and we get an updated table to update the individual data entries with the new information. Should only update certain fields where a change can be expected. (Maybe add a way to let the user decide, which fields need to adapt to the new source of truth and which will stay the same.)
+# TODO: Rename the constants to better reflect their usage throughout the application. Also the names should apply to the elements which are being represented by them and not with the description of the current value. (So we currently have "COL_GREEN", but this could get renamed to "COL_BTN_FG" for example. So that a future change in the appearance of the app wouldn't result in a faulty descriptor for this constant!)
 # TODO: Add validation for the values of the fields.
 # TODO: Add more comments to this file.
 # TODO: Add corrects type annotations to all files.
@@ -57,32 +62,32 @@ class CSVMappingApp(ctk.CTk):
 
     def _build_ui(self):
         top_frame = ctk.CTkFrame(self)
-        top_frame.pack(fill="x", padx=PADDING_XL, pady=PADDING_L)
+        top_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_M)
 
-        ctk.CTkButton(top_frame, text="Quelldatei laden (CSV)", command=self.load_csv).pack(side="left", padx=PADDING_L, pady=PADDING_L)
+        ctk.CTkButton(top_frame, text="Quelldatei laden (CSV)", command=self.load_csv).pack(side="left", padx=PADDING_M, pady=PADDING_M)
         self.lbl_file = ctk.CTkLabel(top_frame, text="Keine Datei ausgewählt", text_color="gray")
-        self.lbl_file.pack(side="left", padx=PADDING_L)
+        self.lbl_file.pack(side="left", padx=PADDING_M)
 
-        ctk.CTkLabel(top_frame, text="Zielschema:").pack(side="left", padx=(PADDING_XXL, PADDING_S))
+        ctk.CTkLabel(top_frame, text="Zielschema:").pack(side="left", padx=(PADDING_XL, PADDING_XS))
         self.combo_schema = ctk.CTkOptionMenu(top_frame, values=list(SCHEMAS.keys()), command=self.on_schema_change)
-        self.combo_schema.pack(side="left", padx=PADDING_S)
+        self.combo_schema.pack(side="left", padx=PADDING_XS)
 
         self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Spalten-Zuordnung & Schema-Limits")
-        self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_XL, pady=PADDING_L)
+        self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_L, pady=PADDING_M)
 
         # UNTERE BEDIENLEISTE (EXPORT-OPTIONS)
         bottom_frame = ctk.CTkFrame(self)
-        bottom_frame.pack(fill="x", padx=PADDING_XL, pady=PADDING_L)
+        bottom_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_M)
 
         # Linker Bereich: Checkboxen
         chk_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
-        chk_frame.pack(side="left", padx=PADDING_L, pady=PADDING_S)
+        chk_frame.pack(side="left", padx=PADDING_M, pady=PADDING_XS)
 
         self.chk_fill_null = ctk.CTkCheckBox(
             chk_frame, 
             text="Unbelegte Felder mit 'NULL' auffüllen (statt leerem Text)"
         )
-        self.chk_fill_null.pack(anchor="w", pady=PADDING_XS)
+        self.chk_fill_null.pack(anchor="w", pady=PADDING_XXS)
         self.chk_fill_null.select()
         
         chk_clean_strings = ctk.CTkCheckBox(
@@ -90,40 +95,58 @@ class CSVMappingApp(ctk.CTk):
             text="String-Werte bereinigen (Trim & Steuerzeichen entfernen)",
             variable=self.var_clean_strings
         )
-        chk_clean_strings.pack(side="left", pady=PADDING_S)
+        chk_clean_strings.pack(side="left", pady=PADDING_XS)
 
         # Mittlerer Bereich: Format & Encoding Auswahlen
         export_opts_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
-        export_opts_frame.pack(side="left", padx=PADDING_XXL, pady=PADDING_S)
+        export_opts_frame.pack(side="left", padx=PADDING_XL, pady=PADDING_XS)
 
         # Format-Auswahl
-        ctk.CTkLabel(export_opts_frame, text="Export-Format:", font=LABEL_FONT_BOLD).grid(row=0, column=0, sticky="w", padx=PADDING_S)
+        ctk.CTkLabel(export_opts_frame, text="Export-Format:", font=LABEL_FONT_BOLD).grid(row=0, column=0, sticky="w", padx=PADDING_XS)
         self.combo_export_format = ctk.CTkOptionMenu(
             export_opts_frame, 
             values=["CSV (Semikolon ';')", "CSV (Komma ',')", "Excel (.xlsx)"],
             width=OPTIONS_MENU_WIDTH,
             command=self.on_format_change
         )
-        self.combo_export_format.grid(row=0, column=1, padx=PADDING_S, pady=2)
+        self.combo_export_format.grid(row=0, column=1, padx=PADDING_XS, pady=2)
 
         # Encoding-Auswahl
-        ctk.CTkLabel(export_opts_frame, text="Encoding:", font=LABEL_FONT_BOLD).grid(row=1, column=0, sticky="w", padx=PADDING_S)
+        ctk.CTkLabel(export_opts_frame, text="Encoding:", font=LABEL_FONT_BOLD).grid(row=1, column=0, sticky="w", padx=PADDING_XS)
         self.combo_encoding = ctk.CTkOptionMenu(
             export_opts_frame, 
             values=["utf-8-sig (Excel CSV)", "utf-8", "cp1252 (Windows)", "iso-8859-1"],
             width=OPTIONS_MENU_WIDTH
         )
-        self.combo_encoding.grid(row=1, column=1, padx=PADDING_S, pady=2)
+        self.combo_encoding.grid(row=1, column=1, padx=PADDING_XS, pady=2)
 
-        # Rechter Bereich: Button Export
+        # Rechter Bereich: Buttons für Inspektion und Export
+        btn_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        btn_frame.pack(side="right", padx=PADDING_M, pady=PADDING_M)
+
+        # NEUER BUTTON: Manuelle Kontrolle vorab
         ctk.CTkButton(
-            bottom_frame, 
+            btn_frame, 
+            text="⚠️ Nur Abweichungen prüfen",
+            text_color=COL_WHITE,
+            fg_color=COL_ORANGE,
+            hover_color=COL_DARK_ORANGE,
+            font=BUTTON_FONT,
+            width=PROCESS_BUTTON_WIDTH,
+            command=self.run_pre_check_export
+        ).pack(anchor="w", padx=(0, PADDING_S), pady=(0, PADDING_S), side="top")
+
+        # Bestehender Export-Button
+        ctk.CTkButton(
+            btn_frame, 
             text="Prüfen & Exportieren", 
-            fg_color=COL_GREEN,
+            text_color=COL_WHITE,
+            fg_color=COL_GREEN, 
             hover_color=COL_DARK_GREEN,
             font=BUTTON_FONT,
+            width=PROCESS_BUTTON_WIDTH,
             command=self.start_processing
-        ).pack(side="right", padx=PADDING_L, pady=PADDING_L)
+        ).pack(anchor="w", padx=(0, PADDING_S), pady=(0, PADDING_S), side="top")
 
     def on_format_change(self, choice):
         """Aktiviert/Deaktiviert das Encoding-Dropdown je nach Format."""
@@ -198,19 +221,19 @@ class CSVMappingApp(ctk.CTk):
         source_cols = ["-- Nicht zuordnen / Spezielle Regel --"] + list(self.source_df.columns)
         target_schema = SCHEMAS[self.combo_schema.get()]
 
-        ctk.CTkLabel(self.scroll_frame, text="Zielspalte (Datentyp)", font=BUTTON_FONT).grid(row=0, column=0, padx=PADDING_L, pady=PADDING_S, sticky="w")
-        ctk.CTkLabel(self.scroll_frame, text="Quellspalte (CSV)", font=BUTTON_FONT).grid(row=0, column=1, padx=PADDING_L, pady=PADDING_S, sticky="w")
-        ctk.CTkLabel(self.scroll_frame, text="Spezielle Transformation", font=BUTTON_FONT).grid(row=0, column=2, padx=PADDING_L, pady=PADDING_S, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text="Zielspalte (Datentyp)", font=BUTTON_FONT).grid(row=0, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text="Quellspalte (CSV)", font=BUTTON_FONT).grid(row=0, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text="Spezielle Transformation", font=BUTTON_FONT).grid(row=0, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
 
         self.mapping_dropdowns = {}
         self.trans_buttons = {}
 
         for idx, (target_col, dtype) in enumerate(target_schema.items(), start=1):
             label_text = f"{target_col} ({dtype})"
-            ctk.CTkLabel(self.scroll_frame, text=label_text, font=LABEL_FONT).grid(row=idx, column=0, padx=PADDING_L, pady=PADDING_S, sticky="w")
+            ctk.CTkLabel(self.scroll_frame, text=label_text, font=SMALL_LABEL_FONT).grid(row=idx, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
 
             combo = ctk.CTkOptionMenu(self.scroll_frame, values=source_cols)
-            combo.grid(row=idx, column=1, padx=PADDING_L, pady=PADDING_S, sticky="w")
+            combo.grid(row=idx, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
             
             target_lower = target_col.lower()
             
@@ -329,7 +352,7 @@ class CSVMappingApp(ctk.CTk):
                 fg_color=COL_GRAY_30,
                 command=lambda t=target_col: self.open_transformation_dialog(t)
             )
-            btn_trans.grid(row=idx, column=2, padx=PADDING_L, pady=PADDING_S, sticky="w")
+            btn_trans.grid(row=idx, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
             self.trans_buttons[target_col] = btn_trans
 
         # --- 4. NACHDEM ALLE BUTTONS ERZEUGT WURDEN: Farben/Texte updaten ---
@@ -393,7 +416,7 @@ class CSVMappingApp(ctk.CTk):
         center_window(dialog, TRANSFORMATION_DIALOG_WIDTH, TRANSFORMATION_DIALOG_HEIGHT)
         dialog.grab_set()
 
-        ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=BUTTON_FONT).pack(pady=PADDING_L)
+        ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=BUTTON_FONT).pack(pady=PADDING_M)
 
         existing_rule = self.transformations.get(target_col, {})
         
@@ -419,50 +442,50 @@ class CSVMappingApp(ctk.CTk):
         rule_type = ctk.StringVar(value=current_type)
 
         r0 = ctk.CTkRadioButton(dialog, text="🔑 Neue UID generieren (Kompakt)", variable=rule_type, value="generate_uid")
-        r0.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r0.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_copy = ctk.CTkRadioButton(dialog, text="🔗 Wert aus anderer Zielspalte übernehmen", variable=rule_type, value="copy_target")
-        r_copy.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_copy.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         copy_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        copy_frame.pack(anchor="w", padx=PADDING_XXXXL, pady=2)
-        ctk.CTkLabel(copy_frame, text="Kopieren aus:").pack(side="left", padx=PADDING_S)
+        copy_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ctk.CTkLabel(copy_frame, text="Kopieren aus:").pack(side="left", padx=PADDING_XS)
         combo_copy_target = ctk.CTkOptionMenu(copy_frame, values=other_target_cols if other_target_cols else ["Keine"])
         combo_copy_target.pack(side="left")
         if existing_rule.get('type') == 'copy_target' and existing_rule.get('param') in other_target_cols:
             combo_copy_target.set(existing_rule.get('param'))
 
         r_date = ctk.CTkRadioButton(dialog, text="📅 Datumsformat anpassen -> YYYY-MM-DD", variable=rule_type, value="format_date")
-        r_date.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_date.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         date_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        date_frame.pack(anchor="w", padx=PADDING_XXXXL, pady=2)
-        ctk.CTkLabel(date_frame, text="Standardwert bei leeren Feldern (optional):", font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=PADDING_S)
+        date_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ctk.CTkLabel(date_frame, text="Standardwert bei leeren Feldern (optional):", font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=PADDING_XS)
         entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
         entry_date_default.pack(side="left")
         if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
             entry_date_default.insert(0, str(existing_rule.get('param')))
         
         separator = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
-        separator.pack(fill="x", padx=PADDING_XXL, pady=PADDING_L)
+        separator.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
         r_default = ctk.CTkRadioButton(dialog, text="✨ Standardwert nur für LEERE Felder setzen", variable=rule_type, value="default_value")
-        r_default.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_default.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         default_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        default_frame.pack(anchor="w", padx=PADDING_XXXXL, pady=2)
-        ctk.CTkLabel(default_frame, text="Ersatzwert:").pack(side="left", padx=PADDING_S)
+        default_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ctk.CTkLabel(default_frame, text="Ersatzwert:").pack(side="left", padx=PADDING_XS)
         entry_default_val = ctk.CTkEntry(default_frame, width=VALUE_FIELD_WIDTH, placeholder_text="z. B. Unbekannt")
         entry_default_val.pack(side="left")
         if existing_rule.get('type') == 'default_value':
             entry_default_val.insert(0, str(existing_rule.get('param', '')))
 
         r_static = ctk.CTkRadioButton(dialog, text="📌 Statischen Festwert für ALLE Zeilen setzen", variable=rule_type, value="static_value")
-        r_static.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_static.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         static_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        static_frame.pack(anchor="w", padx=PADDING_XXXXL, pady=2)
-        ctk.CTkLabel(static_frame, text="Wert:").pack(side="left", padx=PADDING_S)
+        static_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ctk.CTkLabel(static_frame, text="Wert:").pack(side="left", padx=PADDING_XS)
         entry_static_val = ctk.CTkEntry(static_frame, width=VALUE_FIELD_WIDTH)
         entry_static_val.pack(side="left")
         if existing_rule.get('type') == 'static_value':
@@ -470,7 +493,7 @@ class CSVMappingApp(ctk.CTk):
 
         
         separator2 = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
-        separator2.pack(fill="x", padx=PADDING_XXL, pady=PADDING_L)
+        separator2.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
         
         # Radiobutton & UI für IK-Lookup hinzufügen
         r_ik_lookup = ctk.CTkRadioButton(
@@ -479,11 +502,11 @@ class CSVMappingApp(ctk.CTk):
             variable=rule_type, 
             value="lookup_ik_provider"
         )
-        r_ik_lookup.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_ik_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         ik_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        ik_frame.pack(anchor="w", padx=PADDING_XXXXL, pady=2)
-        ctk.CTkLabel(ik_frame, text="IK-Quellspalte:").pack(side="left", padx=PADDING_S)
+        ik_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ctk.CTkLabel(ik_frame, text="IK-Quellspalte:").pack(side="left", padx=PADDING_XS)
 
         source_cols_list = list(self.source_df.columns) if self.source_df is not None else []
         combo_ik_source = ctk.CTkOptionMenu(ik_frame, values=source_cols_list if source_cols_list else ["Keine"])
@@ -505,7 +528,7 @@ class CSVMappingApp(ctk.CTk):
             variable=rule_type, 
             value="validate_ik"
         )
-        r_val_ik.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_val_ik.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         r_val_kvnr = ctk.CTkRadioButton(
             dialog, 
@@ -513,7 +536,7 @@ class CSVMappingApp(ctk.CTk):
             variable=rule_type, 
             value="validate_kvnr"
         )
-        r_val_kvnr.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_val_kvnr.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_val_mail = ctk.CTkRadioButton(
             dialog, 
@@ -521,10 +544,10 @@ class CSVMappingApp(ctk.CTk):
             variable=rule_type, 
             value="validate_email"
         )
-        r_val_mail.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_val_mail.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         r_plz = ctk.CTkRadioButton(dialog, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
-        r_plz.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_plz.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_plz_lookup = ctk.CTkRadioButton(
             dialog, 
@@ -532,11 +555,11 @@ class CSVMappingApp(ctk.CTk):
             variable=rule_type, 
             value="lookup_plz_by_city"
         )
-        r_plz_lookup.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_plz_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         plz_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        plz_frame.pack(anchor="w", padx=PADDING_XXXXL, pady=2)
-        ctk.CTkLabel(plz_frame, text="Ortsname-Quellspalte:").pack(side="left", padx=PADDING_S)
+        plz_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ctk.CTkLabel(plz_frame, text="Ortsname-Quellspalte:").pack(side="left", padx=PADDING_XS)
         combo_city_source = ctk.CTkOptionMenu(plz_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_city_source.pack(side="left")
 
@@ -556,11 +579,11 @@ class CSVMappingApp(ctk.CTk):
             variable=rule_type, 
             value="lookup_city_by_plz"
         )
-        r_city_lookup.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_city_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         city_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        city_frame.pack(anchor="w", padx=PADDING_XXXXL, pady=2)
-        ctk.CTkLabel(city_frame, text="PLZ-Quellspalte:").pack(side="left", padx=PADDING_S)
+        city_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ctk.CTkLabel(city_frame, text="PLZ-Quellspalte:").pack(side="left", padx=PADDING_XS)
         combo_plz_source = ctk.CTkOptionMenu(city_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_plz_source.pack(side="left")
 
@@ -574,23 +597,23 @@ class CSVMappingApp(ctk.CTk):
                     break
 
         r1 = ctk.CTkRadioButton(dialog, text="👫 Geschlecht mappen (M->Herr, W->Frau)", variable=rule_type, value="gender")
-        r1.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r1.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         separator3 = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
-        separator3.pack(fill="x", padx=PADDING_XXL, pady=PADDING_L)
+        separator3.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
         r2 = ctk.CTkRadioButton(dialog, text="🏠 Straße/(Hausnr.) trennen -> Nur Straßenname", variable=rule_type, value="split_street")
-        r2.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r2.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         r3 = ctk.CTkRadioButton(dialog, text="🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer", variable=rule_type, value="split_number")
-        r3.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r3.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_merge = ctk.CTkRadioButton(dialog, text="🔗 Zwei Quellspalten zusammenführen (mit Leerzeichen)", variable=rule_type, value="merge_columns")
-        r_merge.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
+        r_merge.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         merge_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        merge_frame.pack(anchor="w", padx=PADDING_XXXXL, pady=2)
-        ctk.CTkLabel(merge_frame, text="Zweite Quellspalte:").pack(side="left", padx=PADDING_S)
+        merge_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ctk.CTkLabel(merge_frame, text="Zweite Quellspalte:").pack(side="left", padx=PADDING_XS)
 
         source_cols_list = list(self.source_df.columns) if self.source_df is not None else []
         combo_merge_source = ctk.CTkOptionMenu(merge_frame, values=source_cols_list if source_cols_list else ["Keine"])
@@ -634,9 +657,9 @@ class CSVMappingApp(ctk.CTk):
             dialog.destroy()
 
         btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        btn_frame.pack(pady=PADDING_XL)
-        ctk.CTkButton(btn_frame, text="Speichern", command=save_rule).pack(side="left", padx=PADDING_S, anchor="s")
-        ctk.CTkButton(btn_frame, text="Regel löschen", fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", padx=PADDING_S, anchor="s")
+        btn_frame.pack(pady=PADDING_L)
+        ctk.CTkButton(btn_frame, text="Speichern", command=save_rule).pack(side="left", padx=PADDING_XS, anchor="s")
+        ctk.CTkButton(btn_frame, text="Regel löschen", fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", padx=PADDING_XS, anchor="s")
 
     def start_processing(self):
         """Startet den Gesamtablauf: Prüft Vorschaudialog und führt danach den Export aus."""
@@ -767,10 +790,22 @@ class CSVMappingApp(ctk.CTk):
             # --- Validierung Versichertennummer (KVNR) ---
             elif rule_type == "validate_kvnr":
                 if source_col and source_col in self.source_df.columns:
+                    # Spalte für out_df vorbereiten (Kopie der Quelldaten)
+                    out_df[target_col] = self.source_df[source_col].copy()
+
                     for row_idx, val in self.source_df[source_col].items():
                         if pd.notna(val) and str(val).strip():
                             cleaned_kvnr = str(val).strip().upper()
-                            if not validate_insurance_number(cleaned_kvnr):
+
+                            # 1. Reparaturversuch ausführen (O <-> 0 Verwechslung)
+                            is_fixed, fixed_kvnr = try_to_fix_insurance_number(cleaned_kvnr)
+
+                            # 2. Falls korrigiert wurde: Direkt in den Ziel-Dataframe zurückschreiben!
+                            if is_fixed:
+                                out_df.at[row_idx, target_col] = fixed_kvnr
+
+                            # 3. Nun die (ggf. korrigierte) Nummer validieren
+                            if not validate_insurance_number(fixed_kvnr):
                                 invalid_records.append({
                                     'row_idx': row_idx,
                                     'target_col': target_col,
@@ -779,7 +814,6 @@ class CSVMappingApp(ctk.CTk):
                                     'action': 'keep',
                                     'custom_val': ''
                                 })
-                    out_df[target_col] = self.source_df[source_col]
                 else:
                     out_df[target_col] = default_empty_value
                     
@@ -1194,6 +1228,64 @@ class CSVMappingApp(ctk.CTk):
             messagebox.showinfo("Export erfolgreich", "Die Patientendaten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.")
         elif self.combo_schema.get() == "adressen":
                     messagebox.showinfo("Export erfolgreich", "Die Adressen wurden erfolgreich exportiert.")
+                    
+    def run_pre_check_export(self):
+        """Identifiziert und exportiert geflaggte Datensätze für eine manuelle Kontrolle."""
+        if self.source_df is None:
+            messagebox.showerror("Fehler", "Keine Datei geladen!")
+            return
+
+        target_schema_name = self.combo_schema.get()
+        target_schema = SCHEMAS[target_schema_name]
+
+        # Sammle Zuordnungen inklusive Regeln
+        mappings = [] # Liste aus Dictionaries: [{'source': ..., 'target': ..., 'limit': ..., 'rule': ...}]
+
+        for target_col, combo in self.mapping_dropdowns.items():
+            source_col = combo.get()
+
+            if source_col and source_col != "-- Nicht zuordnen / Spezielle Regel --":
+                dtype_str = target_schema.get(target_col, "")
+                limit = parse_varchar_limit(dtype_str)
+
+                rule = self.transformations.get(target_col, {})
+                rule_type = rule.get('type') if isinstance(rule, dict) else rule
+
+                mappings.append({
+                    'source_col': source_col,
+                    'target_col': target_col,
+                    'limit': limit,
+                    'rule_type': rule_type
+                })
+
+        # Inspektions-Funktion ausführen
+        flagged_df = extract_flagged_records(
+            df=self.source_df,
+            mappings=mappings
+        )
+
+        if flagged_df.empty:
+            messagebox.showinfo(
+                "Prüfung abgeschlossen", 
+                "Keine auffälligen Datensätze gefunden!\nAlle zugeordneten Felder sind valide."
+            )
+            return
+
+        # Export-Dialog
+        export_path = filedialog.asksaveasfilename(
+            title="Geflaggte Datensätze speichern",
+            initialfile="geflaggte_datensaetze_kontrolle.csv",
+            defaultextension=".csv",
+            filetypes=[("CSV Dateien", "*.csv")]
+        )
+
+        if export_path:
+            flagged_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
+            messagebox.showinfo(
+                "Export erfolgreich", 
+                f"Es wurden {len(flagged_df)} betroffene Datensätze exportiert.\n\n"
+                f"Gespeichert unter:\n{export_path}"
+            )
         
 if __name__ == "__main__":
     app = CSVMappingApp()
