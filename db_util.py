@@ -96,3 +96,133 @@ def validate_email(email: str) -> bool:
         return True
     except eval.EmailNotValidError:
         return False
+    
+def apply_rule_transform(val_str: str, rule_type: str, target_col: str) -> str:
+    """
+    Extrahiert Teilwerte vor der Längenprüfung.
+    Trennt Straße und Hausnummer korrekt auf - auch bei Adressen ohne Hausnummer.
+    """
+    if not val_str:
+        return ""
+
+    rule_str = str(rule_type).lower() if rule_type else ""
+    target_str = str(target_col).lower()
+
+    # Ist es eine Hausnummern-Spalte?
+    is_hnr = "hausnummer" in rule_str or "hnr" in rule_str or "hausnummer" in target_str or "hnr" in target_str
+    # Ist es eine Straßen-Spalte?
+    is_street = "strasse" in rule_str or "street" in rule_str or "strasse" in target_str or "street" in target_str
+
+    if is_hnr:
+        # Sucht gezielt nach einer Ziffer + optionalen Zusätzen am Ende (z.B. "19", "2a", "12-14")
+        match = re.search(r'(\d+[\s]*[a-zA-Z\/-]*)$', val_str.strip())
+        if match:
+            return match.group(1).strip()
+        # WICHTIG: Wenn KEINE Nummer enthalten ist (z.B. "Auf den Hüllen"), ist die Hausnummer LEER!
+        return ""
+
+    elif is_street:
+        # Extrahiert alles VOR der ersten Hausnummern-Ziffer
+        match = re.search(r'^(.*?)(?=\s+\d+)', val_str.strip())
+        if match:
+            return match.group(1).strip()
+        # Falls keine Nummer da ist, gehört der GESAMTE String zur Straße!
+        return val_str.strip()
+
+    return val_str
+
+def extract_flagged_records(
+    df: pd.DataFrame, 
+    mappings: List[Dict[str, Any]]
+) -> pd.DataFrame:
+    """
+    Identifiziert exakt die Datensätze mit echten Validierungs- oder Überlängenfehlern.
+    """
+    flagged_rows = []
+
+    for idx, row in df.iterrows():
+        row_flags = []
+
+        for m in mappings:
+            source_col = m['source_col']
+            target_col = m['target_col']
+            limit = m['limit']
+            rule_type = m.get('rule_type')
+
+            if source_col not in df.columns:
+                continue
+
+            val = row[source_col]
+
+            # Leere Felder / NaNs überspringen
+            if pd.isna(val) or val is None:
+                continue
+            
+            val_str = str(val).strip()
+            if not val_str or val_str.lower() in ["nan", "none", "null", "<na>"]:
+                continue
+
+            # --- ZUERST: Extraktion durchführen! ---
+            transformed_val = apply_rule_transform(val_str, rule_type, target_col)
+
+            if not transformed_val:
+                continue
+
+            # --- 1. Sonderzeichen-Prüfung ---
+            if rule_type not in ["validate_ik", "validate_kvnr"]:
+                cleaned_str = sanitize_data_string(transformed_val, remove_special_chars=True)
+                if cleaned_str != transformed_val:
+                    row_flags.append(f"Sonderzeichen in '{source_col}' -> '{target_col}' ({transformed_val} -> {cleaned_str})")
+
+            # --- 2. Überlänge auf dem EXTRAHIERTEN Wert prüfen ---
+            if limit:
+                if len(transformed_val) > limit:
+                    row_flags.append(
+                        f"Überlänge in '{target_col}' (aus '{source_col}'): "
+                        f"'{transformed_val}' hat {len(transformed_val)} Zeichen (max. {limit})"
+                    )
+
+            # --- 3. Validierungen ---
+            if rule_type == "validate_ik" or "ik" in target_col.lower():
+                clean_ik_input = transformed_val.split('.')[0].zfill(9)
+                if len(clean_ik_input) != 9 or not validate_ik_number(clean_ik_input):
+                    row_flags.append(f"Ungültige IK in '{source_col}' ({val_str})")
+
+            if rule_type == "validate_kvnr" or "kvnr" in target_col.lower() or "vnr" in target_col.lower():
+                clean_kvnr_input = transformed_val.upper()
+                if not validate_insurance_number(clean_kvnr_input):
+                    row_flags.append(f"Ungültige KVNR in '{source_col}' ({val_str})")
+
+        # Nur hinzufügen, wenn Abweichungen im transformierten Wert gefunden wurden
+        if row_flags:
+            row_dict = row.to_dict()
+            row_dict['__quell_zeile'] = idx + 2
+            row_dict['__gefundene_fehler'] = " | ".join(row_flags)
+            flagged_rows.append(row_dict)
+
+    result_df = pd.DataFrame(flagged_rows)
+
+    if not result_df.empty:
+        cols = ['__quell_zeile', '__gefundene_fehler'] + [c for c in result_df.columns if c not in ['__quell_zeile', '__gefundene_fehler']]
+        result_df = result_df[cols]
+
+    return result_df
+
+def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
+    """Methode um in besonderen Einzelfällen eine fehlerhaft notierte Versicherungsnummer wieder zu vervollständigen.
+    Prüft ob klar ersichtliche Fehler gemacht wurden indem eine 0 und ein O verwechselt wurden.
+
+    Args:
+        vnr (str): Die Versichertennummer die geprüft werden soll.
+
+    Returns:
+        tuple[bool, str]: Tupel mit einem boolean Wert, der angibt, ob eine Korrektur stattgefunden hat und dem (un-)veränderten String an zweiter Stelle.
+    """
+    if len(vnr) == 10:
+        # Case 1: Insurance number has a form like JO12345678 => J012345678
+        if vnr[:2].isalpha() and vnr[1:2] == "O":
+            return [True, f"{vnr[:1]}0{vnr[2:]}"]
+        # Case 2: Insurance number has a form like 0123456789 => O123456789
+        elif vnr.isnumeric() and vnr[:1] == "0":
+            return [True, f"O{vnr[1:]}"]
+    return [False, vnr]

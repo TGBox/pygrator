@@ -6,7 +6,7 @@ import csv
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number, validate_email
+from db_util import format_date_iso, generate_id, parse_varchar_limit, sanitize_data_string, validate_ik_number, validate_insurance_number, validate_email, extract_flagged_records
 from schemas import SCHEMAS
 from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
 from constants import *
@@ -115,15 +115,29 @@ class CSVMappingApp(ctk.CTk):
         )
         self.combo_encoding.grid(row=1, column=1, padx=PADDING_XS, pady=2)
 
-        # Rechter Bereich: Button Export
+        # Rechter Bereich: Buttons für Inspektion und Export
+        btn_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+        btn_frame.pack(side="right", padx=PADDING_M, pady=PADDING_M)
+
+        # NEUER BUTTON: Manuelle Kontrolle vorab
         ctk.CTkButton(
-            bottom_frame, 
+            btn_frame, 
+            text="⚠️ Nur Abweichungen prüfen", 
+            fg_color=COL_GRAY_35, 
+            hover_color=COL_GRAY_45,
+            font=BUTTON_FONT,
+            command=self.run_pre_check_export
+        ).pack(side="left", padx=(0, PADDING_S))
+
+        # Bestehender Export-Button
+        ctk.CTkButton(
+            btn_frame, 
             text="Prüfen & Exportieren", 
             fg_color=COL_GREEN, 
             hover_color=COL_DARK_GREEN,
             font=BUTTON_FONT,
             command=self.start_processing
-        ).pack(side="right", padx=PADDING_M, pady=PADDING_M)
+        ).pack(side="left")
 
     def on_format_change(self, choice):
         """Aktiviert/Deaktiviert das Encoding-Dropdown je nach Format."""
@@ -1194,6 +1208,64 @@ class CSVMappingApp(ctk.CTk):
             messagebox.showinfo("Export erfolgreich", "Die Patientendaten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.")
         elif self.combo_schema.get() == "adressen":
                     messagebox.showinfo("Export erfolgreich", "Die Adressen wurden erfolgreich exportiert.")
+                    
+    def run_pre_check_export(self):
+        """Identifiziert und exportiert geflaggte Datensätze für eine manuelle Kontrolle."""
+        if self.source_df is None:
+            messagebox.showerror("Fehler", "Keine Datei geladen!")
+            return
+
+        target_schema_name = self.combo_schema.get()
+        target_schema = SCHEMAS[target_schema_name]
+
+        # Sammle Zuordnungen inklusive Regeln
+        mappings = [] # Liste aus Dictionaries: [{'source': ..., 'target': ..., 'limit': ..., 'rule': ...}]
+
+        for target_col, combo in self.mapping_dropdowns.items():
+            source_col = combo.get()
+
+            if source_col and source_col != "-- Nicht zuordnen / Spezielle Regel --":
+                dtype_str = target_schema.get(target_col, "")
+                limit = parse_varchar_limit(dtype_str)
+
+                rule = self.transformations.get(target_col, {})
+                rule_type = rule.get('type') if isinstance(rule, dict) else rule
+
+                mappings.append({
+                    'source_col': source_col,
+                    'target_col': target_col,
+                    'limit': limit,
+                    'rule_type': rule_type
+                })
+
+        # Inspektions-Funktion ausführen
+        flagged_df = extract_flagged_records(
+            df=self.source_df,
+            mappings=mappings
+        )
+
+        if flagged_df.empty:
+            messagebox.showinfo(
+                "Prüfung abgeschlossen", 
+                "Keine auffälligen Datensätze gefunden!\nAlle zugeordneten Felder sind valide."
+            )
+            return
+
+        # Export-Dialog
+        export_path = filedialog.asksaveasfilename(
+            title="Geflaggte Datensätze speichern",
+            initialfile="geflaggte_datensaetze_kontrolle.csv",
+            defaultextension=".csv",
+            filetypes=[("CSV Dateien", "*.csv")]
+        )
+
+        if export_path:
+            flagged_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
+            messagebox.showinfo(
+                "Export erfolgreich", 
+                f"Es wurden {len(flagged_df)} betroffene Datensätze exportiert.\n\n"
+                f"Gespeichert unter:\n{export_path}"
+            )
         
 if __name__ == "__main__":
     app = CSVMappingApp()
