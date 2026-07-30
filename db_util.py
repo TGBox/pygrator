@@ -230,5 +230,25 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
         # Case 2: Form wie 0123456789 => O123456789
         elif vnr.isnumeric() and vnr.startswith("0"):
             return True, f"O{vnr[1:]}"
+        
+        # Case 3: Form wie 1200006986 => I200006986
+        elif vnr.isnumeric() and vnr.startswith("1"):
+            return True, f"I{vnr[1:]}"
+        
+        # Case 4: Form wie )823672510 => O823672510
+        elif vnr[1:].isnumeric() and vnr.startswith(")"):
+            return True, f"O{vnr[1:]}"
+        
+        # Case 5: Form wie (823672510 => I823672510
+        elif vnr[1:].isnumeric() and vnr.startswith("("):
+            return True, f"I{vnr[1:]}"
+        
+        # Case 6: Form wie =823672510 => P823672510
+        elif vnr[1:].isnumeric() and vnr.startswith("="):
+            return True, f"P{vnr[1:]}"
+        
+        # Case 7: Form wie /823672510 => U823672510
+        elif vnr[1:].isnumeric() and vnr.startswith("/"):
+            return True, f"U{vnr[1:]}"
             
     return False, vnr
