@@ -1,9 +1,16 @@
 (A) 2026-07-31 Bestehende IDs beim Export übertragen und LANR für Ärzte nutzen (mit verschiedenen Quelltabellen verifizieren) +DataImport @code
 (A) 2026-07-31 Support für bestehende Datenbanken & Delta-Updates mit Benutzerauswahl hinzufügen +Database @gui
+(A) 2026-07-31 Auto Vervollständigung für weitere Feldtypen implementieren. (Anrede aus Name erkennen, Titel vom Namen trennen, Geschlecht aus Namen erkennen, etc.) +Validation @code
+(A) 2026-07-31 Auto Vervollständigung sollte für alle möglichen Datentypen in einem eigenen Dialogfenster an- und abwählbar sein. +Validation @gui
+(B) 2026-07-31 Spalten Matching Regeln um englische Bezeichner erweitern. Sollte auch z.B. "Sex" statt "geschlecht" und "post_code"/"zip_code", etc. statt nur "plz" abfangen. +Validation @code
+(B) 2026-07-31 Matching Regeln für Spalten sollten so aufgebaut werden, dass immer auch nach Teilstrings gesucht wird, wenn das exakte Matching nicht geklappt hat. Aktuell wird z.B. "IK_Nr" nicht als Spalte "IK" erkannt. +Validation @code
 (B) 2026-07-31 Konstanten semantisch umbenennen (z.B. COL_GREEN zu COL_BTN_FG) +Refactoring @code
-(B) 2026-07-31 Feldwert-Validierung implementieren +Validation @code
+(B) 2026-07-31 Feldwert-Validierung für weitere Felder implementieren +Validation @code
+(B) 2026-07-31 Trennung der Versichertennummer Validierung und dem automatischen Vervollständigen. +Validation @code
 (C) 2026-07-31 Input-Schemas für Export-Typen anderer Softwarehersteller unterstützen (inkl. Schema-Erstellung aus Eingabetabelle) +DataImport @code
+(C) 2026-07-31 Output-Schemas für weitere Datenbanktabellen erstellen. +DataExport @code
 (C) 2026-07-31 Code-Dokumentation und Kommentare erweitern +Docs @code
+(D) 2026-07-31 Alte Todos aus pygrator.py entfernen. +Docs @code
 x 2026-07-31 Standard-Verbindungen zwischen Spalten überprüfen
 x 2026-07-31 Namen des Kostenträgers automatisch aus IK-Nummer ermitteln +Validation @code
 x 2026-07-31 Stadtname aus PLZ ermitteln und umgekehrt +Validation @code

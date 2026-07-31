@@ -51,7 +51,7 @@ def format_date_iso(val: str) -> str:
 
     try:
         # Versuch per Pandas to_datetime mit automatischer/deutscher Formaterkennung
-        parsed_dt = pd.to_datetime(val_str, dayfirst=True, errors='coerce')
+        parsed_dt = pd.to_datetime(val_str, dayfirst=False, errors='coerce')
         if pd.notna(parsed_dt):
             return parsed_dt.strftime('%Y-%m-%d')
     except Exception:
