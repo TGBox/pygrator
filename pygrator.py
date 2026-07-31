@@ -7,7 +7,7 @@ import pandas as pd
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
-# DONE: TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
+# DONE TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
 # DONE TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
 # DONE TODO: Add a way to add the name of a city from its post code and vice versa. There might be a method like this already in the py-handelsregister repositry! CHECK THAT OUT!
 # DONE TODO: Add a verification for the IK number. (Only format [explicitly only numerical with length 9] or maybe with proper check of the IK?) => Last part maybe not feasible because these IKs are always private therapists and not commonly known institutions!
@@ -258,6 +258,9 @@ class CSVMappingApp(ctk.CTk):
         self.mapping_dropdowns = {}
         self.trans_buttons = {}
 
+        source_id_col = next((str(c) for c in self.source_df.columns if str(c).lower() in ["id", "patient_id", "patienten_id", "pat_id"]), None)
+        source_lanr_col = next((str(c) for c in self.source_df.columns if str(c).lower() in ["LANR", "lanr", "la-nr", "la_nr"]), None)
+
         for idx, (target_col, dtype) in enumerate(target_schema.items(), start=1):
             label_text: str = f"{target_col} ({dtype})"
             ctk.CTkLabel(self.scroll_frame, text=label_text, font=SMALL_LABEL_FONT).grid(row=idx, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
@@ -329,8 +332,21 @@ class CSVMappingApp(ctk.CTk):
             if target_col not in self.transformations:
                 if target_col == "id":
                     self.transformations[target_col] = {'type': 'generate_uid'}
-                elif target_col in ("ext_id", "p_nr"):
-                    self.transformations[target_col] = {'type': 'copy_target', 'param': "id"}
+                elif target_col == "p_nr":
+                    if source_id_col:
+                        combo.set(source_id_col)
+                        self.transformations[target_col] = {'type': 'none'}
+                    else:
+                        self.transformations[target_col] = {'type': 'auto_sequence_6'}
+                elif target_col == "ext_id":
+                    if source_id_col:
+                        combo.set(source_id_col)
+                        self.transformations[target_col] = {'type': 'none'}
+                    elif source_lanr_col:
+                        combo.set(source_lanr_col)
+                        self.transformations[target_col] = {'type': 'none'}
+                    else:
+                        self.transformations[target_col] = {'type': 'auto_sequence_6'}
                 elif "birth" in target_col:
                     self.transformations[target_col] = {'type': 'format_date'}
                 elif "anrede" in target_col:
@@ -420,7 +436,9 @@ class CSVMappingApp(ctk.CTk):
         existing_rule: Dict[str, Any] = self.transformations.get(target_col, {})
         
         default_rule: str = 'none'
-        if 'plz' in target_col.lower():
+        if target_col == 'p_nr':
+            default_rule = 'auto_sequence_6'
+        elif 'plz' in target_col.lower():
             default_rule = 'clean_plz'
         elif target_col == 'id':
             default_rule = 'generate_uid'
@@ -543,6 +561,14 @@ class CSVMappingApp(ctk.CTk):
 
         r_plz = ctk.CTkRadioButton(dialog, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
         r_plz.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+        
+        r_seq = ctk.CTkRadioButton(
+            dialog, 
+            text="🔢 Lineare Nummerierung (6-stellig, z. B. 000001)", 
+            variable=rule_type, 
+            value="auto_sequence_6"
+        )
+        r_seq.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_plz_lookup = ctk.CTkRadioButton(
             dialog, 
@@ -822,7 +848,7 @@ class CSVMappingApp(ctk.CTk):
             if rule_type == "copy_target" and isinstance(param, str):
                 copy_rules[target_col] = param
                 continue
-            
+        # PASS 2.
         for target_col, _ in target_schema.items():
             rule = self.transformations.get(target_col, {})
             rule_type = rule.get('type') if rule else None
@@ -848,6 +874,10 @@ class CSVMappingApp(ctk.CTk):
                     return default_empty_value
 
                 out_df[target_col] = self.source_df.apply(fill_plz, axis=1)
+                
+            elif rule_type == "auto_sequence_6":
+                # Erzeugt z. B. ["000001", "000002", ...] für alle Zeilen der Zielspalte
+                out_df[target_col] = [str(i + 1).zfill(6) for i in range(row_count)]
 
             elif rule_type == "lookup_city_by_plz":
                 plz_source_col: Optional[str] = str(param) if (param and str(param) in self.source_df.columns) else source_col

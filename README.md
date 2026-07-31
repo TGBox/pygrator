@@ -1,6 +1,6 @@
 # Pygrator — CSV Data Mapper & Schema Validator
 
-**Pygrator** ist eine intuitive Desktop-Anwendung mit einer modernen Grafischen Benutzeroberfläche (GUI) auf Basis von Python und `customtkinter`.<br>
+**Pygrator** ist eine intuitive Desktop-Anwendung mit einer modernen Grafischen Benutzeroberfläche (GUI) auf Basis von Python und `customtkinter`.<br\>
 Sie dient der Transformation, Bereinigung, Validierung und Konvertierung von CSV-Datenbeständen in vordefinierte Datenbank-Zielschemata (z. B. für Patienten- oder Adressdatenbanken).
 
 ---
@@ -24,13 +24,12 @@ Sie dient der Transformation, Bereinigung, Validierung und Konvertierung von CSV
     * [6. Feldlängen-Konflikte lösen (VARCHAR-Check)](https://www.google.com/search?q=%236-feldl%C3%A4ngen-konflikte-l%C3%B6sen-varchar-check)
     * [7. Export & Restdatei-Sicherung](https://www.google.com/search?q=%237-export--restdatei-sicherung)
 
-
   * [🛠️ Verfügbare Transformations- & Validierungsregeln](https://www.google.com/search?q=%23%EF%B8%8F-verf%C3%BCgbare-transformations--und-validierungsregeln)
   * [📐 Eigene Schemata hinzufügen (`schemas.py`)](https://www.google.com/search?q=%23-eigene-schemata-hinzuf%C3%BCgen-schemaspy)
   * [📄 Lizenz & Mitwirkung](https://www.google.com/search?q=%23-lizenz--mitwirkung)
 
-
 ---
+
 ## ✨ Features
 
 * 🔍 **Automatische Dateierkennung**: Erkennt Trennzeichen (Semikolon, Komma, Tabulator) sowie Encodings (`UTF-8`, `UTF-8-BOM`, `CP1252`, `Latin-1`) automatisch.
@@ -39,7 +38,6 @@ Sie dient der Transformation, Bereinigung, Validierung und Konvertierung von CSV
   * Prüft **ausschließlich zugewiesene Zielspalten** auf Fehler (nicht gemappte Freitextspalten wie *Notiz* werden ignoriert).
   * Evaluiert Längenbegrenzungen **erst nach Anwendung** von Regellogiken (z. B. wird eine Hausnummer erst extrahiert und dann gegen das Limit geprüft).
   * Erstellt eine detaillierte Kontroll-CSV inkl. Quell-Zeilennummer und exakter Fehlerbeschreibung (`__gefundene_fehler`).
-
 
 * 🛠️ **Mächtige Transformations- & Validierungsregeln**:
 * **KVNR Auto-Korrektur (`validate_kvnr`)**: Erkennt typische OCR-/Eingabefehler bei Krankenversichertennummern (z. B. Verwechslung von `0` und `O` am Anfang) und stellt gültige KVNRs automatisch wieder her.
@@ -52,7 +50,6 @@ Sie dient der Transformation, Bereinigung, Validierung und Konvertierung von CSV
 * **Geschlechts-Normalisierung**: Konvertiert Kürzel (`M`/`W`/`F`) in Anreden (`Herr`/`Frau`).
 * **Zwei Spalten verknüpfen**: Verknüpft zwei Quellspalten mit Leerzeichen in einer Zielspalte.
 * **Sonderzeichen-Bereinigung**: Säubert unerwünschte Zeichen in Namen und Freitexten.
-
 
 * ⚠️ **Zellgenaue VARCHAR-Längenprüfung**: Erkennt Überschreitungen von Datentyp-Begrenzungen im Zielschema und bietet einen Dialog zur Einzel- oder Massenbearbeitung.
 * 🛡️ **Ungemappte Spalten sichern**: Speichert alle nicht zugewiesenen Quellspalten automatisch in einer separaten Restdatei (`REST_UNMAPPED_...csv`), damit keine Daten verloren gehen.
@@ -80,13 +77,15 @@ Sie dient der Transformation, Bereinigung, Validierung und Konvertierung von CSV
 
 ### Installation
 
-1. **Repository klonen oder Projektordner öffnen:**
+#### 1. **Repository klonen oder Projektordner öffnen:**
+
 ```bash
 git clone https://github.com/tgbox/pygrator.git
 cd pygrator
 ```
 
-2. **Virtuelle Umgebung erstellen (optional, aber empfohlen):**
+#### 2. **Virtuelle Umgebung erstellen (optional, aber empfohlen):**
+
 ```bash
 python -m venv .venv
 # Unter Windows aktivieren:
@@ -95,7 +94,8 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-3. **Erforderliche Abhängigkeiten installieren:**
+#### 3. **Erforderliche Abhängigkeiten installieren:**
+
 ```bash
 pip install -r ./requirements.txt
 ```

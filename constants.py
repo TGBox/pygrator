@@ -14,7 +14,8 @@ RULE_NAMES = {
     "lookup_city_by_plz": "Ort aus PLZ ergänzen",
     "validate_ik": "IK-Nummer prüfen",
     "validate_kvnr": "Versichertennr. prüfen",
-    "validate_email": "E-Mail prüfen"
+    "validate_email": "E-Mail prüfen",
+    "auto_sequence_6": "Lineare Nummerierung (6-stellig)"
 }
 APP_WIDTH = 1040
 APP_HEIGHT = 880
