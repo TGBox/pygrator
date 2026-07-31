@@ -521,3 +521,56 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
     def _on_cancel(self) -> None:
         self.result = None
         self.destroy()
+
+class ImportApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        # 1. Standard-Einstellungen für Auto-Vervollständigung
+        self.autocomplete_settings = {
+            "split_title": True,       # Titel aus Namen abspalten
+            "infer_gender": True,      # Geschlecht aus Vornamen erkennen
+            "infer_salutation": True,  # Anrede (Herr/Frau) automatisch ergänzen
+            "clean_kvnr": True         # KVNR auto-korrigieren (O zu 0 etc.)
+        }
+        # ... dein restlicher Init-Code ...
+
+    def open_autocomplete_settings_dialog(self):
+        """Dialogfenster zur An- und Abwahl der Auto-Vervollständigungen (+Validation @gui)"""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("⚙️ Einstellungen: Automatische Vervollständigung")
+        dialog.geometry("450x320")
+        dialog.grab_set()  # Blockiert Eingaben im Hauptfenster
+
+        ctk.CTkLabel(
+            dialog, 
+            text="Welche Felder sollen automatisch vervollständigt werden?", 
+            font=ctk.CTkFont(size=14, weight="bold")
+        ).pack(anchor="w", padx=20, pady=(20, 10))
+
+        # Checkboxen an die aktuellen Einstellungen binden
+        vars = {}
+        options = [
+            ("split_title", "🎓 Titel automatisch von Namen trennen"),
+            ("infer_gender", "⚥ Geschlecht anhand des Vornamens erraten"),
+            ("infer_salutation", "✉️ Anrede (Herr/Frau) aus Geschlecht/Name abstatten"),
+            ("clean_kvnr", "🆔 KVNR automatisch bereinigen (z.B. 'O' -> '0')")
+        ]
+
+        for key, label_text in options:
+            var = ctk.BooleanVar(value=self.autocomplete_settings[key])
+            chk = ctk.CTkCheckBox(dialog, text=label_text, variable=var)
+            chk.pack(anchor="w", padx=25, pady=8)
+            vars[key] = var
+
+        def save_and_close():
+            for key in vars:
+                self.autocomplete_settings[key] = vars[key].get()
+            dialog.destroy()
+
+        # Speichern-Button
+        btn_save = ctk.CTkButton(
+            dialog, 
+            text="Übernehmen", 
+            command=save_and_close
+        )
+        btn_save.pack(pady=(20, 0))

@@ -32,6 +32,7 @@ from tkinter import filedialog, messagebox
 # TODO: Add a way to implement input schemas for specific export types from different other software companies.
     # TODO: Add a way to add new schemas based on the currently processed input table.
 
+from auto_complete import extract_title_and_clean_name
 from db_util import (
     format_date_iso, 
     generate_id, 
@@ -75,6 +76,14 @@ class CSVMappingApp(ctk.CTk):
 
         self.title("CSV Data Mapper & Schema Validator")
         center_window(cast(ctk.CTkToplevel, cast(Any, self)), APP_WIDTH, APP_HEIGHT)
+        
+        # 1. Globale Autocomplete-Einstellungen initialisieren
+        self.autocomplete_settings = {
+            "split_title": True,       # Titel aus Name trennen
+            "infer_gender": True,      # Geschlecht aus Vorname ableiten
+            "infer_salutation": True,  # Anrede generieren
+            "clean_kvnr": True         # KVNR bereinigen (O -> 0)
+        }
 
         self.source_df = None
         self.source_file_path = ""
@@ -96,6 +105,13 @@ class CSVMappingApp(ctk.CTk):
     def _build_ui(self) -> None:
         top_frame = ctk.CTkFrame(self)
         top_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_M)
+        
+        self.btn_auto_settings = ctk.CTkButton(
+            top_frame,
+            text="⚙️ Auto-Vervollständigung",
+            command=self.open_autocomplete_settings_dialog
+        )
+        self.btn_auto_settings.pack(side="right", padx=10)
 
         ctk.CTkButton(top_frame, text="Quelldatei laden (CSV)", command=self.load_csv).pack(side="left", padx=PADDING_M, pady=PADDING_M)
         self.lbl_file = ctk.CTkLabel(top_frame, text="Keine Datei ausgewählt", text_color="gray")
@@ -178,6 +194,41 @@ class CSVMappingApp(ctk.CTk):
             width=PROCESS_BUTTON_WIDTH,
             command=self.start_processing
         ).pack(anchor="w", padx=(0, PADDING_S), pady=(0, PADDING_S), side="top")
+        
+    def open_autocomplete_settings_dialog(self):
+        """Öffnet das Einstellungsfenster für die automatische Vervollständigung"""
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Einstellungen: Automatische Vervollständigung")
+        dialog.geometry("460x320")
+        dialog.grab_set()  # Fenster modal machen (Vordergrund erzwingen)
+
+        ctk.CTkLabel(
+            dialog, 
+            text="Welche Regeln sollen beim Import angewendet werden?", 
+            font=ctk.CTkFont(size=14, weight="bold")
+        ).pack(anchor="w", padx=20, pady=(20, 10))
+
+        vars_dict = {}
+        options = [
+            ("split_title", "🎓 Titel von Namen trennen (z. B. Dr. med.)"),
+            ("infer_gender", "⚥ Geschlecht anhand des Vornamens ermitteln"),
+            ("infer_salutation", "✉️ Anrede (Herr/Frau) automatisch ergänzen"),
+            ("clean_kvnr", "🆔 KVNR bereinigen ('O' -> '0')")
+        ]
+
+        for key, label_text in options:
+            var = ctk.BooleanVar(value=self.autocomplete_settings[key])
+            chk = ctk.CTkCheckBox(dialog, text=label_text, variable=var)
+            chk.pack(anchor="w", padx=25, pady=8)
+            vars_dict[key] = var
+
+        def save_and_close():
+            for key in vars_dict:
+                self.autocomplete_settings[key] = vars_dict[key].get()
+            dialog.destroy()
+
+        btn_save = ctk.CTkButton(dialog, text="Übernehmen", command=save_and_close)
+        btn_save.pack(pady=(20, 0))
 
     def on_format_change(self, choice: str) -> None:
         """Aktiviert/Deaktiviert das Encoding-Dropdown je nach Format."""
@@ -765,6 +816,31 @@ class CSVMappingApp(ctk.CTk):
         if not hasattr(self, 'plz_service'):
             from services.plz_lookup import PLZLookupService
             self.plz_service = PLZLookupService()
+            
+        # =========================================================================
+        # NEU: PRE-PROCESSING / AUTO-VERVOLLSTÄNDIGUNG (basierend auf Settings)
+        # =========================================================================
+        if hasattr(self, 'autocomplete_settings'):
+            # 1. Title Split & Name Cleaning
+            if self.autocomplete_settings.get("split_title"):
+                for target_col, dropdown in self.mapping_dropdowns.items():
+                    if 'nachname' in target_col.lower() or 'name' in target_col.lower():
+                        src_c = dropdown.get()
+                        if src_c and src_c in self.source_df.columns:
+                            # Wendet extract_title_and_clean_name auf die Quell-Spalte an
+                            res = self.source_df[src_c].astype(str).apply(extract_title_and_clean_name)
+                            # Wenn eine eigene Titel-Spalte existiert, befüllen wir sie mit dem extrahierten Titel
+                            if 'titel' in self.mapping_dropdowns:
+                                out_df['titel'] = [t[0] for t in res]
+                            self.source_df[src_c] = [t[1] for t in res]
+
+            # 2. KVNR-Bereinigung ('O' -> '0') vor der Validierung
+            if self.autocomplete_settings.get("clean_kvnr"):
+                for target_col, dropdown in self.mapping_dropdowns.items():
+                    if 'kvnr' in target_col.lower() or 'versichertennummer' in target_col.lower():
+                        src_c = dropdown.get()
+                        if src_c and src_c in self.source_df.columns:
+                            self.source_df[src_c] = self.source_df[src_c].astype(str).str.upper().str.replace("O", "0")
 
         # PASS 1: Transformationen ausführen
         for target_col, _ in target_schema.items():
@@ -879,8 +955,21 @@ class CSVMappingApp(ctk.CTk):
                 out_df[target_col] = self.source_df.apply(fill_plz, axis=1)
                 
             elif rule_type == "auto_sequence_6":
-                # Erzeugt z. B. ["000001", "000002", ...] für alle Zeilen der Zielspalte
-                out_df[target_col] = [str(i + 1).zfill(6) for i in range(row_count)]
+                # Überprüfen, ob der Nutzer eine Quellspalte im Dropdown ausgewählt hat
+                if source_col and source_col in self.source_df.columns and source_col != "-- Nicht zuordnen / Spezielle Regel --":
+                    mapped_source_cols.add(source_col)
+                    # Übernehme existierende IDs aus der Quelldatei
+                    existing_ids = self.source_df[source_col].astype(str).str.strip()
+                    
+                    # Generiere Sequenz (000001, 000002, ...) als Fallback für Lücken/Leereinträge
+                    fallback_seq = [str(i + 1).zfill(6) for i in range(row_count)]
+                    
+                    # Behalte bestehende IDs; fülle Lücken (NaN/Leerstr) mit der Sequenz auf
+                    def_mask = existing_ids.isin(["", "nan", "None", "NULL"]) | existing_ids.isna()
+                    out_df[target_col] = [fallback_seq[i] if def_mask.iloc[i] else existing_ids.iloc[i] for i in range(row_count)]
+                else:
+                    # Keine Quellspalte zugewiesen -> Rein fortlaufende 6-stellige Nummerierung
+                    out_df[target_col] = [str(i + 1).zfill(6) for i in range(row_count)]
 
             elif rule_type == "lookup_city_by_plz":
                 plz_source_col: Optional[str] = str(param) if (param and str(param) in self.source_df.columns) else source_col

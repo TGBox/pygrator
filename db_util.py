@@ -8,6 +8,8 @@ import pandas as pd
 
 import email_validator as eval
 
+from auto_complete import try_to_fix_insurance_number
+
 def encode_base36(num: int) -> str:
     """Function to generate a base 36 string from an int."""
     alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
@@ -256,51 +258,36 @@ def extract_flagged_records(
 
     return result_df
 
-def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
-    """Methode um fehlerhaft notierte Versicherungsnummern zu vervollständigen."""
-    vnr = vnr.strip().upper()
-    
-    if len(vnr) == 10:
-        # Case 1: Form wie JO12345678 => J012345678
-        if vnr[0].isalpha() and vnr[1] == "O":
-            tmp_fix = f"{vnr[0]}0{vnr[2:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-            
-        # Case 2: Form wie 0123456789 => O123456789
-        elif vnr.isnumeric() and vnr.startswith("0"):
-            tmp_fix = f"O{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
+def apply_id_and_lanr_rules(
+    target_df: pd.DataFrame, 
+    source_df: pd.DataFrame, 
+    mapping: dict
+) -> pd.DataFrame:
+    """
+    Sorgt dafür, dass bestehende LANRs und externe IDs sicher übernommen werden.
+    Greift auto_sequence_6 nur als Fallback für leere IDs/p_nrs. (+DataImport @code)
+    """
+    row_count = len(target_df)
+
+    # 1. LANR und ext_id aus Quell-Tabelle übernehmen (wenn gemappt)
+    for col_target in ["ext_id", "lanr", "p_nr"]:
+        if col_target in mapping and mapping[col_target]:
+            source_col = mapping[col_target]
+            # Werte als String übernehmen und Leereinträge als None normalisieren
+            target_df[col_target] = source_df[source_col].astype(str).str.strip()
+            target_df[col_target] = target_df[col_target].replace(["", "nan", "None"], None)
+
+    # 2. Regel "auto_sequence_6" auf p_nr anwenden (wenn Regel aktiv ist)
+    # Füllt Mangel-IDs auf, behält aber existierende Quell-IDs bei
+    if "p_nr" in target_df.columns:
+        current_pnr = target_df["p_nr"]
         
-        # Case 3: Form wie 1200006986 => I200006986
-        elif vnr.isnumeric() and vnr.startswith("1"):
-            tmp_fix = f"I{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
+        # Generiere Sequenz 000001 bis N
+        generated_sequence = [str(i + 1).zfill(6) for i in range(row_count)]
         
-        # Case 4: Form wie )823672510 => O823672510
-        elif vnr[1:].isnumeric() and vnr.startswith(")"):
-            tmp_fix = f"O{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-        
-        # Case 5: Form wie (823672510 => I823672510
-        elif vnr[1:].isnumeric() and vnr.startswith("("):
-            tmp_fix = f"I{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-        
-        # Case 6: Form wie =823672510 => P823672510
-        elif vnr[1:].isnumeric() and vnr.startswith("="):
-            tmp_fix = f"P{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-        
-        # Case 7: Form wie /823672510 => U823672510
-        elif vnr[1:].isnumeric() and vnr.startswith("/"):
-            tmp_fix = f"U{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-            
-    return False, vnr
+        # Nur Einträge überschreiben, bei denen vorher keine Quell-ID gefunden wurde
+        target_df["p_nr"] = current_pnr.fillna(
+            pd.Series(generated_sequence, index=target_df.index)
+        )
+
+    return target_df
