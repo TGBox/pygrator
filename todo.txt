@@ -1,0 +1,21 @@
+(A) 2026-07-31 Bestehende IDs beim Export übertragen und LANR für Ärzte nutzen (mit verschiedenen Quelltabellen verifizieren) +DataImport @code
+(A) 2026-07-31 Support für bestehende Datenbanken & Delta-Updates mit Benutzerauswahl hinzufügen +Database @gui
+(B) 2026-07-31 Konstanten semantisch umbenennen (z.B. COL_GREEN zu COL_BTN_FG) +Refactoring @code
+(B) 2026-07-31 Feldwert-Validierung implementieren +Validation @code
+(C) 2026-07-31 Input-Schemas für Export-Typen anderer Softwarehersteller unterstützen (inkl. Schema-Erstellung aus Eingabetabelle) +DataImport @code
+(C) 2026-07-31 Code-Dokumentation und Kommentare erweitern +Docs @code
+x 2026-07-31 Standard-Verbindungen zwischen Spalten überprüfen
+x 2026-07-31 Namen des Kostenträgers automatisch aus IK-Nummer ermitteln +Validation @code
+x 2026-07-31 Stadtname aus PLZ ermitteln und umgekehrt +Validation @code
+x 2026-07-31 Prüfziffern- und Format-Validierung für IK-Nummer hinzufügen +Validation @code
+x 2026-07-31 Format-Validierung für Versichertennummer hinzufügen +Validation @code
+x 2026-07-31 Verbleibende Felder auf Zusatzfelder mappen (für Patiententabelle) +DataImport @code
+x 2026-07-31 GUI-Methode zur Auflistung geänderter Feldwerte mit Batch-/Single-Select einbauen +UI @gui
+x 2026-07-31 Regel zum Kopieren von id nach p_nr oder ext_id hinzufügen +DataImport @code
+x 2026-07-31 BUG: Zuordnung der Referenzspalte für PLZ/Stadt-Vervollständigung korrigieren +Bugfix @code
+x 2026-07-31 Dialogfenster für Werte-Sanitizing mit Batch-/Single-Select hinzufügen +UI @gui
+x 2026-07-31 E-Mail-Struktur-Validierung hinzufügen +Validation @code
+x 2026-07-31 Codedatei in mehrere Module aufteilen +Refactoring @code
+x 2026-07-31 Hardcoded Werte, Farben und Magic Numbers in zentrale Datei auslagern +Refactoring @code
+x 2026-07-31 Prüfzifferberechnung für IK-Nummer hinzufügen +Validation @code
+x 2026-07-31 Prüfziffer-Prüfung für Korrekturen der Versichertennummer integrieren +Validation @code
