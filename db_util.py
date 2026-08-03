@@ -8,8 +8,6 @@ import pandas as pd
 
 import email_validator as eval
 
-from auto_complete import try_to_fix_insurance_number
-
 def encode_base36(num: int) -> str:
     """Function to generate a base 36 string from an int."""
     alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
@@ -173,6 +171,9 @@ def extract_flagged_records(
     """
     # 1. Any erlauben, da row.to_dict() und Zeilennummern verschiedene Typen enthalten
     flagged_rows: list[dict[Hashable, Any]] = []
+    
+    # Funktionsimport lokal statt global um Zirkuläre Abhängigkeiten zu vermeiden.
+    from auto_complete import try_to_fix_insurance_number
 
     for idx, (_, row) in enumerate(df.iterrows()):
         row_flags: list[str] = []

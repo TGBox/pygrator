@@ -2,6 +2,7 @@
 (A) 2026-07-31 Support für bestehende Datenbanken & Delta-Updates mit Benutzerauswahl hinzufügen +Database @gui
 (A) 2026-07-31 Auto Vervollständigung für weitere Feldtypen implementieren. (Anrede aus Name erkennen, Titel vom Namen trennen, Geschlecht aus Namen erkennen, etc.) +Validation @code
 (A) 2026-07-31 Auto Vervollständigung sollte für alle möglichen Datentypen in einem eigenen Dialogfenster an- und abwählbar sein. +Validation @gui
+(A) 2026-08-03 Auto Vervollständigungsdialog ist mit Denkfehler implementiert. Das ganze sollte Teil der Main GUI sein, statt eigens erstellt zu sein. +Refactoring @gui
 (B) 2026-07-31 Spalten Matching Regeln um englische Bezeichner erweitern. Sollte auch z.B. "Sex" statt "geschlecht" und "post_code"/"zip_code", etc. statt nur "plz" abfangen. +Validation @code
 (B) 2026-07-31 Matching Regeln für Spalten sollten so aufgebaut werden, dass immer auch nach Teilstrings gesucht wird, wenn das exakte Matching nicht geklappt hat. Aktuell wird z.B. "IK_Nr" nicht als Spalte "IK" erkannt. +Validation @code
 (B) 2026-07-31 Konstanten semantisch umbenennen (z.B. COL_GREEN zu COL_BTN_FG) +Refactoring @code

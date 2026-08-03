@@ -32,7 +32,7 @@ from tkinter import filedialog, messagebox
 # TODO: Add a way to implement input schemas for specific export types from different other software companies.
     # TODO: Add a way to add new schemas based on the currently processed input table.
 
-from auto_complete import extract_title_and_clean_name
+from auto_complete import extract_title_and_clean_name, try_to_fix_insurance_number
 from db_util import (
     format_date_iso, 
     generate_id, 
@@ -41,8 +41,7 @@ from db_util import (
     validate_ik_number, 
     validate_insurance_number, 
     validate_email, 
-    extract_flagged_records, 
-    try_to_fix_insurance_number
+    extract_flagged_records
 )
 from schemas import SCHEMAS
 from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
@@ -519,7 +518,7 @@ class CSVMappingApp(ctk.CTk):
         r_copy.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         copy_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        copy_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        copy_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(copy_frame, text="Kopieren aus:").pack(side="left", padx=PADDING_XS)
         combo_copy_target = ctk.CTkOptionMenu(copy_frame, values=other_target_cols if other_target_cols else ["Keine"])
         combo_copy_target.pack(side="left")
@@ -530,7 +529,7 @@ class CSVMappingApp(ctk.CTk):
         r_date.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         date_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        date_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        date_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(date_frame, text="Standardwert bei leeren Feldern (optional):", font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=PADDING_XS)
         entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
         entry_date_default.pack(side="left")
@@ -544,7 +543,7 @@ class CSVMappingApp(ctk.CTk):
         r_default.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         default_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        default_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        default_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(default_frame, text="Ersatzwert:").pack(side="left", padx=PADDING_XS)
         entry_default_val = ctk.CTkEntry(default_frame, width=VALUE_FIELD_WIDTH, placeholder_text="z. B. Unbekannt")
         entry_default_val.pack(side="left")
@@ -555,7 +554,7 @@ class CSVMappingApp(ctk.CTk):
         r_static.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         static_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        static_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        static_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(static_frame, text="Wert:").pack(side="left", padx=PADDING_XS)
         entry_static_val = ctk.CTkEntry(static_frame, width=VALUE_FIELD_WIDTH)
         entry_static_val.pack(side="left")
@@ -574,7 +573,7 @@ class CSVMappingApp(ctk.CTk):
         r_ik_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         ik_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        ik_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        ik_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(ik_frame, text="IK-Quellspalte:").pack(side="left", padx=PADDING_XS)
 
         source_cols_list: List[str] = [str(c) for c in self.source_df.columns] if self.source_df is not None else []
@@ -633,7 +632,7 @@ class CSVMappingApp(ctk.CTk):
         r_plz_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         plz_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        plz_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        plz_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(plz_frame, text="Ortsname-Quellspalte:").pack(side="left", padx=PADDING_XS)
         combo_city_source = ctk.CTkOptionMenu(plz_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_city_source.pack(side="left")
@@ -655,7 +654,7 @@ class CSVMappingApp(ctk.CTk):
         r_city_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         city_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        city_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        city_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(city_frame, text="PLZ-Quellspalte:").pack(side="left", padx=PADDING_XS)
         combo_plz_source = ctk.CTkOptionMenu(city_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_plz_source.pack(side="left")
@@ -684,7 +683,7 @@ class CSVMappingApp(ctk.CTk):
         r_merge.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         merge_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        merge_frame.pack(anchor="w", padx=PADDING_XXL, pady=2)
+        merge_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(merge_frame, text="Zweite Quellspalte:").pack(side="left", padx=PADDING_XS)
 
         combo_merge_source = ctk.CTkOptionMenu(merge_frame, values=source_cols_list if source_cols_list else ["Keine"])
