@@ -78,8 +78,21 @@ class RowValidationDialog(ctk.CTkToplevel):
             lbl_info = ctk.CTkLabel(card, text=info_txt, font=LABEL_FONT_BOLD, text_color=COL_LIGHT_RED)
             lbl_info.pack(anchor="w", padx=PADDING_M, pady=(PADDING_XS, 2))
 
-            lbl_val = ctk.CTkLabel(card, text=f'Originaler Wert: "{orig_val}"', font=SMALL_LABEL_FONT, text_color=COL_GRAY_70)
-            lbl_val.pack(anchor="w", padx=PADDING_M, pady=(0, PADDING_XS))
+            val_frame = ctk.CTkFrame(card, fg_color="transparent")
+            val_frame.pack(anchor="w", padx=PADDING_M, pady=(0, PADDING_XS))
+
+            ctk.CTkLabel(val_frame, text="Originaler Wert:", font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=(0, PADDING_XS))
+
+            entry_orig = ctk.CTkEntry(val_frame, width=300)
+            entry_orig.insert(0, orig_val)
+            entry_orig.configure(state="readonly")
+            entry_orig.pack(side="left", padx=(0, PADDING_XS))
+
+            btn_copy = ctk.CTkButton(
+                val_frame, text="📋", width=30, height=24, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
+                command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
+            )
+            btn_copy.pack(side="left")
 
             action_frame = ctk.CTkFrame(card, fg_color="transparent")
             action_frame.pack(fill="x", padx=PADDING_M, pady=(0, PADDING_S))
@@ -366,11 +379,31 @@ class ValidationFixDialog(ctk.CTkToplevel):
         row_frame = ctk.CTkFrame(self.scroll_frame)
         row_frame.pack(fill="x", padx=PADDING_XS, pady=PADDING_XS)
 
-        rule_desc = "Ungültige IK" if item.get('rule_type') == 'validate_ik' else "Ungültige KVNR"
-        info_text = f"Zeile {int(item['row_idx']) + 1} | [{item['target_col']}] ({rule_desc}): '{item['original_val']}'"
-        
-        lbl = ctk.CTkLabel(row_frame, text=info_text, font=LABEL_FONT_BOLD, anchor="w", width=INFO_LABEL_WIDTH)
-        lbl.pack(side="left", padx=PADDING_M, pady=PADDING_XS)
+        rule_type = str(item.get('rule_type', ''))
+        if rule_type == 'validate_ik':
+            rule_desc = "Ungültige IK"
+        elif rule_type == 'validate_kvnr':
+            rule_desc = "Ungültige KVNR"
+        elif rule_type == 'validate_email':
+            rule_desc = "Ungültige E-Mail"
+        else:
+            rule_desc = "Ungültiger Wert"
+
+        info_text = f"Zeile {int(item['row_idx']) + 1} | [{item['target_col']}] ({rule_desc}):"
+        lbl = ctk.CTkLabel(row_frame, text=info_text, font=LABEL_FONT_BOLD, anchor="w")
+        lbl.pack(side="left", padx=(PADDING_M, PADDING_XS), pady=PADDING_XS)
+
+        orig_val = str(item.get('original_val', ''))
+        entry_orig = ctk.CTkEntry(row_frame, width=MANUAL_CHANGE_FIELD_WIDTH)
+        entry_orig.insert(0, orig_val)
+        entry_orig.configure(state="readonly")
+        entry_orig.pack(side="left", padx=(0, PADDING_XS))
+
+        btn_copy = ctk.CTkButton(
+            row_frame, text="📋", width=30, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
+            command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
+        )
+        btn_copy.pack(side="left", padx=(0, PADDING_S))
 
         action_var = ctk.StringVar(value=str(item.get('action', 'keep')))
 
@@ -424,7 +457,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         self.grab_set()
         
         self.preview_items = preview_items
-        self.decisions: Dict[int, ctk.BooleanVar] = {i: ctk.BooleanVar(value=True) for i in range(len(preview_items))}
+        self.row_widgets: List[Dict[str, Any]] = []
         self.result: List[Dict[str, Any]] | None = None
 
         self._build_ui()
@@ -450,18 +483,18 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         
         ctk.CTkButton(
             global_btn_frame, 
-            text="✅ Alle auswählen", 
+            text="✅ Alle bereinigen", 
             width=BUTTON_WIDTH, 
             fg_color=COL_GRAY_30,
-            command=lambda: self._set_all(True)
+            command=lambda: self._set_all_action("clean")
         ).pack(side="left", padx=(0, PADDING_M))
         
         ctk.CTkButton(
             global_btn_frame, 
-            text="❌ Alle abwählen", 
+            text="❌ Alle beibehalten", 
             width=BUTTON_WIDTH, 
             fg_color=COL_GRAY_30,
-            command=lambda: self._set_all(False)
+            command=lambda: self._set_all_action("keep")
         ).pack(side="left")
 
         self.scroll_frame = ctk.CTkScrollableFrame(self)
@@ -469,24 +502,13 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
 
         list_header = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
         list_header.pack(fill="x", pady=(0, PADDING_XS))
-        ctk.CTkLabel(list_header, text="Anwenden", width=SMALL_HEADER_WIDTH, font=ctk.CTkFont(weight="bold")).pack(side="left")
         ctk.CTkLabel(list_header, text="Zeile / Feld", width=BUTTON_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
         ctk.CTkLabel(list_header, text="Originalwert", width=LARGE_HEADER_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
-        ctk.CTkLabel(list_header, text="Bereinigter Wert", width=LARGE_HEADER_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(list_header, text="", width=PADDING_XL).pack(side="left")
+        ctk.CTkLabel(list_header, text="Aktion / Bereinigter Wert", font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
 
-        for i, item in enumerate(self.preview_items):
-            row = ctk.CTkFrame(self.scroll_frame)
-            row.pack(fill="x", pady=2, ipady=PADDING_XXS)
-
-            chk = ctk.CTkCheckBox(row, text="", variable=self.decisions[i], width=CHECKBOX_LABEL_WIDTH)
-            chk.pack(side="left", padx=PADDING_M)
-
-            info_txt = f"Z. {int(item['row_idx']) + 1} | {item['col_name']}"
-            ctk.CTkLabel(row, text=info_txt, width=BUTTON_WIDTH, anchor="w", font=ctk.CTkFont(LABEL_FONT)).pack(side="left", padx=PADDING_XS)
-
-            ctk.CTkLabel(row, text=str(item['original']), width=LARGE_HEADER_WIDTH, anchor="w", text_color=COL_GRAY_70).pack(side="left", padx=PADDING_XS)
-            ctk.CTkLabel(row, text="➔", width=PADDING_XL).pack(side="left")
-            ctk.CTkLabel(row, text=str(item['cleaned']), width=LARGE_HEADER_WIDTH, anchor="w", text_color=COL_LIGHT_GREEN, font=ctk.CTkFont(weight="bold")).pack(side="left", padx=PADDING_XS)
+        for item in self.preview_items:
+            self._render_item_row(item)
 
         bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
         bottom_frame.pack(fill="x", padx=PADDING_XL, pady=PADDING_L)
@@ -506,16 +528,86 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             command=self._on_confirm
         ).pack(side="right")
 
-    def _set_all(self, value: bool) -> None:
-        for var in self.decisions.values():
-            var.set(value)
+    def _render_item_row(self, item: Dict[str, Any]) -> None:
+        row = ctk.CTkFrame(self.scroll_frame)
+        row.pack(fill="x", pady=2, ipady=PADDING_XXS)
+
+        info_txt = f"Z. {int(item['row_idx']) + 1} | {item['col_name']}"
+        ctk.CTkLabel(row, text=info_txt, width=BUTTON_WIDTH, anchor="w", font=ctk.CTkFont(LABEL_FONT)).pack(side="left", padx=PADDING_XS)
+
+        orig_val = str(item['original'])
+        entry_orig = ctk.CTkEntry(row, width=170)
+        entry_orig.insert(0, orig_val)
+        entry_orig.configure(state="readonly")
+        entry_orig.pack(side="left", padx=PADDING_XS)
+
+        btn_copy = ctk.CTkButton(
+            row, text="📋", width=30, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
+            command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
+        )
+        btn_copy.pack(side="left", padx=(0, PADDING_XS))
+
+        ctk.CTkLabel(row, text="➔", width=PADDING_XL).pack(side="left")
+
+        action_var = ctk.StringVar(value="clean")
+
+        cleaned_val = str(item['cleaned'])
+        entry_custom = ctk.CTkEntry(row, placeholder_text="Manuelle Korrektur", width=REPLACEMENT_INPUT_WIDTH)
+        entry_custom.insert(0, cleaned_val)
+
+        def on_action_change() -> None:
+            if action_var.get() == "custom":
+                entry_custom.configure(state="normal")
+            else:
+                entry_custom.configure(state="disabled")
+
+        r_clean = ctk.CTkRadioButton(row, text="Bereinigen", variable=action_var, value="clean", command=on_action_change, width=80)
+        r_clean.pack(side="left", padx=PADDING_XS)
+
+        r_keep = ctk.CTkRadioButton(row, text="Beibehalten", variable=action_var, value="keep", command=on_action_change, width=90)
+        r_keep.pack(side="left", padx=PADDING_XS)
+
+        r_custom = ctk.CTkRadioButton(row, text="Manuell:", variable=action_var, value="custom", command=on_action_change, width=70)
+        r_custom.pack(side="left", padx=PADDING_XS)
+
+        entry_custom.pack(side="left", padx=PADDING_XS)
+        on_action_change()
+
+        self.row_widgets.append({
+            'item': item,
+            'action_var': action_var,
+            'entry_custom': entry_custom
+        })
+
+    def _set_all_action(self, action: str) -> None:
+        for rw in self.row_widgets:
+            rw['action_var'].set(action)
+            if action == "custom":
+                rw['entry_custom'].configure(state="normal")
+            else:
+                rw['entry_custom'].configure(state="disabled")
 
     def _on_confirm(self) -> None:
-        self.result = [
-            self.preview_items[i] 
-            for i, var in self.decisions.items() 
-            if var.get()
-        ]
+        self.result = []
+        for rw in self.row_widgets:
+            action = rw['action_var'].get()
+            orig_val = str(rw['item']['original'])
+            cleaned_val = str(rw['item']['cleaned'])
+            
+            if action == "clean":
+                final_val = cleaned_val
+            elif action == "custom":
+                final_val = rw['entry_custom'].get()
+            else:
+                final_val = orig_val
+
+            if final_val != orig_val:
+                self.result.append({
+                    'row_idx': rw['item']['row_idx'],
+                    'col_name': rw['item']['col_name'],
+                    'original': orig_val,
+                    'cleaned': final_val
+                })
         self.destroy()
 
     def _on_cancel(self) -> None:
