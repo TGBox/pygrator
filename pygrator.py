@@ -69,6 +69,8 @@ class CSVMappingApp(ctk.CTk):
     cleanup_dialog: Optional[StringCleanupPreviewDialog]
     ik_service: Any
     plz_service: Any
+    _current_toast_frame: Optional[ctk.CTkFrame]
+    _current_toast_timer: Optional[str]
 
     def __init__(self) -> None:
         super().__init__()
@@ -90,6 +92,8 @@ class CSVMappingApp(ctk.CTk):
         self.mapping_dropdowns = {}
         self.trans_buttons = {}
         self.cleanup_dialog = None
+        self._current_toast_frame = None
+        self._current_toast_timer = None
         
         self.var_clean_strings = ctk.BooleanVar(value=True)
         
@@ -443,7 +447,77 @@ class CSVMappingApp(ctk.CTk):
             btn_trans.grid(row=idx, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
             self.trans_buttons[target_col] = btn_trans
 
+            # Rechtsklick-Event zum direkten Entfernen/Deselektieren der Regel binden
+            def _make_right_click_handler(col: str) -> Any:
+                def _handler(event: Any) -> str:
+                    self.remove_rule_direct(col)
+                    return "break"
+                return _handler
+
+            handler = _make_right_click_handler(target_col)
+            btn_trans.bind("<Button-3>", handler)
+            btn_trans.bind("<Button-2>", handler)
+            if hasattr(btn_trans, "_canvas") and btn_trans._canvas:
+                btn_trans._canvas.bind("<Button-3>", handler)
+                btn_trans._canvas.bind("<Button-2>", handler)
+            if hasattr(btn_trans, "_text_label") and btn_trans._text_label:
+                btn_trans._text_label.bind("<Button-3>", handler)
+                btn_trans._text_label.bind("<Button-2>", handler)
+
         self.update_all_rule_button_states()
+
+    def show_toast(self, message: str, duration_ms: int = 2500, icon: str = "ℹ️") -> None:
+        """Zeigt eine elegante, nicht-modale In-App Toast-Benachrichtigung am unteren Rand an."""
+        if hasattr(self, "_current_toast_frame") and self._current_toast_frame:
+            try:
+                if hasattr(self, "_current_toast_timer") and self._current_toast_timer:
+                    self.after_cancel(self._current_toast_timer)
+                self._current_toast_frame.destroy()
+            except Exception:
+                pass
+
+        toast_frame = ctk.CTkFrame(
+            self,
+            fg_color=COL_GRAY_20,
+            border_color=COL_DARK_GREEN,
+            border_width=1,
+            corner_radius=12
+        )
+        toast_frame.place(relx=0.5, rely=0.92, anchor="center")
+
+        label = ctk.CTkLabel(
+            toast_frame,
+            text=f"{icon}  {message}",
+            font=BUTTON_FONT,
+            text_color=COL_WHITE,
+            padx=PADDING_L,
+            pady=PADDING_S
+        )
+        label.pack()
+
+        self._current_toast_frame = toast_frame
+
+        def dismiss() -> None:
+            try:
+                if hasattr(self, "_current_toast_frame") and self._current_toast_frame == toast_frame:
+                    toast_frame.destroy()
+                    self._current_toast_frame = None
+            except Exception:
+                pass
+
+        self._current_toast_timer = self.after(duration_ms, dismiss)
+
+    def remove_rule_direct(self, target_col: str) -> None:
+        """Entfernt eine Regel direkt per Rechtsklick ohne Bestätigungsdialog."""
+        if target_col in self.transformations and self.transformations[target_col].get('type') != 'none':
+            rule_info = self.transformations[target_col]
+            rule_type = rule_info.get('type', '')
+            rule_title = RULE_NAMES.get(rule_type, rule_type)
+            del self.transformations[target_col]
+            self.update_rule_button_state(target_col)
+            self.show_toast(f"Regel '{rule_title}' für '{target_col}' entfernt", icon="🗑️")
+        else:
+            self.show_toast(f"Keine Regel für '{target_col}' vorhanden", icon="ℹ️")
             
     def update_all_rule_button_states(self) -> None:
         if hasattr(self, 'trans_buttons'):
@@ -716,14 +790,15 @@ class CSVMappingApp(ctk.CTk):
                 'param': param
             }
             self.update_rule_button_state(target_col)
-            messagebox.showinfo("Gespeichert", f"Regel '{t_type}' für '{target_col}' hinterlegt.")
+            rule_title: str = RULE_NAMES.get(t_type, t_type)
+            self.show_toast(f"Regel '{rule_title}' für '{target_col}' hinterlegt.", icon="✓")
             dialog.destroy()
 
         def remove_rule() -> None:
             if target_col in self.transformations:
                 del self.transformations[target_col]
             self.update_rule_button_state(target_col)
-            messagebox.showinfo("Entfernt", f"Keine Regel mehr für '{target_col}' aktiv.")
+            self.show_toast(f"Keine Regel mehr für '{target_col}' aktiv.", icon="🗑️")
             dialog.destroy()
 
         btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
@@ -1297,9 +1372,9 @@ class CSVMappingApp(ctk.CTk):
             out_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
             
         if self.combo_schema.get() == "patienten":
-            messagebox.showinfo("Export erfolgreich", "Die Patientendaten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.")
+            self.show_toast("Die Patientendaten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.", icon="✅")
         elif self.combo_schema.get() == "adressen":
-            messagebox.showinfo("Export erfolgreich", "Die Adressen wurden erfolgreich exportiert.")
+            self.show_toast("Die Adressen wurden erfolgreich exportiert.", icon="✅")
                     
     def run_pre_check_export(self) -> None:
         """Identifiziert und exportiert geflaggte Datensätze für eine manuelle Kontrolle."""
@@ -1337,10 +1412,7 @@ class CSVMappingApp(ctk.CTk):
         )
 
         if flagged_df.empty:
-            messagebox.showinfo(
-                "Prüfung abgeschlossen", 
-                "Keine auffälligen Datensätze gefunden!\nAlle zugeordneten Felder sind valide."
-            )
+            self.show_toast("Prüfung abgeschlossen: Keine auffälligen Datensätze gefunden!", icon="✅")
             return
 
         export_path: str = filedialog.asksaveasfilename(
@@ -1352,11 +1424,7 @@ class CSVMappingApp(ctk.CTk):
 
         if export_path:
             flagged_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
-            messagebox.showinfo(
-                "Export erfolgreich", 
-                f"Es wurden {len(flagged_df)} betroffene Datensätze exportiert.\n\n"
-                f"Gespeichert unter:\n{export_path}"
-            )
+            self.show_toast(f"Export erfolgreich: {len(flagged_df)} betroffene Datensätze exportiert.", icon="✅")
         
 if __name__ == "__main__":
     app = CSVMappingApp()
