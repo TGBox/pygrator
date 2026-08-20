@@ -106,11 +106,30 @@ class RowValidationDialog(ctk.CTkToplevel):
 
             var_action = ctk.StringVar(value="truncate")
 
+            entry_custom = ctk.CTkEntry(action_frame, width=REPLACEMENT_INPUT_WIDTH, placeholder_text=orig_val)
+
+            def on_action_change() -> None:
+                if var_action.get() == "custom":
+                    entry_custom.configure(state="normal")
+                    if not entry_custom.get():
+                        entry_custom.insert(0, orig_val)
+                else:
+                    entry_custom.configure(state="disabled")
+
+            def on_entry_click(event: Any = None) -> None:
+                if var_action.get() != "custom":
+                    var_action.set("custom")
+                    on_action_change()
+
+            entry_custom.bind("<Button-1>", on_entry_click)
+            entry_custom.bind("<FocusIn>", on_entry_click)
+
             r_trunc = ctk.CTkRadioButton(
                 action_frame, 
                 text=f"Kürzen auf '{orig_val[:limit]}'", 
                 variable=var_action, 
-                value="truncate"
+                value="truncate",
+                command=on_action_change
             )
             r_trunc.pack(side="left", padx=(0, PADDING_L))
 
@@ -118,21 +137,22 @@ class RowValidationDialog(ctk.CTkToplevel):
                 action_frame, 
                 text="Eigener Wert:", 
                 variable=var_action, 
-                value="custom"
+                value="custom",
+                command=on_action_change
             )
             r_custom.pack(side="left", padx=(0, PADDING_XS))
 
-            entry_custom = ctk.CTkEntry(action_frame, width=REPLACEMENT_INPUT_WIDTH, placeholder_text="Ersatzwert eingeben...")
-            entry_custom.insert(0, orig_val[:limit])
             entry_custom.pack(side="left", padx=(0, PADDING_L))
 
             r_ignore = ctk.CTkRadioButton(
                 action_frame, 
                 text="Unverändert belassen", 
                 variable=var_action, 
-                value="ignore"
+                value="ignore",
+                command=on_action_change
             )
             r_ignore.pack(side="left")
+            on_action_change()
 
             self.rows_data.append({
                 'row_idx': row_idx,
@@ -414,15 +434,25 @@ class ValidationFixDialog(ctk.CTkToplevel):
 
         action_var = ctk.StringVar(value=str(item.get('action', 'keep')))
 
-        entry_custom = ctk.CTkEntry(row_frame, placeholder_text="Manuelle Korrektur", width=MANUAL_CHANGE_FIELD_WIDTH)
+        entry_custom = ctk.CTkEntry(row_frame, placeholder_text=orig_val, width=MANUAL_CHANGE_FIELD_WIDTH)
         if item.get('custom_val'):
             entry_custom.insert(0, str(item['custom_val']))
 
         def on_action_change() -> None:
             if action_var.get() == "custom":
                 entry_custom.configure(state="normal")
+                if not entry_custom.get():
+                    entry_custom.insert(0, orig_val)
             else:
                 entry_custom.configure(state="disabled")
+
+        def on_entry_click(event: Any = None) -> None:
+            if action_var.get() != "custom":
+                action_var.set("custom")
+                on_action_change()
+
+        entry_custom.bind("<Button-1>", on_entry_click)
+        entry_custom.bind("<FocusIn>", on_entry_click)
 
         r_keep = ctk.CTkRadioButton(row_frame, text="Beibehalten", variable=action_var, value="keep", command=on_action_change, width=RADIO_BUTTON_LABEL_WIDTH)
         r_keep.pack(side="left", padx=PADDING_XS)
@@ -445,7 +475,12 @@ class ValidationFixDialog(ctk.CTkToplevel):
     def _apply_batch_action(self, action: str) -> None:
         for rw in self.row_widgets:
             rw['action_var'].set(action)
-            rw['entry_custom'].configure(state="disabled")
+            if action == "custom":
+                rw['entry_custom'].configure(state="normal")
+                if not rw['entry_custom'].get():
+                    rw['entry_custom'].insert(0, str(rw['item'].get('original_val', '')))
+            else:
+                rw['entry_custom'].configure(state="disabled")
 
     def _on_apply(self) -> None:
         for rw in self.row_widgets:
@@ -558,15 +593,24 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
 
         action_var = ctk.StringVar(value="clean")
 
-        cleaned_val = str(item['cleaned'])
-        entry_custom = ctk.CTkEntry(row, placeholder_text="Manuelle Korrektur", width=REPLACEMENT_INPUT_WIDTH)
-        entry_custom.insert(0, cleaned_val)
+        orig_val = str(item['original'])
+        entry_custom = ctk.CTkEntry(row, placeholder_text=orig_val, width=REPLACEMENT_INPUT_WIDTH)
 
         def on_action_change() -> None:
             if action_var.get() == "custom":
                 entry_custom.configure(state="normal")
+                if not entry_custom.get():
+                    entry_custom.insert(0, orig_val)
             else:
                 entry_custom.configure(state="disabled")
+
+        def on_entry_click(event: Any = None) -> None:
+            if action_var.get() != "custom":
+                action_var.set("custom")
+                on_action_change()
+
+        entry_custom.bind("<Button-1>", on_entry_click)
+        entry_custom.bind("<FocusIn>", on_entry_click)
 
         r_clean = ctk.CTkRadioButton(row, text="Bereinigen", variable=action_var, value="clean", command=on_action_change, width=80)
         r_clean.pack(side="left", padx=PADDING_XS)
@@ -591,6 +635,8 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             rw['action_var'].set(action)
             if action == "custom":
                 rw['entry_custom'].configure(state="normal")
+                if not rw['entry_custom'].get():
+                    rw['entry_custom'].insert(0, str(rw['item'].get('original', '')))
             else:
                 rw['entry_custom'].configure(state="disabled")
 

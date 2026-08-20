@@ -81,10 +81,10 @@ class CSVMappingApp(ctk.CTk):
         
         # 1. Globale Autocomplete-Einstellungen initialisieren
         self.autocomplete_settings = {
-            "split_title": True,       # Titel aus Name trennen
-            "infer_gender": True,      # Geschlecht aus Vorname ableiten
-            "infer_salutation": True,  # Anrede generieren
-            "clean_kvnr": True         # KVNR bereinigen (O -> 0)
+            "split_title": False,       # Titel aus Name trennen
+            "infer_gender": False,      # Geschlecht aus Vorname ableiten
+            "infer_salutation": False,  # Anrede generieren
+            "clean_kvnr": False         # KVNR bereinigen (O -> 0)
         }
 
         self.source_df = None
