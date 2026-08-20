@@ -1,3 +1,4 @@
+from constants import COL_PURPLE
 import os
 import re
 import csv
@@ -108,21 +109,36 @@ class CSVMappingApp(ctk.CTk):
     def _build_ui(self) -> None:
         top_frame = ctk.CTkFrame(self)
         top_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_M)
-        
+
+        # Zeile 1: Aktionsleiste (Buttons & Schema-Auswahl)
+        action_row = ctk.CTkFrame(top_frame, fg_color="transparent")
+        action_row.pack(fill="x", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
+
+        ctk.CTkButton(action_row, text="Quelldatei laden (CSV)", command=self.load_csv).pack(side="left")
+
         self.btn_auto_settings = ctk.CTkButton(
-            top_frame,
+            action_row,
             text="⚙️ Auto-Vervollständigung",
             command=self.open_autocomplete_settings_dialog
         )
-        self.btn_auto_settings.pack(side="right", padx=10)
+        self.btn_auto_settings.pack(side="right", padx=(PADDING_M, 0))
 
-        ctk.CTkButton(top_frame, text="Quelldatei laden (CSV)", command=self.load_csv).pack(side="left", padx=PADDING_M, pady=PADDING_M)
-        self.lbl_file = ctk.CTkLabel(top_frame, text="Keine Datei ausgewählt", text_color="gray")
-        self.lbl_file.pack(side="left", padx=PADDING_M)
+        self.combo_schema = ctk.CTkOptionMenu(
+            action_row, 
+            values=list(SCHEMAS.keys()), 
+            width=OPTIONS_MENU_WIDTH,
+            command=self.on_schema_change
+        )
+        self.combo_schema.pack(side="right", padx=PADDING_XS)
 
-        ctk.CTkLabel(top_frame, text="Zielschema:").pack(side="left", padx=(PADDING_XL, PADDING_XS))
-        self.combo_schema = ctk.CTkOptionMenu(top_frame, values=list(SCHEMAS.keys()), command=self.on_schema_change)
-        self.combo_schema.pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(action_row, text="Zielschema:").pack(side="right", padx=(PADDING_M, PADDING_XS))
+
+        # Zeile 2: Datei-Informationen (vollständiger Dateiname & Details)
+        info_row = ctk.CTkFrame(top_frame, fg_color="transparent")
+        info_row.pack(fill="x", padx=PADDING_M, pady=(PADDING_XXS, PADDING_S))
+
+        self.lbl_file = ctk.CTkLabel(info_row, text="Keine Datei ausgewählt", text_color="gray", anchor="w")
+        self.lbl_file.pack(side="left", fill="x", expand=True)
 
         self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Spalten-Zuordnung & Schema-Limits")
         self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_L, pady=PADDING_M)
@@ -288,7 +304,7 @@ class CSVMappingApp(ctk.CTk):
             self.source_df = loaded_df
             self.source_file_path = file_path
             cast(Any, self.lbl_file).configure(
-                text=f"{os.path.basename(file_path)} (Trennzeichen: '{detected_sep}', Encoding: {used_encoding})", 
+                text=f"📁 Datei: {os.path.basename(file_path)}  |  Trennzeichen: '{detected_sep}'  |  Encoding: {used_encoding}", 
                 text_color=COL_WHITE
             )
             self.render_mapping_rows()
@@ -479,7 +495,7 @@ class CSVMappingApp(ctk.CTk):
 
         toast_frame = ctk.CTkFrame(
             self,
-            fg_color=COL_GRAY_20,
+            fg_color=COL_PURPLE,
             border_color=COL_DARK_GREEN,
             border_width=1,
             corner_radius=12
