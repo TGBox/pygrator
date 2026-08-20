@@ -208,7 +208,7 @@ class CSVMappingApp(ctk.CTk):
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=20, pady=(20, 10))
 
-        vars_dict = {}
+        vars_dict: dict[str, str] = {} #?
         options = [
             ("split_title", "🎓 Titel von Namen trennen (z. B. Dr. med.)"),
             ("infer_gender", "⚥ Geschlecht anhand des Vornamens ermitteln"),
