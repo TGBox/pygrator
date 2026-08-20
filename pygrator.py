@@ -202,8 +202,6 @@ class CSVMappingApp(ctk.CTk):
         """Öffnet das Einstellungsfenster für die automatische Vervollständigung"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("Einstellungen: Automatische Vervollständigung")
-        dialog.geometry("460x320")
-        dialog.grab_set()  # Fenster modal machen (Vordergrund erzwingen)
 
         ctk.CTkLabel(
             dialog, 
@@ -232,6 +230,9 @@ class CSVMappingApp(ctk.CTk):
 
         btn_save = ctk.CTkButton(dialog, text="Übernehmen", command=save_and_close)
         btn_save.pack(pady=(20, 0))
+
+        center_window(dialog, AUTO_COMPLETE_DIALOG_WIDTH, AUTO_COMPLETE_DIALOG_HEIGHT)
+        dialog.grab_set()  # Fenster modal machen (Vordergrund erzwingen)
 
     def on_format_change(self, choice: str) -> None:
         """Aktiviert/Deaktiviert das Encoding-Dropdown je nach Format."""
@@ -558,7 +559,16 @@ class CSVMappingApp(ctk.CTk):
         center_window(dialog, TRANSFORMATION_DIALOG_WIDTH, TRANSFORMATION_DIALOG_HEIGHT)
         dialog.grab_set()
 
-        ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=BUTTON_FONT).pack(pady=PADDING_M)
+        # 1. Header (Oben fixiert)
+        ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=BUTTON_FONT).pack(pady=PADDING_S)
+
+        # 2. Fußzeile für Aktions-Buttons (Unten fixiert, bleibt IMMER sichtbar!)
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(side="bottom", fill="x", pady=PADDING_M)
+
+        # 3. Mittlerer scrollbarer Inhaltsbereich
+        scroll_frame = ctk.CTkScrollableFrame(dialog)
+        scroll_frame.pack(fill="both", expand=True, padx=PADDING_M, pady=PADDING_XS)
 
         existing_rule: Dict[str, Any] = self.transformations.get(target_col, {})
         
@@ -585,13 +595,13 @@ class CSVMappingApp(ctk.CTk):
         current_type: str = str(existing_rule.get('type', default_rule))
         rule_type: ctk.StringVar = ctk.StringVar(value=current_type)
 
-        r0 = ctk.CTkRadioButton(dialog, text="🔑 Neue UID generieren (Kompakt)", variable=rule_type, value="generate_uid")
+        r0 = ctk.CTkRadioButton(scroll_frame, text="🔑 Neue UID generieren (Kompakt)", variable=rule_type, value="generate_uid")
         r0.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
-        r_copy = ctk.CTkRadioButton(dialog, text="🔗 Wert aus anderer Zielspalte übernehmen", variable=rule_type, value="copy_target")
+        r_copy = ctk.CTkRadioButton(scroll_frame, text="🔗 Wert aus anderer Zielspalte übernehmen", variable=rule_type, value="copy_target")
         r_copy.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        copy_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        copy_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         copy_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(copy_frame, text="Kopieren aus:").pack(side="left", padx=PADDING_XS)
         combo_copy_target = ctk.CTkOptionMenu(copy_frame, values=other_target_cols if other_target_cols else ["Keine"])
@@ -599,10 +609,10 @@ class CSVMappingApp(ctk.CTk):
         if existing_rule.get('type') == 'copy_target' and str(existing_rule.get('param')) in other_target_cols:
             combo_copy_target.set(str(existing_rule.get('param')))
 
-        r_date = ctk.CTkRadioButton(dialog, text="📅 Datumsformat anpassen -> YYYY-MM-DD", variable=rule_type, value="format_date")
+        r_date = ctk.CTkRadioButton(scroll_frame, text="📅 Datumsformat anpassen -> YYYY-MM-DD", variable=rule_type, value="format_date")
         r_date.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        date_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        date_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         date_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(date_frame, text="Standardwert bei leeren Feldern (optional):", font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=PADDING_XS)
         entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
@@ -610,13 +620,13 @@ class CSVMappingApp(ctk.CTk):
         if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
             entry_date_default.insert(0, str(existing_rule.get('param')))
         
-        separator = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
+        separator = ctk.CTkFrame(scroll_frame, height=2, fg_color=COL_GRAY_30)
         separator.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
-        r_default = ctk.CTkRadioButton(dialog, text="✨ Standardwert nur für LEERE Felder setzen", variable=rule_type, value="default_value")
+        r_default = ctk.CTkRadioButton(scroll_frame, text="✨ Standardwert nur für LEERE Felder setzen", variable=rule_type, value="default_value")
         r_default.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        default_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        default_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         default_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(default_frame, text="Ersatzwert:").pack(side="left", padx=PADDING_XS)
         entry_default_val = ctk.CTkEntry(default_frame, width=VALUE_FIELD_WIDTH, placeholder_text="z. B. Unbekannt")
@@ -624,10 +634,10 @@ class CSVMappingApp(ctk.CTk):
         if existing_rule.get('type') == 'default_value':
             entry_default_val.insert(0, str(existing_rule.get('param', '')))
 
-        r_static = ctk.CTkRadioButton(dialog, text="📌 Statischen Festwert für ALLE Zeilen setzen", variable=rule_type, value="static_value")
+        r_static = ctk.CTkRadioButton(scroll_frame, text="📌 Statischen Festwert für ALLE Zeilen setzen", variable=rule_type, value="static_value")
         r_static.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        static_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        static_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         static_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(static_frame, text="Wert:").pack(side="left", padx=PADDING_XS)
         entry_static_val = ctk.CTkEntry(static_frame, width=VALUE_FIELD_WIDTH)
@@ -635,18 +645,18 @@ class CSVMappingApp(ctk.CTk):
         if existing_rule.get('type') == 'static_value':
             entry_static_val.insert(0, str(existing_rule.get('param', '')))
 
-        separator2 = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
+        separator2 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COL_GRAY_30)
         separator2.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
         
         r_ik_lookup = ctk.CTkRadioButton(
-            dialog, 
+            scroll_frame, 
             text="🏢 Krankenkassenname aus IK-Quellspalte ermitteln", 
             variable=rule_type, 
             value="lookup_ik_provider"
         )
         r_ik_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        ik_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        ik_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         ik_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(ik_frame, text="IK-Quellspalte:").pack(side="left", padx=PADDING_XS)
 
@@ -663,7 +673,7 @@ class CSVMappingApp(ctk.CTk):
                     break
                 
         r_val_ik = ctk.CTkRadioButton(
-            dialog, 
+            scroll_frame, 
             text="✔️ IK-Nummer auf Gültigkeit prüfen (Prüfziffer)", 
             variable=rule_type, 
             value="validate_ik"
@@ -671,7 +681,7 @@ class CSVMappingApp(ctk.CTk):
         r_val_ik.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         r_val_kvnr = ctk.CTkRadioButton(
-            dialog, 
+            scroll_frame, 
             text="✔️ Krankenversichertennummer (KVNR) auf Gültigkeit prüfen", 
             variable=rule_type, 
             value="validate_kvnr"
@@ -679,18 +689,18 @@ class CSVMappingApp(ctk.CTk):
         r_val_kvnr.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_val_mail = ctk.CTkRadioButton(
-            dialog, 
+            scroll_frame, 
             text="✔️ E-Mailadresse auf Gültigkeit prüfen", 
             variable=rule_type, 
             value="validate_email"
         )
         r_val_mail.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        r_plz = ctk.CTkRadioButton(dialog, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
+        r_plz = ctk.CTkRadioButton(scroll_frame, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
         r_plz.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_seq = ctk.CTkRadioButton(
-            dialog, 
+            scroll_frame, 
             text="🔢 Lineare Nummerierung (6-stellig, z. B. 000001)", 
             variable=rule_type, 
             value="auto_sequence_6"
@@ -698,14 +708,14 @@ class CSVMappingApp(ctk.CTk):
         r_seq.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_plz_lookup = ctk.CTkRadioButton(
-            dialog, 
+            scroll_frame, 
             text="📮 PLZ basierend auf Ortsname-Quellspalte ergänzen", 
             variable=rule_type, 
             value="lookup_plz_by_city"
         )
         r_plz_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        plz_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        plz_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         plz_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(plz_frame, text="Ortsname-Quellspalte:").pack(side="left", padx=PADDING_XS)
         combo_city_source = ctk.CTkOptionMenu(plz_frame, values=source_cols_list if source_cols_list else ["Keine"])
@@ -720,14 +730,14 @@ class CSVMappingApp(ctk.CTk):
                     break
 
         r_city_lookup = ctk.CTkRadioButton(
-            dialog, 
+            scroll_frame, 
             text="🏙️ Ort basierend auf PLZ-Quellspalte ergänzen", 
             variable=rule_type, 
             value="lookup_city_by_plz"
         )
         r_city_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        city_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        city_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         city_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(city_frame, text="PLZ-Quellspalte:").pack(side="left", padx=PADDING_XS)
         combo_plz_source = ctk.CTkOptionMenu(city_frame, values=source_cols_list if source_cols_list else ["Keine"])
@@ -741,22 +751,22 @@ class CSVMappingApp(ctk.CTk):
                     combo_plz_source.set(c)
                     break
 
-        r1 = ctk.CTkRadioButton(dialog, text="👫 Geschlecht mappen (M->Herr, W->Frau)", variable=rule_type, value="gender")
+        r1 = ctk.CTkRadioButton(scroll_frame, text="👫 Geschlecht mappen (M->Herr, W->Frau)", variable=rule_type, value="gender")
         r1.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
-        separator3 = ctk.CTkFrame(dialog, height=2, fg_color=COL_GRAY_30)
+        separator3 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COL_GRAY_30)
         separator3.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
-        r2 = ctk.CTkRadioButton(dialog, text="🏠 Straße/(Hausnr.) trennen -> Nur Straßenname", variable=rule_type, value="split_street")
+        r2 = ctk.CTkRadioButton(scroll_frame, text="🏠 Straße/(Hausnr.) trennen -> Nur Straßenname", variable=rule_type, value="split_street")
         r2.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        r3 = ctk.CTkRadioButton(dialog, text="🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer", variable=rule_type, value="split_number")
+        r3 = ctk.CTkRadioButton(scroll_frame, text="🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer", variable=rule_type, value="split_number")
         r3.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
-        r_merge = ctk.CTkRadioButton(dialog, text="🔗 Zwei Quellspalten zusammenführen (mit Leerzeichen)", variable=rule_type, value="merge_columns")
+        r_merge = ctk.CTkRadioButton(scroll_frame, text="🔗 Zwei Quellspalten zusammenführen (mit Leerzeichen)", variable=rule_type, value="merge_columns")
         r_merge.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        merge_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        merge_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         merge_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(merge_frame, text="Zweite Quellspalte:").pack(side="left", padx=PADDING_XS)
 
@@ -801,10 +811,8 @@ class CSVMappingApp(ctk.CTk):
             self.show_toast(f"Keine Regel mehr für '{target_col}' aktiv.", icon="🗑️")
             dialog.destroy()
 
-        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        btn_frame.pack(pady=PADDING_L)
-        ctk.CTkButton(btn_frame, text="Speichern", command=save_rule).pack(side="left", padx=PADDING_XS, anchor="s")
-        ctk.CTkButton(btn_frame, text="Regel löschen", fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", padx=PADDING_XS, anchor="s")
+        ctk.CTkButton(btn_frame, text="Speichern", command=save_rule).pack(side="left", expand=True, padx=PADDING_S)
+        ctk.CTkButton(btn_frame, text="Regel löschen", fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", expand=True, padx=PADDING_S)
 
     def start_processing(self) -> None:
         """Startet den Gesamtablauf: Prüft Vorschaudialog und führt danach den Export aus."""

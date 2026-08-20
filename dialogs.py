@@ -2,25 +2,32 @@ import customtkinter as ctk
 from typing import List, Dict, Any
 from constants import *
 
-def center_window(window: ctk.CTkToplevel, width: int, height: int) -> None:
+def center_window(window: Any, width: int, height: int) -> None:
+    """Zentriert ein Fenster exakt in der Mitte des Hauptbildschirms."""
     window.update_idletasks()
     screen_width = window.winfo_screenwidth()
     screen_height = window.winfo_screenheight()
-    x = int((screen_width - width) / 2)
-    y = int((screen_height - height) / 2)
-    window.geometry(f"{width}x{height}+{x}+{y}")
+    
+    max_height = int(screen_height * 0.85)
+    max_width = int(screen_width * 0.95)
+    
+    effective_width = min(width, max_width)
+    effective_height = min(height, max_height)
+    
+    x = max(0, int((screen_width - effective_width) // 2))
+    y = max(0, int((screen_height - effective_height) // 2))
+    window.geometry(f"{effective_width}x{effective_height}+{x}+{y}")
 
 class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: List[Dict[str, Any]]):
         super().__init__(parent)
         self.title("⚠️ Individuelle Feldlängen-Konflikte lösen (Zellgenau)")
-        center_window(self, ROW_VALIDATION_DIALOG_WIDTH, ROW_VALIDATION_DIALOG_HEIGHT)
-        self.grab_set()
-
         self.conflicts = conflicts
         self.rows_data: List[Dict[str, Any]] = []
         self.resolved_results: List[Dict[str, Any]] = []
         self.confirmed = False
+        center_window(self, ROW_VALIDATION_DIALOG_WIDTH, ROW_VALIDATION_DIALOG_HEIGHT)
+        self.grab_set()
 
         top_frame: ctk.CTkFrame = ctk.CTkFrame(self)
         top_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_M)
