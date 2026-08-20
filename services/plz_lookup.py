@@ -1,9 +1,10 @@
 import os
 import re
+import sys
 from typing import Optional, List, Dict
 
 class PLZLookupService:
-    def __init__(self, filepath: str = "./services/plz/D.txt") -> None:
+    def __init__(self, filepath: Optional[str] = None) -> None:
         """
         Lädt die PLZ-Datei und baut zwei Indizes für schnellen Zugriff auf:
         - self.plz_to_city: Map von PLZ -> Liste von Ortsnamen (da eine PLZ mehreren Orten gehören kann)
@@ -12,6 +13,12 @@ class PLZLookupService:
         self.plz_to_cities: Dict[str, List[str]] = {}
         self.city_to_plzs: Dict[str, List[str]] = {}
         
+        if filepath is None:
+            if hasattr(sys, '_MEIPASS'):
+                filepath = os.path.join(getattr(sys, '_MEIPASS'), "services", "plz", "D.txt")
+            else:
+                filepath = "./services/plz/D.txt"
+
         if os.path.exists(filepath):
             self._load_file(filepath)
         else:
