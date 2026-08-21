@@ -511,7 +511,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             header_frame, 
             text="String-Bereinigung Vorschau", 
-            font=ctk.CTkFont(TITLE_FONT)
+            font=TITLE_FONT
         ).pack(anchor="w")
         
         ctk.CTkLabel(
@@ -575,7 +575,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         row.pack(fill="x", pady=2, ipady=PADDING_XXS)
 
         info_txt = f"Z. {int(item['row_idx']) + 1} | {item['col_name']}"
-        ctk.CTkLabel(row, text=info_txt, width=BUTTON_WIDTH, anchor="w", font=ctk.CTkFont(LABEL_FONT)).pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(row, text=info_txt, width=BUTTON_WIDTH, anchor="w", font=LABEL_FONT).pack(side="left", padx=PADDING_XS)
 
         orig_val = str(item['original'])
         entry_orig = ctk.CTkEntry(row, width=170)
@@ -695,7 +695,7 @@ class ImportApp(ctk.CTk):
         ctk.CTkLabel(
             dialog, 
             text="Welche Felder sollen automatisch vervollständigt werden?", 
-            font=ctk.CTkFont(LARGER_LABEL_FONT_BOLD)
+            font=LARGER_LABEL_FONT_BOLD
         ).pack(anchor="w", padx=PADDING_XL, pady=(PADDING_XL, PADDING_M))
 
         # Checkboxen an die aktuellen Einstellungen binden

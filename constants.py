@@ -1,3 +1,4 @@
+from customtkinter import CTkFont
 RULE_NAMES = {
     "generate_uid": "UID generieren",
     "copy_target": "Kopieren aus",
@@ -20,14 +21,14 @@ RULE_NAMES = {
 APP_WIDTH = 1040
 APP_HEIGHT = 880
 FONT_TYPE = "Roboto"
-LABEL_FONT_BOLD = (FONT_TYPE, 11, "bold")
-LABEL_FONT = (FONT_TYPE, 11)
-LARGER_LABEL_FONT_BOLD = (FONT_TYPE, 14, "bold")
-SMALL_LABEL_FONT = (FONT_TYPE, 10)
-SMALL_LABEL_FONT_BOLD = (FONT_TYPE, 10, "bold")
-BUTTON_FONT = (FONT_TYPE, 12, "bold")
-TITLE_FONT = (FONT_TYPE, 18, "bold")
-BOLD_FONT = (FONT_TYPE, "bold")
+LABEL_FONT_BOLD: CTkFont = CTkFont(FONT_TYPE, 11, "bold")
+LABEL_FONT: CTkFont = CTkFont(FONT_TYPE, 11)
+LARGER_LABEL_FONT_BOLD: CTkFont = CTkFont(FONT_TYPE, 14, "bold")
+SMALL_LABEL_FONT: CTkFont = CTkFont(FONT_TYPE, 10)
+SMALL_LABEL_FONT_BOLD: CTkFont = CTkFont(FONT_TYPE, 10, "bold")
+BUTTON_FONT: CTkFont = CTkFont(FONT_TYPE, 12, "bold")
+TITLE_FONT: CTkFont = CTkFont(FONT_TYPE, 18, "bold")
+BOLD_FONT: CTkFont = CTkFont(family=FONT_TYPE, size=None, slant="bold")
 OPTIONS_MENU_WIDTH = 160
 MAX_CHAR_READ = 4096
 RULE_BUTTON_WIDTH = 240
