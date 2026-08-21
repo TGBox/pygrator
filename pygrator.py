@@ -371,7 +371,10 @@ class CSVMappingApp(ctk.CTk):
                     combo.set(str(src_col))
                     break
 
-                if src_lower == "wohnort" and "p_ort" in target_lower:
+                if src_lower in ["ort", "wohnort", "stadt"] and any(k in target_lower for k in ["p_ort", "ort"]):
+                    combo.set(str(src_col))
+                    break
+                if src_lower in ["plz", "postleitzahl"] and any(k in target_lower for k in ["p_plz", "plz"]):
                     combo.set(str(src_col))
                     break
                 if src_lower == "geburtsdatum" and "p_birth" in target_lower:
