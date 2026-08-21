@@ -65,10 +65,13 @@ def sanitize_data_string(val: str, remove_special_chars: bool = False) -> str:
     
     val = str(val).strip()
     
-    # 1. Steuerzeichen entfernen (Null-Bytes, Linefeeds etc.)
+    # 1. 'str,' durch 'str.' ersetzen (z.B. 'Gartenstr, 11' -> 'Gartenstr. 11')
+    val = re.sub(r'(?i)(str),', r'\1.', val)
+
+    # 2. Steuerzeichen entfernen (Null-Bytes, Linefeeds etc.)
     val = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', val)
     
-    # 2. Nur wirklich störende Zeichen entfernen
+    # 3. Nur wirklich störende Zeichen entfernen
     if remove_special_chars:
         # Erlaubt: \w (Buchstaben/Zahlen/Akzente), Leerzeichen, '&', Apostrophe, 
         # Klammern, Slashes, Bindestriche, Plus, Punkte, @

@@ -1,12 +1,13 @@
 import os
 import re
+import sys
 from typing import Optional, List, Dict, Tuple
 from difflib import get_close_matches
 from rapidfuzz import process, fuzz
 
 
 class IKLookupService:
-    def __init__(self, filepath: str = "./services/gkv/gkvliste.txt") -> None:
+    def __init__(self, filepath: Optional[str] = None) -> None:
         """
         Lädt die IK-Datei und baut Indizes auf:
         - self.ik_to_provider: Map von IK -> Krankenkassen-Name
@@ -15,6 +16,12 @@ class IKLookupService:
         self.ik_to_provider: Dict[str, str] = {}
         self.provider_to_ik: Dict[str, str] = {}
         self.provider_names_list: List[str] = []
+
+        if filepath is None:
+            if hasattr(sys, '_MEIPASS'):
+                filepath = os.path.join(getattr(sys, '_MEIPASS'), "services", "gkv", "gkvliste.txt")
+            else:
+                filepath = "./services/gkv/gkvliste.txt"
 
         if os.path.exists(filepath):
             self._load_file(filepath)
