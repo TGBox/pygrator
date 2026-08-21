@@ -1,8 +1,6 @@
 import re
 from typing import Tuple
 
-from db_util import validate_insurance_number
-
 # Bekannte akademische und medizinische Titel
 TITLES = [
     "Prof. Dr. med. dent.", "Prof. Dr. med.", "PD Dr. med.", 
@@ -45,6 +43,7 @@ def infer_gender_and_salutation(first_name: str) -> Tuple[str, str]:
 
 def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
     """Methode um fehlerhaft notierte Versicherungsnummern zu vervollständigen."""
+    from db_util import validate_insurance_number
     vnr = vnr.strip().upper()
     
     if len(vnr) == 10:

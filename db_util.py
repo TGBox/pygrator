@@ -1,9 +1,10 @@
+from auto_complete import try_to_fix_insurance_number
 from collections.abc import Hashable
 import re
 import time
 import random
 import string
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 import pandas as pd
 
 import email_validator as eval
@@ -13,31 +14,32 @@ def encode_base36(num: int) -> str:
     alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
     if num == 0:
         return "0"
-    
-    arr: list[str] = []
-    while num > 0:
-        num, rem = divmod(num, 36)
+    arr = []
+    base = len(alphabet)
+    while num:
+        num, rem = divmod(num, base)
         arr.append(alphabet[rem])
-    return "".join(reversed(arr))
+    arr.reverse()
+    return "".join(arr)
 
-def generate_id() -> str:
-    """Function to generate a unique identifier for elements."""
-    timestamp_ms = int(time.time() * 1000)
-    part1 = encode_base36(timestamp_ms)
-    
-    base36_chars = string.digits + string.ascii_lowercase
+def generate_rolf_id() -> str:
+    """Generiert eine eindeutige 10-stellige ROLF-ID (z.B. 'O9F1L-00A2B')."""
+    part1 = f"O{encode_base36(int(time.time() * 1000))[-4:]}"
+    base36_chars = "0123456789abcdefghijklmnopqrstuvwxyz"
     part2 = "".join(random.choices(base36_chars, k=5))
     
     return f"{part1}-{part2}".upper()
 
-def parse_varchar_limit(datatype_str: str) -> int | None:
+generate_id = generate_rolf_id
+
+def parse_varchar_limit(datatype_str: Any) -> int | None:
     """Extrahiert das Limit aus einem Typ-String wie 'VARCHAR(40)' -> 40. Bei 'TEXT' -> None."""
     match = re.search(r'VARCHAR\((\d+)\)', str(datatype_str), re.IGNORECASE)
     if match:
         return int(match.group(1))
     return None
 
-def format_date_iso(val: str) -> str:
+def format_date_iso(val: Any) -> str:
     """Wandelt Datumsangaben (z.B. '15.08.1985', '1985/08/15', '15.8.85') sauber in 'YYYY-MM-DD' um."""
     if pd.isna(val):
         return ""
@@ -52,14 +54,14 @@ def format_date_iso(val: str) -> str:
     try:
         # Versuch per Pandas to_datetime mit automatischer/deutscher Formaterkennung
         parsed_dt = pd.to_datetime(val_str, dayfirst=False, errors='coerce')
-        if pd.notna(parsed_dt):
+        if isinstance(parsed_dt, pd.Timestamp):
             return parsed_dt.strftime('%Y-%m-%d')
     except Exception:
         pass
 
     return val_str
 
-def sanitize_data_string(val: str, remove_special_chars: bool = False) -> str:
+def sanitize_data_string(val: Any, remove_special_chars: bool = False) -> str:
     if not val or pd.isna(val):
         return ""
     
@@ -79,7 +81,7 @@ def sanitize_data_string(val: str, remove_special_chars: bool = False) -> str:
         
     return val
 
-def validate_ik_number(ik: str) -> bool:
+def validate_ik_number(ik: Any) -> bool:
     """Validiert Form und Prüfziffer (Stelle 9) einer 9-stelligen IK-Nummer (§ 293 SGB V)."""
     ik = str(ik).strip().split('.')[0].zfill(9)
     if not ik.isdigit() or len(ik) != 9:
@@ -98,7 +100,7 @@ def validate_ik_number(ik: str) -> bool:
 
     return calc_check_digit == actual_check_digit
 
-def validate_insurance_number(kvnr: str) -> bool:
+def validate_insurance_number(kvnr: Any) -> bool:
     """Validiert Form und Prüfziffer (Stelle 10) der ungebundenen KVNR (1 Buchstaben + 9 Ziffern)."""
     kvnr = str(kvnr).strip().upper()
     if len(kvnr) != 10 or not kvnr[0].isalpha() or not kvnr[1:].isdigit():
@@ -121,17 +123,20 @@ def validate_insurance_number(kvnr: str) -> bool:
 
     return calc_check_digit == actual_check_digit
 
-def validate_email(email: str) -> bool:
+def validate_email(email: Any) -> bool:
+    if not email or pd.isna(email):
+        return False
+    email_str = str(email).strip()
+    if not email_str:
+        return False
     try:
         # Normalisiert die E-Mail (z.B. Kleinbuchstaben für Domains) und prüft Syntax
-        _valid = eval.validate_email(email, check_deliverability=False)
-        
-        # Returns True if condition is True: normalized_email = valid.normalized
+        _valid = eval.validate_email(email_str, check_deliverability=False)
         return True
-    except eval.EmailNotValidError:
+    except (eval.EmailNotValidError, Exception):
         return False
     
-def apply_rule_transform(val_str: str, rule_type: str, target_col: str) -> str:
+def apply_rule_transform(val_str: str, rule_type: Any, target_col: Any) -> str:
     """
     Extrahiert Teilwerte vor der Längenprüfung.
     Trennt Straße und Hausnummer korrekt auf - auch bei Adressen ohne Hausnummer.
@@ -175,8 +180,8 @@ def extract_flagged_records(
     # 1. Any erlauben, da row.to_dict() und Zeilennummern verschiedene Typen enthalten
     flagged_rows: list[dict[Hashable, Any]] = []
     
-    # Funktionsimport lokal statt global um Zirkuläre Abhängigkeiten zu vermeiden.
-    from auto_complete import try_to_fix_insurance_number
+    # Funktionsimport lokal statt global um Zirkuläre Abhängigkeiten zu vermeiden. !! Wurde entfernt?!
+    #from auto_complete import try_to_fix_insurance_number
 
     for idx, (_, row) in enumerate(df.iterrows()):
         row_flags: list[str] = []
@@ -258,7 +263,7 @@ def extract_flagged_records(
 
     if not result_df.empty:
         cols = ['__quell_zeile', '__gefundene_fehler'] + [c for c in result_df.columns if c not in ['__quell_zeile', '__gefundene_fehler']]
-        result_df = result_df[cols]
+        result_df = cast(pd.DataFrame, result_df[cols])
 
     return result_df
 

@@ -1,0 +1,6 @@
+pandas
+email-validator
+customtkinter
+openpyxl
+rapidfuzz
+mypy

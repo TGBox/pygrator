@@ -1282,7 +1282,7 @@ class CSVMappingApp(ctk.CTk):
             else:
                 out_df[target_col] = default_empty_value
 
-        out_df = out_df[list(target_schema.keys())]
+        out_df = cast(pd.DataFrame, out_df[list(target_schema.keys())])
 
         # PASS 3: Überlängen-Erfassung
         conflicts: List[Dict[str, Any]] = []
@@ -1468,7 +1468,7 @@ class CSVMappingApp(ctk.CTk):
                         'Aktion / Grund': "String-Bereinigung (Steuerzeichen / Trim)"
                     })
 
-        def add_audit(row_idx: int, target_col: str, orig_val: Any, new_val: Any, action_desc: str) -> None:
+        def add_audit(row_idx: Any, target_col: str, orig_val: Any, new_val: Any, action_desc: str) -> None:
             o_str: str = "" if (pd.isna(orig_val) or str(orig_val).strip() in ["", "nan", "None", "NULL"]) else str(orig_val).strip()
             n_str: str = "" if (pd.isna(new_val) or str(new_val).strip() in ["", "nan", "None", "NULL"]) else str(new_val).strip()
             
@@ -1478,7 +1478,7 @@ class CSVMappingApp(ctk.CTk):
 
             if o_str != n_str or "⚠️" in action_desc:
                 audit_entries.append({
-                    'Zeile': row_idx + 1,
+                    'Zeile': int(row_idx) + 1,
                     'Zielspalte': target_col,
                     'Originalwert': "" if pd.isna(orig_val) else str(orig_val),
                     'Neuer Wert': "" if pd.isna(new_val) else str(new_val),
@@ -1536,7 +1536,7 @@ class CSVMappingApp(ctk.CTk):
 
         # PASS 1: Validierungen & Grundtransformationen
         for target_col, _ in target_schema.items():
-            rule: Dict[str, Any] = self.transformations.get(target_col, {})
+            rule = self.transformations.get(target_col, {})
             rule_type: Optional[str] = rule.get('type') if rule else None
             param: Optional[Any] = rule.get('param') if rule else None
             source_col: Optional[str] = self.mapping_dropdowns[target_col].get() if target_col in self.mapping_dropdowns else None
@@ -1629,7 +1629,7 @@ class CSVMappingApp(ctk.CTk):
                 if source_col and source_col in df_work.columns and source_col != "-- Nicht zuordnen / Spezielle Regel --":
                     existing_ids = df_work[source_col].astype(str).str.strip()
                     fallback_seq = [str(i + 1).zfill(6) for i in range(row_count)]
-                    res_seq = []
+                    res_seq: list[str] = []
                     for r_idx in range(row_count):
                         e_id = existing_ids.iloc[r_idx]
                         if e_id in ["", "nan", "None", "NULL"] or pd.isna(df_work.at[r_idx, source_col]):
@@ -1804,6 +1804,9 @@ class CSVMappingApp(ctk.CTk):
             audit_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
             self.show_toast(f"Audit-Export erfolgreich: {len(audit_df)} Einträge in Protokoll exportiert.", icon="✅")
         
-if __name__ == "__main__":
+def main():
     app = CSVMappingApp()
     app.mainloop()
+
+if __name__ == "__main__":
+    main()

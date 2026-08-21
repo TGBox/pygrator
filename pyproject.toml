@@ -1,0 +1,34 @@
+[project]
+name = "pygrator"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Daniel Rösch", email = "droesch91@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "pandas",
+    "email-validator",
+    "customtkinter",
+    "openpyxl",
+    "rapidfuzz",
+    "mypy"
+]
+
+[project.scripts]
+pygrator = "pygrator:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = ["typings*"]
+
+[tool.pyright]
+extraPaths = ["."]
+
+
+
