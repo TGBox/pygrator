@@ -83,7 +83,8 @@ class CSVMappingApp(ctk.CTk):
             "split_title": False,       # Titel aus Name trennen
             "infer_gender": False,      # Geschlecht aus Vorname ableiten
             "infer_salutation": False,  # Anrede generieren
-            "clean_kvnr": False         # KVNR bereinigen (O -> 0)
+            "clean_kvnr": False,        # KVNR bereinigen (O -> 0)
+            "clean_email": True,        # E-Mail-Adressen automatisch korrigieren
         }
 
         self.source_df = None
@@ -229,7 +230,8 @@ class CSVMappingApp(ctk.CTk):
             ("split_title", "🎓 Titel von Namen trennen (z. B. Dr. med.)"),
             ("infer_gender", "⚥ Geschlecht anhand des Vornamens ermitteln"),
             ("infer_salutation", "✉️ Anrede (Herr/Frau) automatisch ergänzen"),
-            ("clean_kvnr", "🆔 KVNR bereinigen ('O' -> '0')")
+            ("clean_kvnr", "🆔 KVNR bereinigen ('O' -> '0')"),
+            ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren")
         ]
 
         for key, label_text in options:
@@ -873,12 +875,15 @@ class CSVMappingApp(ctk.CTk):
                     cleaned_val: str = sanitize_data_string(orig_str, remove_special_chars=True)
                     
                     if cleaned_val != orig_str:
-                        preview_items.append({
-                            'row_idx': idx,
-                            'col_name': col,
-                            'original': orig_str,
-                            'cleaned': cleaned_val
-                        })
+                        if orig_str.strip() == cleaned_val.strip():
+                            self.source_df.at[idx, col] = cleaned_val
+                        else:
+                            preview_items.append({
+                                'row_idx': idx,
+                                'col_name': col,
+                                'original': orig_str,
+                                'cleaned': cleaned_val
+                            })
             
             if preview_items:
                 self.cleanup_dialog = StringCleanupPreviewDialog(self, preview_items)
@@ -998,7 +1003,13 @@ class CSVMappingApp(ctk.CTk):
                 if source_col and source_col in self.source_df.columns:
                     for row_idx, val in self.source_df[source_col].items():
                         if pd.notna(val) and str(val).strip():
-                            cleaned_email: str = str(val).strip()
+                            email_val: str = str(val).strip()
+                            cleaned_email: str = email_val
+                            if self.autocomplete_settings.get("clean_email", True):
+                                is_fixed, fixed_email = try_to_fix_email(email_val)
+                                if is_fixed:
+                                    self.source_df.at[row_idx, source_col] = fixed_email
+                                    cleaned_email = fixed_email
                             if not validate_email(cleaned_email):
                                 invalid_records.append({
                                     'row_idx': row_idx,
@@ -1443,12 +1454,15 @@ class CSVMappingApp(ctk.CTk):
                     cleaned_val: str = sanitize_data_string(orig_str, remove_special_chars=True)
                     
                     if cleaned_val != orig_str:
-                        preview_items.append({
-                            'row_idx': idx,
-                            'col_name': col,
-                            'original': orig_str,
-                            'cleaned': cleaned_val
-                        })
+                        if orig_str.strip() == cleaned_val.strip():
+                            df_work.at[idx, col] = cleaned_val
+                        else:
+                            preview_items.append({
+                                'row_idx': idx,
+                                'col_name': col,
+                                'original': orig_str,
+                                'cleaned': cleaned_val
+                            })
             
             if preview_items:
                 self.cleanup_dialog = StringCleanupPreviewDialog(self, preview_items)
@@ -1576,7 +1590,14 @@ class CSVMappingApp(ctk.CTk):
                 if source_col and source_col in df_work.columns:
                     for row_idx, val in df_work[source_col].items():
                         if pd.notna(val) and str(val).strip():
-                            cleaned_email: str = str(val).strip()
+                            email_val: str = str(val).strip()
+                            cleaned_email: str = email_val
+                            if self.autocomplete_settings.get("clean_email", True):
+                                is_fixed, fixed_email = try_to_fix_email(email_val)
+                                if is_fixed:
+                                    add_audit(row_idx, target_col, val, fixed_email, "E-Mail-Adresse automatisch korrigiert")
+                                    df_work.at[row_idx, source_col] = fixed_email
+                                    cleaned_email = fixed_email
                             if not validate_email(cleaned_email):
                                 add_audit(row_idx, target_col, val, cleaned_email, "⚠️ Validierungswarnung: Ungültiges E-Mail-Format")
                     out_df[target_col] = df_work[source_col]

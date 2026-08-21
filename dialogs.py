@@ -681,6 +681,7 @@ class ImportApp(ctk.CTk):
             "infer_city_name": True,        # Ortsnamen aus PLZ ableiten.
             "infer_plz": True,              # PLZ aus dem Ortsnamen ableiten.
             "validate_email": True,         # E-Mailadresse prüfen.
+            "clean_email": True,            # E-Mailadresse automatisch korrigieren.
         }
         # ... dein restlicher Init-Code ...
 
@@ -708,7 +709,8 @@ class ImportApp(ctk.CTk):
             ("infer_insurance_name", "Krankenkassenname automatisch ergänzen"),
             ("infer_city_name", "Ortsnamen aus PLZ ableiten"),
             ("infer_plz", "PLZ aus Ortsnamen ableiten"),
-            ("validate_email", "E-Mail Adresse validieren")
+            ("validate_email", "E-Mail Adresse validieren"),
+            ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren")
         ]
 
         for key, label_text in options:

@@ -90,3 +90,61 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
                 return True, tmp_fix
             
     return False, vnr
+
+
+def try_to_fix_email(email: str) -> tuple[bool, str]:
+    """Sucht nach häufigen Tippfehlern in E-Mail-Adressen und korrigiert diese."""
+    from db_util import validate_email
+    
+    if not email:
+        return False, ""
+
+    orig = str(email).strip()
+    cleaned = orig
+
+    # 1. Leerzeichen entfernen (z. B. "max mueller@gmail.com" -> "maxmueller@gmail.com")
+    cleaned = re.sub(r'\s+', '', cleaned)
+
+    # 2. Tippfehler 'Q' anstelle von '@' korrigieren (z. B. mmQt-online.de -> mm@t-online.de)
+    if '@' not in cleaned and 'Q' in cleaned:
+        cleaned = re.sub(r'Q(?=[a-zA-Z0-9.-]+\.[a-zA-Z]{1,})', '@', cleaned)
+        if '@' not in cleaned:
+            cleaned = cleaned.replace('Q', '@', 1)
+
+    if '@' not in cleaned:
+        return False, orig
+
+    parts = cleaned.split('@', 1)
+    local_part = parts[0]
+    domain_part = parts[1]
+
+    # 3. Punkte unmittelbar vor oder nach dem '@' entfernen
+    local_part = local_part.rstrip('.')
+    domain_part = domain_part.lstrip('.')
+
+    # 4. Doppelte/mehrfache Punkte in Domain bereinigen (z. B. mm@t-online..de -> mm@t-online.de)
+    domain_part = re.sub(r'\.+', '.', domain_part)
+
+    # 5. Falsche Trennzeichen (Komma, Semikolon, Doppelpunkt) vor TLD korrigieren
+    domain_part = re.sub(r'[,;:]', '.', domain_part)
+    domain_part = re.sub(r'\.+', '.', domain_part)
+
+    domain_lower = domain_part.lower()
+
+    # 6. Bekannte T-Online Muster & Tippfehler korrigieren
+    if domain_lower in ['t-online', 't-onlin.de', 't-online.d', 'tonline.de', 't.online.de', 't.online'] or \
+       re.match(r'^(t[-.]?online|tonline)(\.(de|d))?$', domain_lower):
+        domain_part = 't-online.de'
+    else:
+        # 7. Fehlenden Punkt vor gängigen TLDs ergänzen (z. B. mm@gmxde -> mm@gmx.de)
+        if '.' not in domain_part:
+            match = re.match(r'^([a-zA-Z0-9-]+)(de|com|net|org|at|ch)$', domain_part, re.IGNORECASE)
+            if match:
+                domain_part = f"{match.group(1)}.{match.group(2)}"
+
+    cleaned_email = f"{local_part}@{domain_part}"
+
+    if cleaned_email != orig and validate_email(cleaned_email):
+        return True, cleaned_email
+
+    return False, orig
