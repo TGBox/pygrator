@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Tuple
+from typing import Tuple
 
 from db_util import validate_insurance_number
 

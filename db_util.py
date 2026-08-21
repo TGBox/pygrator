@@ -265,7 +265,7 @@ def extract_flagged_records(
 def apply_id_and_lanr_rules(
     target_df: pd.DataFrame, 
     source_df: pd.DataFrame, 
-    mapping: dict
+    mapping: dict[str, str]
 ) -> pd.DataFrame:
     """
     Sorgt dafür, dass bestehende LANRs und externe IDs sicher übernommen werden.

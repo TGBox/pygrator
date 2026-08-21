@@ -41,8 +41,7 @@ from db_util import (
     sanitize_data_string, 
     validate_ik_number, 
     validate_insurance_number, 
-    validate_email, 
-    extract_flagged_records
+    validate_email
 )
 from schemas import SCHEMAS
 from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
@@ -225,7 +224,7 @@ class CSVMappingApp(ctk.CTk):
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=20, pady=(20, 10))
 
-        vars_dict: dict[str, str] = {} #?
+        vars_dict: dict[str, ctk.BooleanVar] = {}
         options = [
             ("split_title", "🎓 Titel von Namen trennen (z. B. Dr. med.)"),
             ("infer_gender", "⚥ Geschlecht anhand des Vornamens ermitteln"),
@@ -906,7 +905,7 @@ class CSVMappingApp(ctk.CTk):
         row_count: int = len(self.source_df)
 
         target_schema: Dict[str, str] = SCHEMAS[self.combo_schema.get()]
-        default_empty_value: str = "NULL" if self.chk_fill_null.get() else ""
+        default_empty_value: str = "NULL" if self.chk_fill_null.cget("state") else ""
 
         copy_rules: Dict[str, str] = {}
         invalid_records: List[Dict[str, Any]] = []
@@ -1247,7 +1246,7 @@ class CSVMappingApp(ctk.CTk):
                         s2: pd.Series = self.source_df[second_col].astype(str).apply(_clean_s2_val)
                         series = (series + " " + s2).str.strip()
 
-                if self.chk_fill_null.get() and rule_type != "default_value" and not (rule_type == "format_date" and rule.get('param')):
+                if self.chk_fill_null.cget("state") and rule_type != "default_value" and not (rule_type == "format_date" and rule.get('param')):
                     series = series.replace(r'^\s*$', "NULL", regex=True).fillna("NULL")
 
                 out_df[target_col] = series
@@ -1489,7 +1488,7 @@ class CSVMappingApp(ctk.CTk):
         row_count: int = len(df_work)
         target_schema_name: str = self.combo_schema.get()
         target_schema: Dict[str, str] = SCHEMAS[target_schema_name]
-        default_empty_value: str = "NULL" if self.chk_fill_null.get() else ""
+        default_empty_value: str = "NULL" if self.chk_fill_null.cget("state") else ""
 
         out_df: pd.DataFrame = pd.DataFrame()
         copy_rules: Dict[str, str] = {}
@@ -1762,7 +1761,7 @@ class CSVMappingApp(ctk.CTk):
                             add_audit(r_idx, target_col, orig_val, house_num, "Hausnummer extrahiert")
                         new_val_str = house_num
 
-                    if self.chk_fill_null.get() and not new_val_str:
+                    if self.chk_fill_null.cget("state") and not new_val_str:
                         new_val_str = "NULL"
 
                     out_df.at[r_idx, target_col] = new_val_str
