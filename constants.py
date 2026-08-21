@@ -1,4 +1,5 @@
-from customtkinter import CTkFont
+from typing import Tuple
+
 RULE_NAMES = {
     "generate_uid": "UID generieren",
     "copy_target": "Kopieren aus",
@@ -21,14 +22,14 @@ RULE_NAMES = {
 APP_WIDTH = 1040
 APP_HEIGHT = 880
 FONT_TYPE = "Roboto"
-LABEL_FONT_BOLD: CTkFont = CTkFont(FONT_TYPE, 11, "bold")
-LABEL_FONT: CTkFont = CTkFont(FONT_TYPE, 11)
-LARGER_LABEL_FONT_BOLD: CTkFont = CTkFont(FONT_TYPE, 14, "bold")
-SMALL_LABEL_FONT: CTkFont = CTkFont(FONT_TYPE, 10)
-SMALL_LABEL_FONT_BOLD: CTkFont = CTkFont(FONT_TYPE, 10, "bold")
-BUTTON_FONT: CTkFont = CTkFont(FONT_TYPE, 12, "bold")
-TITLE_FONT: CTkFont = CTkFont(FONT_TYPE, 18, "bold")
-BOLD_FONT: CTkFont = CTkFont(family=FONT_TYPE, size=None, slant="bold")
+LABEL_FONT_BOLD: tuple[str, int, str] = (FONT_TYPE, 11, "bold")
+LABEL_FONT: tuple[str, int] = (FONT_TYPE, 11)
+LARGER_LABEL_FONT_BOLD: tuple[str, int, str] = (FONT_TYPE, 14, "bold")
+SMALL_LABEL_FONT: tuple[str, int] = (FONT_TYPE, 10)
+SMALL_LABEL_FONT_BOLD: tuple[str, int, str] = (FONT_TYPE, 10, "bold")
+BUTTON_FONT: tuple[str, int, str] = (FONT_TYPE, 12, "bold")
+TITLE_FONT: tuple[str, int, str] = (FONT_TYPE, 18, "bold")
+BOLD_FONT: tuple[str, str] = (FONT_TYPE, "bold")
 OPTIONS_MENU_WIDTH = 160
 MAX_CHAR_READ = 4096
 RULE_BUTTON_WIDTH = 240
@@ -65,7 +66,7 @@ VALIDATION_DIALOG_HEIGHT = 550
 INFO_LABEL_WIDTH = 300
 MANUAL_CHANGE_FIELD_WIDTH = 140
 RADIO_BUTTON_LABEL_WIDTH = 90
-STRING_CLEANUP_DIALOG_WIDTH = 1000
+STRING_CLEANUP_DIALOG_WIDTH = 1120
 STRING_CLEANUP_DIALOG_HEIGHT = 700
 REPLACEMENT_WRAP_LENGTH = 700
 BUTTON_WIDTH = 120

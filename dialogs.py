@@ -544,10 +544,11 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
 
         list_header = ctk.CTkFrame(self.scroll_frame, fg_color="transparent")
         list_header.pack(fill="x", pady=(0, PADDING_XS))
-        ctk.CTkLabel(list_header, text="Zeile / Feld", width=BUTTON_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
-        ctk.CTkLabel(list_header, text="Originalwert", width=LARGE_HEADER_WIDTH, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
-        ctk.CTkLabel(list_header, text="", width=PADDING_XL).pack(side="left")
-        ctk.CTkLabel(list_header, text="Aktion / Bereinigter Wert", font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(list_header, text="Zeile / Feld", width=130, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(list_header, text="Originalwert", width=190, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(list_header, text="", width=20).pack(side="left")
+        ctk.CTkLabel(list_header, text="Vorschlag (Bereinigt)", width=280, font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(list_header, text="Aktionen & Manuell", font=ctk.CTkFont(weight="bold"), anchor="w").pack(side="left", padx=PADDING_XS)
 
         for item in self.preview_items:
             self._render_item_row(item)
@@ -575,32 +576,56 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         row.pack(fill="x", pady=2, ipady=PADDING_XXS)
 
         info_txt = f"Z. {int(item['row_idx']) + 1} | {item['col_name']}"
-        ctk.CTkLabel(row, text=info_txt, width=BUTTON_WIDTH, anchor="w", font=LABEL_FONT).pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(row, text=info_txt, width=130, anchor="w", font=LABEL_FONT).pack(side="left", padx=PADDING_XS)
 
         orig_val = str(item['original'])
-        entry_orig = ctk.CTkEntry(row, width=170)
+        cleaned_val = str(item['cleaned'])
+
+        entry_orig = ctk.CTkEntry(row, width=160)
         entry_orig.insert(0, orig_val)
         entry_orig.configure(state="readonly")
         entry_orig.pack(side="left", padx=PADDING_XS)
 
-        btn_copy = ctk.CTkButton(
+        btn_copy_orig = ctk.CTkButton(
             row, text="📋", width=30, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
             command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
         )
-        btn_copy.pack(side="left", padx=(0, PADDING_XS))
+        btn_copy_orig.pack(side="left", padx=(0, PADDING_XS))
 
-        ctk.CTkLabel(row, text="➔", width=PADDING_XL).pack(side="left")
+        ctk.CTkLabel(row, text="➔", width=20).pack(side="left")
 
         action_var = ctk.StringVar(value="clean")
 
-        orig_val = str(item['original'])
-        entry_custom = ctk.CTkEntry(row, placeholder_text=orig_val, width=REPLACEMENT_INPUT_WIDTH)
+        # Radio-Button "Bereinigen:" + Readonly-Feld mit dem Verbesserungsvorschlag
+        r_clean = ctk.CTkRadioButton(row, text="Bereinigen:", variable=action_var, value="clean", command=lambda: on_action_change(), width=85)
+        r_clean.pack(side="left", padx=PADDING_XS)
+
+        entry_cleaned = ctk.CTkEntry(row, width=160, text_color=COL_LIGHT_GREEN)
+        entry_cleaned.insert(0, cleaned_val)
+        entry_cleaned.configure(state="readonly")
+        entry_cleaned.pack(side="left", padx=PADDING_XS)
+
+        btn_copy_clean = ctk.CTkButton(
+            row, text="📋", width=30, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
+            command=lambda v=cleaned_val: (self.clipboard_clear(), self.clipboard_append(v))
+        )
+        btn_copy_clean.pack(side="left", padx=(0, PADDING_XS))
+
+        # Radio-Button "Beibehalten"
+        r_keep = ctk.CTkRadioButton(row, text="Beibehalten", variable=action_var, value="keep", command=lambda: on_action_change(), width=90)
+        r_keep.pack(side="left", padx=PADDING_XS)
+
+        # Radio-Button "Manuell:" + Editierbares Eingabefeld
+        r_custom = ctk.CTkRadioButton(row, text="Manuell:", variable=action_var, value="custom", command=lambda: on_action_change(), width=70)
+        r_custom.pack(side="left", padx=PADDING_XS)
+
+        entry_custom = ctk.CTkEntry(row, width=160)
+        entry_custom.insert(0, cleaned_val)
+        entry_custom.pack(side="left", padx=PADDING_XS)
 
         def on_action_change() -> None:
             if action_var.get() == "custom":
                 entry_custom.configure(state="normal")
-                if not entry_custom.get():
-                    entry_custom.insert(0, orig_val)
             else:
                 entry_custom.configure(state="disabled")
 
@@ -612,16 +637,6 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         entry_custom.bind("<Button-1>", on_entry_click)
         entry_custom.bind("<FocusIn>", on_entry_click)
 
-        r_clean = ctk.CTkRadioButton(row, text="Bereinigen", variable=action_var, value="clean", command=on_action_change, width=80)
-        r_clean.pack(side="left", padx=PADDING_XS)
-
-        r_keep = ctk.CTkRadioButton(row, text="Beibehalten", variable=action_var, value="keep", command=on_action_change, width=90)
-        r_keep.pack(side="left", padx=PADDING_XS)
-
-        r_custom = ctk.CTkRadioButton(row, text="Manuell:", variable=action_var, value="custom", command=on_action_change, width=70)
-        r_custom.pack(side="left", padx=PADDING_XS)
-
-        entry_custom.pack(side="left", padx=PADDING_XS)
         on_action_change()
 
         self.row_widgets.append({
@@ -635,8 +650,6 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             rw['action_var'].set(action)
             if action == "custom":
                 rw['entry_custom'].configure(state="normal")
-                if not rw['entry_custom'].get():
-                    rw['entry_custom'].insert(0, str(rw['item'].get('original', '')))
             else:
                 rw['entry_custom'].configure(state="disabled")
 

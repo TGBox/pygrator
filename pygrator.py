@@ -33,7 +33,7 @@ from tkinter import filedialog, messagebox
 # TODO: Add a way to implement input schemas for specific export types from different other software companies.
     # TODO: Add a way to add new schemas based on the currently processed input table.
 
-from auto_complete import extract_title_and_clean_name, try_to_fix_insurance_number
+from auto_complete import extract_title_and_clean_name, try_to_fix_insurance_number, try_to_fix_email
 from db_util import (
     format_date_iso, 
     generate_id, 
@@ -333,8 +333,8 @@ class CSVMappingApp(ctk.CTk):
         self.mapping_dropdowns = {}
         self.trans_buttons = {}
 
-        source_id_col = next((str(c) for c in self.source_df.columns if str(c).lower() in ["id", "patient_id", "patienten_id", "pat_id"]), None)
-        source_lanr_col = next((str(c) for c in self.source_df.columns if str(c).lower() in ["LANR", "lanr", "la-nr", "la_nr"]), None)
+        source_id_col = next((c for c in self.source_df.columns if c.lower() in ["id", "patient_id", "patienten_id", "pat_id"]), None)
+        source_lanr_col = next((c for c in self.source_df.columns if c.lower() in ["LANR", "lanr", "la-nr", "la_nr"]), None)
 
         for idx, (target_col, dtype) in enumerate(target_schema.items(), start=1):
             label_text: str = f"{target_col} ({dtype})"
@@ -346,63 +346,63 @@ class CSVMappingApp(ctk.CTk):
             target_lower: str = target_col.lower()
             
             for src_col in self.source_df.columns:
-                src_lower: str = str(src_col).lower()
+                src_lower: str = src_col.lower()
 
                 if src_lower == target_lower:
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
 
                 if target_lower in ["telefonmobil", "mobil", "p_handy"]:
                     if src_lower in ["mobil", "handy", "mobile", "telefonmobil"]:
-                        combo.set(str(src_col))
+                        combo.set(src_col)
                         break
                     continue
 
                 if target_lower in ["telefon", "p_tel", "tel"]:
                     if src_lower in ["telefon", "p_tel", "tel", "telefon1"]:
-                        combo.set(str(src_col))
+                        combo.set(src_col)
                         break
 
                 if src_lower == "titel" and "name1" in target_lower:
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower == "vorname" and ("name2" in target_lower or "p_vname" in target_lower):
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower == "nachname" and ("name3" in target_lower or "p_name" in target_lower):
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
 
                 if src_lower in ["ort", "wohnort", "stadt"] and any(k in target_lower for k in ["p_ort", "ort"]):
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower in ["plz", "postleitzahl"] and any(k in target_lower for k in ["p_plz", "plz"]):
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower == "geburtsdatum" and "p_birth" in target_lower:
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower == "geschlecht" and any(k in target_lower for k in ["anrede", "p_anrede"]):
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower == "telefon2" and "p_telge" in target_lower:
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower in ("strasse", "straße") and any(k in target_lower for k in ["p_street", "p_hausnummer", "strasse", "straße"]):
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower == "kas_ik" and "p_ik" in target_lower:
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower == "status" and "p_vs" in target_lower:
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
                 if src_lower == "versichertennummer" and "p_vnr" in target_lower:
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
 
                 if (src_lower in target_lower or target_lower in src_lower) and len(src_lower) > 3:
-                    combo.set(str(src_col))
+                    combo.set(src_col)
                     break
 
             self.mapping_dropdowns[target_col] = combo
@@ -430,13 +430,13 @@ class CSVMappingApp(ctk.CTk):
                 elif "anrede" in target_col:
                     self.transformations[target_col] = {'type': 'gender'}
                 elif "plz" in target_col:
-                    city_col: Optional[str] = next((str(c) for c in self.source_df.columns if str(c).lower() in ["ort", "wohnort", "stadt"]), None)
+                    city_col: Optional[str] = next((c for c in self.source_df.columns if c.lower() in ["ort", "wohnort", "stadt"]), None)
                     if city_col:
                         self.transformations[target_col] = {'type': 'lookup_plz_by_city', 'param': city_col}
                     else:
                         self.transformations[target_col] = {'type': 'clean_plz'}
                 elif target_col in ("p_ort", "ort"):
-                    plz_col: Optional[str] = next((str(c) for c in self.source_df.columns if "plz" in str(c).lower()), None)
+                    plz_col: Optional[str] = next((c for c in self.source_df.columns if "plz" in c.lower()), None)
                     if plz_col:
                         self.transformations[target_col] = {'type': 'lookup_city_by_plz', 'param': plz_col}
                 elif "street" in target_col:
@@ -445,10 +445,10 @@ class CSVMappingApp(ctk.CTk):
                     self.transformations[target_col] = {'type': 'split_number'}
                 elif target_col == "p_krankenkasse":
                     for src_col in self.source_df.columns:
-                        if "ik" in str(src_col).lower():
+                        if "ik" in src_col.lower():
                             self.transformations[target_col] = {
                                 'type': 'lookup_ik_provider',
-                                'param': str(src_col)
+                                'param': src_col
                             }
                             break
                 elif target_col in ("p_ik", "ik") or "ik_nummer" in target_col:
@@ -680,7 +680,7 @@ class CSVMappingApp(ctk.CTk):
         ik_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(ik_frame, text="IK-Quellspalte:").pack(side="left", padx=PADDING_XS)
 
-        source_cols_list: List[str] = [str(c) for c in self.source_df.columns] if self.source_df is not None else []
+        source_cols_list: List[str] = [c for c in self.source_df.columns] if self.source_df is not None else []
         combo_ik_source = ctk.CTkOptionMenu(ik_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_ik_source.pack(side="left")
 
@@ -1334,7 +1334,7 @@ class CSVMappingApp(ctk.CTk):
             if rule.get('param'):
                 used_source_cols.add(str(rule['param']))
 
-        unmapped_source_cols: List[str] = [str(c) for c in self.source_df.columns if str(c) not in used_source_cols]
+        unmapped_source_cols: List[str] = [c for c in self.source_df.columns if c not in used_source_cols]
 
         extra_fields_mappings: List[Dict[str, str]] = []
         if unmapped_source_cols and self.combo_schema.get() == "patienten":
@@ -1833,4 +1833,4 @@ def main():
     app.mainloop()
 
 if __name__ == "__main__":
-    main()
+    main()

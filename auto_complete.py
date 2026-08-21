@@ -90,9 +90,7 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
                 return True, tmp_fix
             
     return False, vnr
-
-
-def try_to_fix_email(email: str) -> tuple[bool, str]:
+def try_to_fix_email(email: str) -> tuple[bool, str]:
     """Sucht nach häufigen Tippfehlern in E-Mail-Adressen und korrigiert diese."""
     from db_util import validate_email
     
@@ -100,16 +98,50 @@ def try_to_fix_email(email: str) -> tuple[bool, str]:
         return False, ""
 
     orig = str(email).strip()
-    cleaned = orig
+    
+    # 0. Vorab-Prüfung auf Mehrfach-Adressen (z. B. "a@b.de; c@d.de" oder "a@b.de, c@d.de")
+    # Falls mehr als eine vollwertige E-Mail enthalten ist, nicht automatisch verändern
+    if re.search(r'@[^\s,;:]+[\s,;:]+.*@', orig):
+        return False, orig
 
-    # 1. Leerzeichen entfernen (z. B. "max mueller@gmail.com" -> "maxmueller@gmail.com")
+    import unicodedata
+    cleaned = unicodedata.normalize('NFC', orig)
+
+    # 1. Führende und nachfolgende Satzzeichen / Klammern entfernen (z. B. "user@domain.de.")
+    cleaned = cleaned.strip(" .,;:!?<>(){}[]\"'")
+
+    # 2. Deutsche Umlaute und Eszett ersetzen (Unicode-Escapes für Kodierungssicherheit)
+    umlaute_map = {
+        '\u00e4': 'ae', '\u00f6': 'oe', '\u00fc': 'ue', '\u00df': 'ss',
+        '\u00c4': 'Ae', '\u00d6': 'Oe', '\u00dc': 'Ue'
+    }
+    for char, repl in umlaute_map.items():
+        cleaned = cleaned.replace(char, repl)
+
+    # 3. Leerzeichen entfernen (z. B. "max mueller @ gmail.com" -> "maxmueller@gmail.com")
     cleaned = re.sub(r'\s+', '', cleaned)
 
-    # 2. Tippfehler 'Q' anstelle von '@' korrigieren (z. B. mmQt-online.de -> mm@t-online.de)
-    if '@' not in cleaned and 'Q' in cleaned:
-        cleaned = re.sub(r'Q(?=[a-zA-Z0-9.-]+\.[a-zA-Z]{1,})', '@', cleaned)
-        if '@' not in cleaned:
+    # 4. (at) / [at] / (AT) / [AT] durch '@' ersetzen
+    cleaned = re.sub(r'(?i)[\(\[\{]at[\)\]\}]', '@', cleaned)
+
+    # 5. Tippfehler 'Q' / 'q' anstelle von '@' korrigieren (z. B. "m.haendgenq-online.de" -> "m.haendgen@-online.de", "mmQt-online.de" -> "mm@t-online.de")
+    if '@' not in cleaned:
+        cleaned = re.sub(r'(?i)[qQ](?=[-.]?(?:online|tonline)|\.[a-zA-Z0-9.-]+\.[a-zA-Z]{1,})', '@', cleaned)
+        if '@' not in cleaned and 'Q' in cleaned:
             cleaned = cleaned.replace('Q', '@', 1)
+
+    # 6. Fehlendes '@' vor 't-online.de' oder anderen bekannten Hauptdomains korrigieren (z. B. "renatepietteT-online.de" -> "renatepiette@t-online.de")
+    if '@' not in cleaned:
+        m_domain = re.search(r'(?i)^(.*?)(?<!@)((?:t[-.]?online|[-.]online)(?:\.de|\.d)?|gmx\.(?:de|net)|web\.de|gmail\.com|hotmail\.(?:com|de)|outlook\.(?:com|de)|freenet\.de|yahoo\.(?:de|com)|icloud\.com|1und1\.de)$', cleaned)
+        if m_domain and m_domain.group(1).strip(' .-_'):
+            local = m_domain.group(1).rstrip(' .-_')
+            dom = m_domain.group(2).lower()
+            if re.match(r'^(t[-.]?online|[-.]online)(\.(de|d))?$', dom):
+                dom = 't-online.de'
+            cleaned = f"{local}@{dom}"
+
+    # 9. Mehrfache '@' bereinigen (z. B. "user@@gmail.com" -> "user@gmail.com")
+    cleaned = re.sub(r'@+', '@', cleaned)
 
     if '@' not in cleaned:
         return False, orig
@@ -118,25 +150,104 @@ def try_to_fix_email(email: str) -> tuple[bool, str]:
     local_part = parts[0]
     domain_part = parts[1]
 
-    # 3. Punkte unmittelbar vor oder nach dem '@' entfernen
-    local_part = local_part.rstrip('.')
-    domain_part = domain_part.lstrip('.')
+    # Falls domain_part noch ein '@' enthält, nicht automatisch anfassen
+    if '@' in domain_part:
+        return False, orig
 
-    # 4. Doppelte/mehrfache Punkte in Domain bereinigen (z. B. mm@t-online..de -> mm@t-online.de)
+    # 10. Punkte/Satzzeichen unmittelbar vor oder nach dem '@' entfernen
+    local_part = local_part.strip(' .,;:')
+    domain_part = domain_part.strip(' .,;:')
+
+    # 11. Mehrfache Punkte in Domain bereinigen (z. B. mm@t-online..de -> mm@t-online.de)
     domain_part = re.sub(r'\.+', '.', domain_part)
 
-    # 5. Falsche Trennzeichen (Komma, Semikolon, Doppelpunkt) vor TLD korrigieren
+    # 12. Falsche Trennzeichen (Komma, Semikolon, Doppelpunkt) in Domain korrigieren
     domain_part = re.sub(r'[,;:]', '.', domain_part)
     domain_part = re.sub(r'\.+', '.', domain_part)
 
     domain_lower = domain_part.lower()
 
-    # 6. Bekannte T-Online Muster & Tippfehler korrigieren
-    if domain_lower in ['t-online', 't-onlin.de', 't-online.d', 'tonline.de', 't.online.de', 't.online'] or \
-       re.match(r'^(t[-.]?online|tonline)(\.(de|d))?$', domain_lower):
-        domain_part = 't-online.de'
+    # 13. Bekannte Domain-Tippfehler korrigieren
+    domain_fixes: dict[str, str] = {
+        # T-Online spezifische Muster
+        '-online.de': 't-online.de',
+        '-online': 't-online.de',
+        '-onlin.de': 't-online.de',
+        '-online.d': 't-online.de',
+        't.-online.de': 't-online.de',
+        't.-online': 't-online.de',
+        't.online.de': 't-online.de',
+        't.online': 't-online.de',
+        't.-online.d': 't-online.de',
+        't-online': 't-online.de',
+        't-onlin.de': 't-online.de',
+        't-online.d': 't-online.de',
+        'tonline.de': 't-online.de',
+        't-online-de': 't-online.de',
+        't-onlinede': 't-online.de',
+        # Gmail
+        'gamil.com': 'gmail.com',
+        'gmaill.com': 'gmail.com',
+        'gmei.com': 'gmail.com',
+        'gmai.com': 'gmail.com',
+        'gmail.de': 'gmail.com',
+        'googlemail.com': 'gmail.com',
+        'googlemail.de': 'gmail.com',
+        'gmailcom': 'gmail.com',
+        'gamilcom': 'gmail.com',
+        # GMX
+        'gmxde': 'gmx.de',
+        'gmxnet': 'gmx.net',
+        'gmx.d': 'gmx.de',
+        'gmz.de': 'gmx.de',
+        'gmz.net': 'gmx.net',
+        'gmx-de': 'gmx.de',
+        'gmx-net': 'gmx.net',
+        # Web.de
+        'webde': 'web.de',
+        'web.d': 'web.de',
+        'webe.de': 'web.de',
+        'wb.de': 'web.de',
+        'web-de': 'web.de',
+        # Freenet
+        'freenetde': 'freenet.de',
+        'frenet.de': 'freenet.de',
+        'freenet.d': 'freenet.de',
+        'freenet-de': 'freenet.de',
+        # Hotmail
+        'hotmial.com': 'hotmail.com',
+        'hotmai.com': 'hotmail.com',
+        'hotmailde': 'hotmail.de',
+        'hotmial.de': 'hotmail.de',
+        'hotmailcom': 'hotmail.com',
+        'hotmialcom': 'hotmail.com',
+        # Outlook
+        'outlok.com': 'outlook.com',
+        'outlok.de': 'outlook.de',
+        'outlookde': 'outlook.de',
+        'outlookcom': 'outlook.com',
+        # Yahoo
+        'yaho.de': 'yahoo.de',
+        'yaho.com': 'yahoo.com',
+        'yahoode': 'yahoo.de',
+        'yahoocom': 'yahoo.com',
+        # iCloud
+        'icould.com': 'icloud.com',
+        'icloud.de': 'icloud.com',
+        'icloudcom': 'icloud.com',
+        # 1&1
+        '1&1.de': '1und1.de',
+        '1und1de': '1und1.de',
+        # Vodafone / Arcor
+        'vodafon.de': 'vodafone.de',
+        'vodafonede': 'vodafone.de',
+        'arcorde': 'arcor.de',
+    }
+
+    if domain_lower in domain_fixes:
+        domain_part = domain_fixes[domain_lower]
     else:
-        # 7. Fehlenden Punkt vor gängigen TLDs ergänzen (z. B. mm@gmxde -> mm@gmx.de)
+        # 14. Fehlenden Punkt vor gängigen TLDs ergänzen (z. B. mm@gmxde -> mm@gmx.de)
         if '.' not in domain_part:
             match = re.match(r'^([a-zA-Z0-9-]+)(de|com|net|org|at|ch)$', domain_part, re.IGNORECASE)
             if match:
