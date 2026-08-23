@@ -14,9 +14,14 @@ GENDER_FIRSTNAMES = {
     "w": {"sabine", "amira", "sarah", "elena", "maria", "lisa", "monika", "julia"}
 }
 
-def extract_title_and_clean_name(full_name: str) -> Tuple[str, str]:
+def extract_title_and_clean_name(full_name: Any) -> Tuple[str, str]:
     """Trennt akademische Titel vom restlichen Namen ab."""
-    cleaned_name = full_name.strip()
+    if full_name is None:
+        return "", ""
+    name_str = str(full_name).strip()
+    if not name_str or name_str.lower() in ["nan", "none", "null"]:
+        return "", ""
+    cleaned_name = name_str
     extracted_title = ""
     
     for title in TITLES:
@@ -30,9 +35,14 @@ def extract_title_and_clean_name(full_name: str) -> Tuple[str, str]:
     return extracted_title, cleaned_name
 
 
-def infer_gender_and_salutation(first_name: str) -> Tuple[str, str]:
+def infer_gender_and_salutation(first_name: Any) -> Tuple[str, str]:
     """Ermittelt Geschlecht (m/w/d) und Anrede (Herr/Frau) basierend auf dem Vornamen."""
-    name_key = first_name.strip().lower().split("-")[0] # Nimmt bei Doppelnamen den ersten Teil
+    if not first_name:
+        return "unbekannt", ""
+    fn_str = str(first_name).strip()
+    if not fn_str or fn_str.lower() in ["nan", "none", "null"]:
+        return "unbekannt", ""
+    name_key = fn_str.lower().split("-")[0] # Nimmt bei Doppelnamen den ersten Teil
     
     if name_key in GENDER_FIRSTNAMES["m"]:
         return "männlich", "Herr"
@@ -41,10 +51,15 @@ def infer_gender_and_salutation(first_name: str) -> Tuple[str, str]:
     
     return "unbekannt", ""
 
-def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
+def try_to_fix_insurance_number(vnr: Any) -> tuple[bool, str]:
     """Methode um fehlerhaft notierte Versicherungsnummern zu vervollständigen."""
     from db_util import validate_insurance_number
-    vnr = vnr.strip().upper()
+    if not vnr:
+        return False, ""
+    vnr_str = str(vnr).strip().upper()
+    if not vnr_str or vnr_str.lower() in ["nan", "none", "null"]:
+        return False, ""
+    vnr = vnr_str
     
     if len(vnr) == 10:
         # Case 1: Form wie JO12345678 => J012345678
