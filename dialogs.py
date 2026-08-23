@@ -25,17 +25,17 @@ from constants import (
     SMALL_LABEL_FONT_BOLD,
     BUTTON_FONT,
     TITLE_FONT,
-    COL_GRAY_20,
-    COL_GRAY_30,
-    COL_GRAY_35,
-    COL_GRAY_40,
-    COL_GRAY_45,
-    COL_GRAY_70,
-    COL_LIGHT_RED,
-    COL_GREEN,
-    COL_DARK_GREEN,
-    COL_DARKER_GREEN,
-    COL_LIGHT_GREEN,
+    COLOR_CONTAINER_BG_DARK,
+    COLOR_BTN_SECONDARY_BG,
+    COLOR_BTN_NEUTRAL_BG,
+    COLOR_BTN_SECONDARY_HOVER,
+    COLOR_BTN_NEUTRAL_HOVER,
+    COLOR_TEXT_MUTED,
+    COLOR_TEXT_DANGER,
+    COLOR_BTN_SUCCESS_BG,
+    COLOR_BTN_SUCCESS_HOVER,
+    COLOR_BTN_SUCCESS_ACTIVE,
+    COLOR_ACCENT_SUCCESS,
     BATCH_PROCESS_BUTTON_WIDTH,
     REPLACEMENT_INPUT_WIDTH,
     HEADER_LABEL_WIDTH,
@@ -71,21 +71,15 @@ from constants import (
     TXT_SAVE,
 )
 
-def center_window(window: Any, width: int, height: int) -> None:
-    """Zentriert ein Fenster exakt in der Mitte des Hauptbildschirms."""
+
+def center_window(window: ctk.CTkToplevel, width: int, height: int) -> None:
+    """Zentriert ein CustomTkinter Toplevel-Fenster auf dem Bildschirm."""
     window.update_idletasks()
-    screen_width = window.winfo_screenwidth()
-    screen_height = window.winfo_screenheight()
-    
-    max_height = int(screen_height * 0.85)
-    max_width = int(screen_width * 0.95)
-    
-    effective_width = min(width, max_width)
-    effective_height = min(height, max_height)
-    
-    x = max(0, int((screen_width - effective_width) // 2))
-    y = max(0, int((screen_height - effective_height) // 2))
-    window.geometry(f"{effective_width}x{effective_height}+{x}+{y}")
+    screen_width: int = window.winfo_screenwidth()
+    screen_height: int = window.winfo_screenheight()
+    x: int = (screen_width // 2) - (width // 2)
+    y: int = (screen_height // 2) - (height // 2)
+    window.geometry(f"{width}x{height}+{x}+{y}")
 
 
 class RowValidationDialog(ctk.CTkToplevel):
@@ -102,30 +96,26 @@ class RowValidationDialog(ctk.CTkToplevel):
         top_frame: ctk.CTkFrame = ctk.CTkFrame(self)
         top_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_M)
 
+        ctk.CTkLabel(top_frame, text=TITLE_ROW_VALIDATION_DIALOG, font=TITLE_FONT).pack(anchor="w", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
         ctk.CTkLabel(
             top_frame, 
-            text=f"Es wurden {len(conflicts)} überlange Einzelwerte gefunden.", 
-            font=LARGER_LABEL_FONT_BOLD
-        ).pack(anchor="w", padx=PADDING_M, pady=(PADDING_XS, 2))
-
-        ctk.CTkLabel(
-            top_frame, 
-            text="Du kannst für jeden einzelnen Wert entscheiden oder oben Schnellaktionen für alle Werte anwenden:", 
+            text="Gefundene Werte überschreiten das Datenbank-Zeichenlimit des jeweiligen Zielfeldes. Bitte wählen Sie eine Aktion.", 
             font=LABEL_FONT,
-            text_color=COL_GRAY_70
-        ).pack(anchor="w", padx=PADDING_M, pady=(0, PADDING_XS))
+            text_color=COLOR_TEXT_MUTED
+        ).pack(anchor="w", padx=PADDING_M, pady=(0, PADDING_S))
 
-        global_bar = ctk.CTkFrame(self, fg_color=COL_GRAY_20)
+        global_bar = ctk.CTkFrame(self, fg_color=COLOR_CONTAINER_BG_DARK)
         global_bar.pack(fill="x", padx=PADDING_L, pady=PADDING_XS)
 
-        ctk.CTkLabel(global_bar, text="Massenaktion auf alle:", font=LABEL_FONT_BOLD).pack(side="left", padx=PADDING_M, pady=PADDING_S)
-        
+        ctk.CTkLabel(global_bar, text="Massen-Aktion für alle verbleibenden Zeilen:", font=LABEL_FONT_BOLD).pack(side="left", padx=PADDING_M, pady=PADDING_S)
+
         ctk.CTkButton(
             global_bar, 
             text=TXT_BULK_TRUNCATE, 
             width=BATCH_PROCESS_BUTTON_WIDTH, 
-            fg_color=COL_GRAY_35, 
-            hover_color=COL_GRAY_45,
+            fg_color=COLOR_BTN_NEUTRAL_BG, 
+            hover_color=COLOR_BTN_NEUTRAL_HOVER,
+            font=BUTTON_FONT,
             command=self.bulk_truncate
         ).pack(side="left", padx=PADDING_XS, pady=PADDING_S)
 
@@ -133,40 +123,40 @@ class RowValidationDialog(ctk.CTkToplevel):
             global_bar, 
             text=TXT_BULK_IGNORE, 
             width=BATCH_PROCESS_BUTTON_WIDTH, 
-            fg_color=COL_GRAY_35, 
-            hover_color=COL_GRAY_45,
-            command=self.bulk_ignore
+            fg_color=COLOR_BTN_NEUTRAL_BG, 
+            hover_color=COLOR_BTN_NEUTRAL_HOVER,
+            font=BUTTON_FONT,
+            command=self.bulk_keep
         ).pack(side="left", padx=PADDING_XS, pady=PADDING_S)
 
         self.scroll = ctk.CTkScrollableFrame(self, label_text="Betroffene Tabellenzellen")
         self.scroll.pack(fill="both", expand=True, padx=PADDING_L, pady=PADDING_M)
 
-        for item in conflicts:
+        for r_idx, item in enumerate(conflicts):
             row_idx: int = int(item['row_idx'])
             col_name: str = str(item['col_name'])
             limit: int = int(item['limit'])
             orig_val: str = str(item['orig_val'])
-            orig_len = len(orig_val)
 
             card = ctk.CTkFrame(self.scroll)
             card.pack(fill="x", pady=PADDING_XS, padx=PADDING_XS)
 
-            info_txt = f"Zeile {row_idx + 1} | Spalte: '{col_name}' | Max: VARCHAR({limit}) | Aktuell: {orig_len} Zeichen"
-            lbl_info = ctk.CTkLabel(card, text=info_txt, font=LABEL_FONT_BOLD, text_color=COL_LIGHT_RED)
-            lbl_info.pack(anchor="w", padx=PADDING_M, pady=(PADDING_XS, 2))
+            info_txt = f"Zielspalte: {col_name} (Max {limit} Zeichen) | Quellzeile: #{row_idx + 2}"
+            lbl_info = ctk.CTkLabel(card, text=info_txt, font=LABEL_FONT_BOLD, text_color=COLOR_TEXT_DANGER)
+            lbl_info.pack(anchor="w", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
 
             val_frame = ctk.CTkFrame(card, fg_color="transparent")
-            val_frame.pack(anchor="w", padx=PADDING_M, pady=(0, PADDING_XS))
+            val_frame.pack(fill="x", padx=PADDING_M, pady=PADDING_XS)
 
-            ctk.CTkLabel(val_frame, text="Originaler Wert:", font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=(0, PADDING_XS))
+            ctk.CTkLabel(val_frame, text="Originaler Wert:", font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED).pack(side="left", padx=(0, PADDING_XS))
 
-            entry_orig = ctk.CTkEntry(val_frame, width=300)
+            entry_orig = ctk.CTkEntry(val_frame, width=320)
             entry_orig.insert(0, orig_val)
             entry_orig.configure(state="readonly")
             entry_orig.pack(side="left", padx=(0, PADDING_XS))
 
             btn_copy = ctk.CTkButton(
-                val_frame, text="📋", width=30, height=24, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
+                val_frame, text="📋", width=30, height=24, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
                 command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
             )
             btn_copy.pack(side="left")
@@ -225,22 +215,23 @@ class RowValidationDialog(ctk.CTkToplevel):
         bottom_bar = ctk.CTkFrame(self)
         bottom_bar.pack(fill="x", padx=PADDING_L, pady=PADDING_M)
 
-        btn_apply = ctk.CTkButton(
+        btn_confirm = ctk.CTkButton(
             bottom_bar, 
             text=TXT_APPLY_EXPORT, 
-            fg_color=COL_GREEN, 
-            hover_color=COL_DARK_GREEN,
+            fg_color=COLOR_BTN_SUCCESS_BG, 
+            hover_color=COLOR_BTN_SUCCESS_HOVER,
             font=BUTTON_FONT,
-            command=self.on_apply
+            command=self.apply_and_close
         )
-        btn_apply.pack(side="right", padx=PADDING_M, pady=PADDING_M)
+        btn_confirm.pack(side="right", padx=PADDING_L)
 
         btn_cancel = ctk.CTkButton(
             bottom_bar, 
             text=TXT_CANCEL, 
-            fg_color=COL_GRAY_30, 
-            hover_color=COL_GRAY_40,
-            command=self.destroy
+            fg_color=COLOR_BTN_SECONDARY_BG, 
+            hover_color=COLOR_BTN_SECONDARY_HOVER,
+            font=BUTTON_FONT,
+            command=self.cancel
         )
         btn_cancel.pack(side="right", padx=PADDING_XS, pady=PADDING_M)
 
@@ -248,11 +239,11 @@ class RowValidationDialog(ctk.CTkToplevel):
         for r in self.rows_data:
             r['var_action'].set("truncate")
 
-    def bulk_ignore(self) -> None:
+    def bulk_keep(self) -> None:
         for r in self.rows_data:
             r['var_action'].set("ignore")
 
-    def on_apply(self) -> None:
+    def apply_and_close(self) -> None:
         self.resolved_results = []
         for r in self.rows_data:
             action = r['var_action'].get()
@@ -276,6 +267,9 @@ class RowValidationDialog(ctk.CTkToplevel):
         self.confirmed = True
         self.destroy()
 
+    def cancel(self) -> None:
+        self.destroy()
+
     def get_resolved_values(self) -> List[Dict[str, Any]]:
         return self.resolved_results
 
@@ -296,7 +290,6 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        # Header
         header_lbl = ctk.CTkLabel(
             self, 
             text="Unbenutzte Quellspalten als Zusatzfelder registrieren", 
@@ -328,18 +321,19 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         footer_frame = ctk.CTkFrame(self, fg_color="transparent")
         footer_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_L)
 
-        btn_cancel = ctk.CTkButton(
-            footer_frame, text=TXT_SKIP, fg_color=COL_GRAY_40, 
+        btn_skip = ctk.CTkButton(
+            footer_frame, text=TXT_SKIP, fg_color=COLOR_BTN_SECONDARY_HOVER, 
+            hover_color=COLOR_BTN_NEUTRAL_HOVER, font=BUTTON_FONT,
             command=self.destroy
         )
-        btn_cancel.pack(side="left")
+        btn_skip.pack(side="right", padx=PADDING_S)
 
-        btn_apply = ctk.CTkButton(
+        btn_confirm = ctk.CTkButton(
             footer_frame, text=TXT_APPLY_EXTRA_FIELDS, 
-            fg_color=COL_DARK_GREEN, hover_color=COL_DARKER_GREEN, font=BUTTON_FONT,
-            height=BUTTON_HEIGHT, command=self._on_apply
+            fg_color=COLOR_BTN_SUCCESS_HOVER, hover_color=COLOR_BTN_SUCCESS_ACTIVE, font=BUTTON_FONT,
+            command=self._on_apply
         )
-        btn_apply.pack(side="right")
+        btn_confirm.pack(side="right")
 
     def _render_column_row(self, col_name: str) -> None:
         row_frame = ctk.CTkFrame(self.scroll_frame)
@@ -419,7 +413,7 @@ class ValidationFixDialog(ctk.CTkToplevel):
             self, 
             text=f"Es wurden {len(self.invalid_items)} ungültige Werte gefunden.", 
             font=LARGER_LABEL_FONT_BOLD,
-            text_color=COL_LIGHT_RED
+            text_color=COLOR_TEXT_DANGER
         )
         header_lbl.pack(padx=PADDING_L, pady=(PADDING_L, PADDING_XS), anchor="w")
 
@@ -436,13 +430,13 @@ class ValidationFixDialog(ctk.CTkToplevel):
         ctk.CTkLabel(batch_frame, text="Alle Eintrags-Aktionen:", font=LABEL_FONT_BOLD).pack(side="left", padx=PADDING_M, pady=PADDING_M)
         
         btn_batch_keep = ctk.CTkButton(
-            batch_frame, text=TXT_BULK_KEEP, fg_color=COL_GRAY_40, 
+            batch_frame, text=TXT_BULK_KEEP, fg_color=COLOR_BTN_SECONDARY_HOVER, 
             command=lambda: self._apply_batch_action("keep")
         )
         btn_batch_keep.pack(side="left", padx=PADDING_XS, pady=PADDING_M)
 
         btn_batch_clear = ctk.CTkButton(
-            batch_frame, text=TXT_BULK_CLEAR, fg_color=COL_LIGHT_RED, 
+            batch_frame, text=TXT_BULK_CLEAR, fg_color=COLOR_TEXT_DANGER, 
             command=lambda: self._apply_batch_action("clear")
         )
         btn_batch_clear.pack(side="left", padx=PADDING_XS, pady=PADDING_M)
@@ -459,7 +453,7 @@ class ValidationFixDialog(ctk.CTkToplevel):
 
         btn_apply = ctk.CTkButton(
             footer_frame, text=TXT_APPLY_VALIDATION_FIX, 
-            fg_color=COL_DARK_GREEN, hover_color=COL_DARKER_GREEN, font=BUTTON_FONT,
+            fg_color=COLOR_BTN_SUCCESS_HOVER, hover_color=COLOR_BTN_SUCCESS_ACTIVE, font=BUTTON_FONT,
             height=BUTTON_HEIGHT, command=self._on_apply
         )
         btn_apply.pack(side="right")
@@ -489,7 +483,7 @@ class ValidationFixDialog(ctk.CTkToplevel):
         entry_orig.pack(side="left", padx=(0, PADDING_XS))
 
         btn_copy = ctk.CTkButton(
-            row_frame, text="📋", width=30, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
+            row_frame, text="📋", width=30, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
             command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
         )
         btn_copy.pack(side="left", padx=(0, PADDING_S))
@@ -575,7 +569,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             global_btn_frame, 
             text=TXT_BULK_CLEAN, 
             width=BUTTON_WIDTH, 
-            fg_color=COL_GRAY_30,
+            fg_color=COLOR_BTN_SECONDARY_BG,
             command=lambda: self._set_all_action("clean")
         ).pack(side="left", padx=(0, PADDING_M))
         
@@ -583,7 +577,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             global_btn_frame, 
             text=TXT_BULK_KEEP_CLEANUP, 
             width=BUTTON_WIDTH, 
-            fg_color=COL_GRAY_30,
+            fg_color=COLOR_BTN_SECONDARY_BG,
             command=lambda: self._set_all_action("keep")
         ).pack(side="left")
 
@@ -607,15 +601,15 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         ctk.CTkButton(
             bottom_frame, 
             text=TXT_CANCEL, 
-            fg_color=COL_GRAY_40, 
+            fg_color=COLOR_BTN_SECONDARY_HOVER, 
             command=self._on_cancel
         ).pack(side="right", padx=(PADDING_M, 0))
         
         ctk.CTkButton(
             bottom_frame, 
             text=TXT_APPLY_CONFIRM, 
-            fg_color=COL_LIGHT_GREEN, 
-            hover_color=COL_DARK_GREEN, 
+            fg_color=COLOR_ACCENT_SUCCESS, 
+            hover_color=COLOR_BTN_SUCCESS_HOVER, 
             command=self._on_confirm
         ).pack(side="right")
 
@@ -635,7 +629,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         entry_orig.pack(side="left", padx=PADDING_XS)
 
         btn_copy_orig = ctk.CTkButton(
-            row, text="📋", width=30, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
+            row, text="📋", width=30, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
             command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
         )
         btn_copy_orig.pack(side="left", padx=(0, PADDING_XS))
@@ -644,26 +638,23 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
 
         action_var = ctk.StringVar(value="clean")
 
-        # Radio-Button "Bereinigen:" + Readonly-Feld mit dem Verbesserungsvorschlag
         r_clean = ctk.CTkRadioButton(row, text="Bereinigen:", variable=action_var, value="clean", width=85)
         r_clean.pack(side="left", padx=PADDING_XS)
 
-        entry_cleaned = ctk.CTkEntry(row, width=160, text_color=COL_LIGHT_GREEN)
+        entry_cleaned = ctk.CTkEntry(row, width=160, text_color=COLOR_ACCENT_SUCCESS)
         entry_cleaned.insert(0, cleaned_val)
         entry_cleaned.configure(state="readonly")
         entry_cleaned.pack(side="left", padx=PADDING_XS)
 
         btn_copy_clean = ctk.CTkButton(
-            row, text="📋", width=30, fg_color=COL_GRAY_35, hover_color=COL_GRAY_45,
+            row, text="📋", width=30, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
             command=lambda v=cleaned_val: (self.clipboard_clear(), self.clipboard_append(v))
         )
         btn_copy_clean.pack(side="left", padx=(0, PADDING_XS))
 
-        # Radio-Button "Beibehalten"
         r_keep = ctk.CTkRadioButton(row, text="Beibehalten", variable=action_var, value="keep", width=90)
         r_keep.pack(side="left", padx=PADDING_XS)
 
-        # Radio-Button "Manuell:" + Editierbares Eingabefeld
         r_custom = ctk.CTkRadioButton(row, text="Manuell:", variable=action_var, value="custom", width=70)
         r_custom.pack(side="left", padx=PADDING_XS)
 
@@ -679,7 +670,6 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         entry_custom.bind("<FocusIn>", on_entry_click)
         entry_custom.bind("<Key>", on_entry_click)
 
-        self.row_widgets: List[Dict[str, Any]]
         self.row_widgets.append({
             'item': item,
             'action_var': action_var,
@@ -721,7 +711,6 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
 class ImportApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
-        # 1. Standard-Einstellungen für Auto-Vervollständigung aus constants übernehmen
         self.autocomplete_settings = DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS.copy()
 
     def open_autocomplete_settings_dialog(self) -> None:
@@ -729,7 +718,7 @@ class ImportApp(ctk.CTk):
         dialog = ctk.CTkToplevel(self)
         dialog.title(TITLE_AUTOCOMPLETE_SETTINGS_DIALOG)
         center_window(dialog, AUTO_COMPLETE_DIALOG_WIDTH, AUTO_COMPLETE_DIALOG_HEIGHT)
-        dialog.grab_set()  # Blockiert Eingaben im Hauptfenster
+        dialog.grab_set()
 
         ctk.CTkLabel(
             dialog, 
@@ -737,7 +726,6 @@ class ImportApp(ctk.CTk):
             font=LARGER_LABEL_FONT_BOLD
         ).pack(anchor="w", padx=PADDING_XL, pady=(PADDING_XL, PADDING_M))
 
-        # Checkboxen an die aktuellen Einstellungen binden
         vars_dict: Dict[str, ctk.BooleanVar] = {}
         options = AUTOCOMPLETE_OPTIONS_LIST
 
@@ -752,7 +740,6 @@ class ImportApp(ctk.CTk):
                 self.autocomplete_settings[key] = vars_dict[key].get()
             dialog.destroy()
 
-        # Speichern-Button
         btn_save = ctk.CTkButton(
             dialog, 
             text=TXT_SAVE, 

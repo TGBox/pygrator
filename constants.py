@@ -79,7 +79,6 @@ AC_EMAIL_UMLAUTE_MAP: Dict[str, str] = {
 
 # Bekannte E-Mail-Domain-Tippfehler und deren Korrekturen
 AC_EMAIL_DOMAIN_FIXES: Dict[str, str] = {
-    # T-Online spezifische Muster
     '-online.de': 't-online.de',
     '-online': 't-online.de',
     '-onlin.de': 't-online.de',
@@ -95,7 +94,6 @@ AC_EMAIL_DOMAIN_FIXES: Dict[str, str] = {
     'tonline.de': 't-online.de',
     't-online-de': 't-online.de',
     't-onlinede': 't-online.de',
-    # Gmail
     'gamil.com': 'gmail.com',
     'gmaill.com': 'gmail.com',
     'gmei.com': 'gmail.com',
@@ -103,7 +101,6 @@ AC_EMAIL_DOMAIN_FIXES: Dict[str, str] = {
     'gmail.de': 'gmail.com',
     'gmailcom': 'gmail.com',
     'gamilcom': 'gmail.com',
-    # GMX
     'gmxde': 'gmx.de',
     'gmxnet': 'gmx.net',
     'gmx.d': 'gmx.de',
@@ -111,42 +108,34 @@ AC_EMAIL_DOMAIN_FIXES: Dict[str, str] = {
     'gmz.net': 'gmx.net',
     'gmx-de': 'gmx.de',
     'gmx-net': 'gmx.net',
-    # Web.de
     'webde': 'web.de',
     'web.d': 'web.de',
     'webe.de': 'web.de',
     'wb.de': 'web.de',
     'web-de': 'web.de',
-    # Freenet
     'freenetde': 'freenet.de',
     'frenet.de': 'freenet.de',
     'freenet.d': 'freenet.de',
     'freenet-de': 'freenet.de',
-    # Hotmail
     'hotmial.com': 'hotmail.com',
     'hotmai.com': 'hotmail.com',
     'hotmailde': 'hotmail.de',
     'hotmial.de': 'hotmail.de',
     'hotmailcom': 'hotmail.com',
     'hotmialcom': 'hotmail.com',
-    # Outlook
     'outlok.com': 'outlook.com',
     'outlok.de': 'outlook.de',
     'outlookde': 'outlook.de',
     'outlookcom': 'outlook.com',
-    # Yahoo
     'yaho.de': 'yahoo.de',
     'yaho.com': 'yahoo.com',
     'yahoode': 'yahoo.de',
     'yahoocom': 'yahoo.com',
-    # iCloud
     'icould.com': 'icloud.com',
     'icloud.de': 'icloud.com',
     'icloudcom': 'icloud.com',
-    # 1&1
     '1&1.de': '1und1.de',
     '1und1de': '1und1.de',
-    # Vodafone / Arcor
     'vodafon.de': 'vodafone.de',
     'vodafonede': 'vodafone.de',
     'arcorde': 'arcor.de',
@@ -154,27 +143,27 @@ AC_EMAIL_DOMAIN_FIXES: Dict[str, str] = {
 
 # Default Auto-Complete UI Einstellungen (CSVMappingApp)
 DEFAULT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
-    "infer_gender": False,       # Geschlecht aus Vorname ableiten
-    "infer_salutation": False,   # Anrede generieren
-    "clean_kvnr": False,         # KVNR bereinigen (O -> 0)
-    "clean_email": True,         # E-Mail-Adressen automatisch korrigieren
-    "convert_googlemail": False, # @googlemail.com/de zu @gmail.com vereinheitlichen
-    "clean_umlaute": False,      # Umlaute & Eszett in E-Mails ersetzen
+    "infer_gender": False,
+    "infer_salutation": False,
+    "clean_kvnr": False,
+    "clean_email": True,
+    "convert_googlemail": False,
+    "clean_umlaute": False,
 }
 
 # Default Auto-Complete UI Einstellungen (ImportApp)
 DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
-    "infer_gender": True,           # Geschlecht aus Vornamen erkennen.
-    "infer_salutation": True,       # Anrede (Herr/Frau) automatisch ergänzen.
-    "clean_kvnr": True,             # KVNR auto-korrigieren (O zu 0 etc.).
-    "clean_date_formats": True,     # Datumsangaben auf ihr Format prüfen und anpassen.
-    "infer_insurance_name": True,   # Krankenkassenname aus IK ableiten.
-    "infer_city_name": True,        # Ortsnamen aus PLZ ableiten.
-    "infer_plz": True,              # PLZ aus dem Ortsnamen ableiten.
-    "validate_email": True,         # E-Mailadresse prüfen.
-    "clean_email": True,            # E-Mailadresse automatisch korrigieren.
-    "convert_googlemail": False,    # @googlemail.com zu @gmail.com vereinheitlichen.
-    "clean_umlaute": False,         # Umlaute & Eszett in E-Mails ersetzen.
+    "infer_gender": True,
+    "infer_salutation": True,
+    "clean_kvnr": True,
+    "clean_date_formats": True,
+    "infer_insurance_name": True,
+    "infer_city_name": True,
+    "infer_plz": True,
+    "validate_email": True,
+    "clean_email": True,
+    "convert_googlemail": False,
+    "clean_umlaute": False,
 }
 
 # Optionen für das Auto-Complete Einstellungsfenster
@@ -321,22 +310,53 @@ OPTIONS_MENU_WIDTH = 160
 MAX_CHAR_READ = 4096
 RULE_BUTTON_WIDTH = 240
 
-COL_ORANGE = "#CF8700"
-COL_DARK_ORANGE = "#855600"
-COL_LIGHT_GREEN = "#2FA572"
-COL_GREEN = "#00B800"
-COL_DARK_GREEN = "#1E7E34"
-COL_DARKER_GREEN = "#145A24"
-COL_LIGHT_RED = "#E57373"
-COL_WHITE = "#FFFFFF"
-COL_BLACK = "#000000"
-COL_PURPLE = "#800080"
-COL_GRAY_20 = "#333333"
-COL_GRAY_30 = "#4D4D4D"
-COL_GRAY_35 = "#595959"
-COL_GRAY_40 = "#666666"
-COL_GRAY_45 = "#737373"
-COL_GRAY_70 = "#B3B3B3"
+# =============================================================================
+# GUI Functional & Semantic Color Palette
+# =============================================================================
+
+COLOR_TEXT_PRIMARY: str = "#FFFFFF"         # Primary text color on dark backgrounds
+COLOR_TEXT_DARK: str = "#000000"            # Dark text color
+COLOR_TEXT_MUTED: str = "#B3B3B3"           # Muted / hint text color
+COLOR_TEXT_DANGER: str = "#E57373"          # Danger / error text color
+
+COLOR_BTN_SUCCESS_BG: str = "#00B800"       # Primary success button background
+COLOR_BTN_SUCCESS_HOVER: str = "#1E7E34"    # Primary success button hover state
+COLOR_BTN_SUCCESS_ACTIVE: str = "#145A24"   # Active success button hover state
+
+COLOR_BTN_SECONDARY_BG: str = "#4D4D4D"     # Secondary button background
+COLOR_BTN_SECONDARY_HOVER: str = "#666666"  # Secondary button hover state
+
+COLOR_BTN_NEUTRAL_BG: str = "#595959"       # Neutral action button background
+COLOR_BTN_NEUTRAL_HOVER: str = "#737373"    # Neutral action button hover state
+
+COLOR_CONTAINER_BG_DARK: str = "#333333"    # Dark header / container bar background
+COLOR_CARD_BG: str = "#4D4D4D"              # Card / frame background
+COLOR_SEPARATOR: str = "#4D4D4D"            # Divider lines & frame borders
+
+COLOR_TOAST_BG: str = "#800080"             # Toast notification background
+COLOR_TOAST_BORDER: str = "#1E7E34"         # Toast notification border
+
+COLOR_ACCENT_WARNING: str = "#CF8700"       # Warning badge / accent color
+COLOR_TEXT_WARNING: str = "#855600"         # Warning text color
+COLOR_ACCENT_SUCCESS: str = "#2FA572"       # Success accent color
+
+# Backward-compatibility aliases for legacy color names
+COL_WHITE = COLOR_TEXT_PRIMARY
+COL_BLACK = COLOR_TEXT_DARK
+COL_GRAY_70 = COLOR_TEXT_MUTED
+COL_LIGHT_RED = COLOR_TEXT_DANGER
+COL_GREEN = COLOR_BTN_SUCCESS_BG
+COL_DARK_GREEN = COLOR_BTN_SUCCESS_HOVER
+COL_DARKER_GREEN = COLOR_BTN_SUCCESS_ACTIVE
+COL_GRAY_30 = COLOR_BTN_SECONDARY_BG
+COL_GRAY_40 = COLOR_BTN_SECONDARY_HOVER
+COL_GRAY_35 = COLOR_BTN_NEUTRAL_BG
+COL_GRAY_45 = COLOR_BTN_NEUTRAL_HOVER
+COL_GRAY_20 = COLOR_CONTAINER_BG_DARK
+COL_PURPLE = COLOR_TOAST_BG
+COL_ORANGE = COLOR_ACCENT_WARNING
+COL_DARK_ORANGE = COLOR_TEXT_WARNING
+COL_LIGHT_GREEN = COLOR_ACCENT_SUCCESS
 
 TRANSFORMATION_DIALOG_WIDTH = 580
 TRANSFORMATION_DIALOG_HEIGHT = 640

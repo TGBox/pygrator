@@ -28,7 +28,7 @@ from tkinter import filedialog, messagebox
 # DONE TODO: FEATURE: For doctors, we can just use the LANR (Lebenslange Arztnummer) to have unique identifiers. For other input sources, we need to check what their IDs are called.
     # TODO: The 2 todos above need to get verified with different source tables.
 # TODO: FEATURE: Currently we only account for an empty database on our side. But the program should also be applicable when the database already has values and we get an updated table to update the individual data entries with the new information. Should only update certain fields where a change can be expected. (Maybe add a way to let the user decide, which fields need to adapt to the new source of truth and which will stay the same.)
-# TODO: Rename the constants to better reflect their usage throughout the application. Also the names should apply to the elements which are being represented by them and not with the description of the current value. (So we currently have "COL_GREEN", but this could get renamed to "COL_BTN_FG" for example. So that a future change in the appearance of the app wouldn't result in a faulty descriptor for this constant!)
+# DONE TODO: Rename the constants to better reflect their usage throughout the application. Also the names should apply to the elements which are being represented by them and not with the description of the current value. (So we currently have "COL_GREEN", but this could get renamed to "COL_BTN_FG" for example. So that a future change in the appearance of the app wouldn't result in a faulty descriptor for this constant!)
 # TODO: Add validation for the values of the fields.
 # TODO: Add more comments to this file.
 # TODO: Add a way to implement input schemas for specific export types from different other software companies.
@@ -200,9 +200,9 @@ class CSVMappingApp(ctk.CTk):
         ctk.CTkButton(
             btn_frame, 
             text=BTN_PROCESS_EXPORT, 
-            text_color=COL_WHITE,
-            fg_color=COL_GREEN, 
-            hover_color=COL_DARK_GREEN,
+            text_color=COLOR_TEXT_PRIMARY,
+            fg_color=COLOR_BTN_SUCCESS_BG, 
+            hover_color=COLOR_BTN_SUCCESS_HOVER,
             font=BUTTON_FONT,
             width=PROCESS_BUTTON_WIDTH,
             command=self.start_processing
@@ -293,7 +293,7 @@ class CSVMappingApp(ctk.CTk):
             self.source_file_path = file_path
             cast(Any, self.lbl_file).configure(
                 text=f"📁 Datei: {os.path.basename(file_path)}  |  Trennzeichen: '{detected_sep}'  |  Encoding: {used_encoding}", 
-                text_color=COL_WHITE
+                text_color=COLOR_TEXT_PRIMARY
             )
             self.render_mapping_rows()
         else:
@@ -452,7 +452,7 @@ class CSVMappingApp(ctk.CTk):
                 self.scroll_frame, 
                 text=BTN_RULE_SELECT, 
                 width=RULE_BUTTON_WIDTH,
-                fg_color=COL_GRAY_30,
+                fg_color=COLOR_BTN_SECONDARY_BG,
                 command=lambda t=target_col: self.open_transformation_dialog(t)
             )
             btn_trans.grid(row=idx, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
@@ -489,8 +489,8 @@ class CSVMappingApp(ctk.CTk):
 
         toast_frame = ctk.CTkFrame(
             self,
-            fg_color=COL_PURPLE,
-            border_color=COL_DARK_GREEN,
+            fg_color=COLOR_TOAST_BG,
+            border_color=COLOR_BTN_SUCCESS_HOVER,
             border_width=1,
             corner_radius=12
         )
@@ -500,7 +500,7 @@ class CSVMappingApp(ctk.CTk):
             toast_frame,
             text=f"{icon}  {message}",
             font=BUTTON_FONT,
-            text_color=COL_WHITE,
+            text_color=COLOR_TEXT_PRIMARY,
             padx=PADDING_L,
             pady=PADDING_S
         )
@@ -550,14 +550,14 @@ class CSVMappingApp(ctk.CTk):
 
             cast(Any, btn).configure(
                 text=button_text,
-                fg_color=COL_DARK_GREEN,
-                hover_color=COL_DARKER_GREEN
+                fg_color=COLOR_BTN_SUCCESS_HOVER,
+                hover_color=COLOR_BTN_SUCCESS_ACTIVE
             )
         else:
             cast(Any, btn).configure(
                 text=BTN_RULE_SELECT,
-                fg_color=COL_GRAY_30,
-                hover_color=COL_GRAY_40
+                fg_color=COLOR_BTN_SECONDARY_BG,
+                hover_color=COLOR_BTN_SECONDARY_HOVER
             )
 
     def open_transformation_dialog(self, target_col: str) -> None:
@@ -624,13 +624,13 @@ class CSVMappingApp(ctk.CTk):
 
         date_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         date_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(date_frame, text=LBL_DEFAULT_DATE_HINT, font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(date_frame, text=LBL_DEFAULT_DATE_HINT, font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED).pack(side="left", padx=PADDING_XS)
         entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
         entry_date_default.pack(side="left")
         if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
             entry_date_default.insert(0, str(existing_rule.get('param')))
         
-        separator = ctk.CTkFrame(scroll_frame, height=2, fg_color=COL_GRAY_30)
+        separator = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
         separator.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
         r_default = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_DEFAULT_VAL, variable=rule_type, value="default_value")
@@ -655,7 +655,7 @@ class CSVMappingApp(ctk.CTk):
         if existing_rule.get('type') == 'static_value':
             entry_static_val.insert(0, str(existing_rule.get('param', '')))
 
-        separator2 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COL_GRAY_30)
+        separator2 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
         separator2.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
         
         r_ik_lookup = ctk.CTkRadioButton(
@@ -764,7 +764,7 @@ class CSVMappingApp(ctk.CTk):
         r1 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_GENDER, variable=rule_type, value="gender")
         r1.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
-        separator3 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COL_GRAY_30)
+        separator3 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
         separator3.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
         r2 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_STREET, variable=rule_type, value="split_street")
