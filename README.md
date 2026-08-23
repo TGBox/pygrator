@@ -262,6 +262,8 @@ Pygrator enthält intelligente Auto-Korrektur-Algorithmen, um fehlerhafte Eingab
 | **`gender`** | **Geschlecht->Anrede** | Mapping | Wandelt Geschlechtskürzel oder Vornamen in Anreden (`Herr`/`Frau`) um. |
 | **`split_street`** | **Nur Straße** | Extraktion | Extrahiert nur den Straßennamen aus einem kombinierten Adressfeld. |
 | **`split_number`** | **Nur Hausnummer** | Extraktion | Extrahiert nur die Hausnummer aus einem kombinierten Adressfeld. |
+| **`split_title`** | **Nur Titel** | Extraktion | Extrahiert akademische & medizinische Titel (z. B. `Dr. med.`) aus einem Namensfeld. |
+| **`split_name_without_title`** | **Name ohne Titel** | Extraktion | Entfernt akademische Titel und übernimmt ausschließlich den Namen in das Zielfeld. |
 | **`merge_columns`** | **Spalten zusammenführen** | Transformation | Verknüpft zwei Quellspalten mit Leerzeichen in einer Zielspalte. |
 | **`lookup_ik_provider`** | **Krankenkasse aus IK** | Stimmigkeit | Ermittelt den Krankenkassennamen anhand des Institutionskennzeichens (IK). |
 | **`lookup_plz_by_city`** | **PLZ aus Ort ergänzen** | Stimmigkeit | Ermittelt und ergänzt die Postleitzahl basierend auf dem Ortsnamen. |

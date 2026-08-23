@@ -443,6 +443,8 @@ class CSVMappingApp(ctk.CTk):
                     plz_col: Optional[str] = next((c for c in self.source_df.columns if "plz" in c.lower()), None)
                     if plz_col:
                         self.transformations[target_col] = {'type': 'lookup_city_by_plz', 'param': plz_col}
+                elif target_col in ("titel", "p_titel", "title"):
+                    self.transformations[target_col] = {'type': 'split_title'}
                 elif "street" in target_col:
                     self.transformations[target_col] = {'type': 'split_street'}
                 elif "hausnummer" in target_col:
@@ -787,6 +789,12 @@ class CSVMappingApp(ctk.CTk):
 
         r3 = ctk.CTkRadioButton(scroll_frame, text="🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer", variable=rule_type, value="split_number")
         r3.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+
+        r_title = ctk.CTkRadioButton(scroll_frame, text="🎓 Titel/Name trennen -> Nur Titel (z. B. Dr. med.)", variable=rule_type, value="split_title")
+        r_title.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+
+        r_name_no_title = ctk.CTkRadioButton(scroll_frame, text="🎓 Titel/Name trennen -> Name ohne Titel", variable=rule_type, value="split_name_without_title")
+        r_name_no_title.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_merge = ctk.CTkRadioButton(scroll_frame, text="🔗 Zwei Quellspalten zusammenführen (mit Leerzeichen)", variable=rule_type, value="merge_columns")
         r_merge.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
@@ -1329,6 +1337,32 @@ class CSVMappingApp(ctk.CTk):
                         numbers: List[str] = re.findall(r'\d+.*$', str(val))
                         return "".join(numbers).strip() if numbers else ""
                     series = series.apply(get_house_number)
+
+                elif rule_type == "split_title":
+                    def get_only_title(val: Any) -> str:
+                        ext_title, _ = extract_title_and_clean_name(val)
+                        return ext_title if ext_title else default_empty_value
+                    
+                    for r_i, val in enumerate(self.source_df[source_col]):
+                        t_val, _ = extract_title_and_clean_name(val)
+                        if t_val:
+                            track_rule_execution("split_title")
+                            record_change(r_i, target_col, val, t_val, RULE_NAMES.get("split_title", "Nur Titel"))
+
+                    series = series.apply(get_only_title)
+
+                elif rule_type == "split_name_without_title":
+                    def get_name_no_title(val: Any) -> str:
+                        _, clean_name = extract_title_and_clean_name(val)
+                        return clean_name if clean_name else default_empty_value
+
+                    for r_i, val in enumerate(self.source_df[source_col]):
+                        t_val, clean_n = extract_title_and_clean_name(val)
+                        if t_val and clean_n:
+                            track_rule_execution("split_name_without_title")
+                            record_change(r_i, target_col, val, clean_n, RULE_NAMES.get("split_name_without_title", "Name ohne Titel"))
+
+                    series = series.apply(get_name_no_title)
 
                 elif rule_type == "merge_columns":
                     second_col: Optional[str] = str(rule.get('param')) if rule.get('param') else None

@@ -1,3 +1,6 @@
+(A) 2026-08-23 Die Methoden des Projekts müssen alle ausgiebig getestet werden! Es handelt sich um wichtige Datensätze und Fehler müssen unbedingt vermieden werden! +Refactoring @code
+x 2026-08-23 Die Trennung von Titeln wie Dr. u.Ä. sollte als Regel implementiert werden. Es sollte wie bei der Straße und Hausnummer hier so sein, dass man den abgespaltenen Titel zur Befüllung einer bestimmten Spalte nutzen kann, oder den anderen Wert, der zusammen mit dem Titel in einer Spalte der Quelltabelle enthalten sein könnte. +Refactoring @code
+(A) 2026-08-23 Trennung der Versichertennummer Validierung und dem automatischen Vervollständigen. +Validation @code
 (A) 2026-07-31 Bestehende IDs beim Export übertragen und LANR für Ärzte nutzen (mit verschiedenen Quelltabellen verifizieren) +DataImport @code
 (A) 2026-07-31 Support für bestehende Datenbanken & Delta-Updates mit Benutzerauswahl hinzufügen +Database @gui
 (A) 2026-07-31 Auto Vervollständigung für weitere Feldtypen implementieren. (Anrede aus Name erkennen, Titel vom Namen trennen, Geschlecht aus Namen erkennen, etc.) +Validation @code
@@ -7,7 +10,6 @@
 (B) 2026-07-31 Matching Regeln für Spalten sollten so aufgebaut werden, dass immer auch nach Teilstrings gesucht wird, wenn das exakte Matching nicht geklappt hat. Aktuell wird z.B. "IK_Nr" nicht als Spalte "IK" erkannt. +Validation @code
 (B) 2026-07-31 Konstanten semantisch umbenennen (z.B. COL_GREEN zu COL_BTN_FG) +Refactoring @code
 (B) 2026-07-31 Feldwert-Validierung für weitere Felder implementieren +Validation @code
-(B) 2026-07-31 Trennung der Versichertennummer Validierung und dem automatischen Vervollständigen. +Validation @code
 (C) 2026-07-31 Input-Schemas für Export-Typen anderer Softwarehersteller unterstützen (inkl. Schema-Erstellung aus Eingabetabelle) +DataImport @code
 (C) 2026-07-31 Output-Schemas für weitere Datenbanktabellen erstellen. +DataExport @code
 (C) 2026-07-31 Code-Dokumentation und Kommentare erweitern +Docs @code
