@@ -109,9 +109,9 @@ class RowValidationDialog(ctk.CTkToplevel):
             entry_custom = ctk.CTkEntry(action_frame, width=REPLACEMENT_INPUT_WIDTH)
             entry_custom.insert(0, orig_val)
 
-            def on_entry_click(event: Any = None) -> None:
-                if var_action.get() != "custom":
-                    var_action.set("custom")
+            def on_entry_click(event: Any = None, v_act: ctk.StringVar = var_action) -> None:
+                if v_act.get() != "custom":
+                    v_act.set("custom")
 
             entry_custom.bind("<Button-1>", on_entry_click)
             entry_custom.bind("<FocusIn>", on_entry_click)
@@ -199,6 +199,7 @@ class RowValidationDialog(ctk.CTkToplevel):
             self.resolved_results.append({
                 'row_idx': r['row_idx'],
                 'col_name': r['col_name'],
+                'orig_val': orig_val,
                 'new_val': final_val
             })
 
@@ -427,9 +428,9 @@ class ValidationFixDialog(ctk.CTkToplevel):
         val_to_show = str(item['custom_val']) if item.get('custom_val') else orig_val
         entry_custom.insert(0, val_to_show)
 
-        def on_entry_click(event: Any = None) -> None:
-            if action_var.get() != "custom":
-                action_var.set("custom")
+        def on_entry_click(event: Any = None, v_act: ctk.StringVar = action_var) -> None:
+            if v_act.get() != "custom":
+                v_act.set("custom")
 
         entry_custom.bind("<Button-1>", on_entry_click)
         entry_custom.bind("<FocusIn>", on_entry_click)
@@ -597,9 +598,9 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         entry_custom.insert(0, cleaned_val)
         entry_custom.pack(side="left", padx=PADDING_XS)
 
-        def on_entry_click(event: Any = None) -> None:
-            if action_var.get() != "custom":
-                action_var.set("custom")
+        def on_entry_click(event: Any = None, v_act: ctk.StringVar = action_var) -> None:
+            if v_act.get() != "custom":
+                v_act.set("custom")
 
         entry_custom.bind("<Button-1>", on_entry_click)
         entry_custom.bind("<FocusIn>", on_entry_click)

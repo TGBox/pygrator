@@ -289,6 +289,9 @@ Die `Regelübersicht` enthält kryptografische SHA-256 Fingerabdrücke sowie ein
   - Anzahl automatischer Regel-Korrekturen
   - Anzahl manueller Dialog-Korrekturen
   - Anzahl manuell beibehaltener Abweichungen (*Keep*)
+- **Dynamischer Ausführungs-Zähler (`Anzahl Anwendungen`)**:
+  - Jede ausgeführte Regel und Dialog-Aktion enthält die Spalte `Anzahl Anwendungen`, die exakt dokumentiert, wie oft diese Regel in der gesamten Datei angewendet wurde.
+  - **Ausschluss ungenutzter Regeln**: Regeln, die vor dem Export abgewählt wurden oder kein einziges Mal zum Einsatz kamen (0 Treffer), werden **vollständig aus der Regelübersicht ausgeblendet**.
 
 ### 📝 Protokollierung aller Dialog-Entscheidungen (`Änderungskontrolle`)
 

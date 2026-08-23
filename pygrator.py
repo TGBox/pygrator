@@ -2,6 +2,7 @@ from constants import COL_PURPLE
 import os
 import re
 import csv
+from collections import defaultdict
 from typing import Any, Dict, List, Optional, Set, cast
 from openpyxl import Workbook
 import pandas as pd
@@ -946,15 +947,24 @@ class CSVMappingApp(ctk.CTk):
             from services.plz_lookup import PLZLookupService
             self.plz_service = PLZLookupService()
 
-        applied_rules_summary: Dict[str, str] = {}
+        rule_counts: Dict[str, int] = defaultdict(int)
+        rule_descriptions: Dict[str, str] = {}
         audit_entries: List[Dict[str, Any]] = []
+
+        def track_rule_execution(rule_key_or_name: str, count: int = 1, custom_name: Optional[str] = None, custom_desc: Optional[str] = None) -> None:
+            r_name = custom_name if custom_name else RULE_NAMES.get(rule_key_or_name, rule_key_or_name)
+            r_desc = custom_desc if custom_desc else RULE_DESCRIPTIONS.get(rule_key_or_name, "Ausgeführte Transformationsregel oder Dialog-Aktion.")
+            rule_counts[r_name] += count
+            rule_descriptions[r_name] = r_desc
+
         if cleanup_audit_entries:
             audit_entries.extend(cleanup_audit_entries)
-
-        def add_applied_rule(rule_key: str, custom_name: Optional[str] = None, custom_desc: Optional[str] = None) -> None:
-            r_name = custom_name if custom_name else RULE_NAMES.get(rule_key, rule_key)
-            r_desc = custom_desc if custom_desc else RULE_DESCRIPTIONS.get(rule_key, "Angewendete Transformationsregel.")
-            applied_rules_summary[r_name] = r_desc
+            track_rule_execution(
+                "Dialog: Sonderzeichen bereinigt", 
+                count=len(cleanup_audit_entries),
+                custom_name="Dialog: Sonderzeichen bereinigt", 
+                custom_desc="In der Vorschau freigegebene Sonderzeichen-Bereinigung."
+            )
 
         def record_change(r_idx: int, target_col: str, orig_val: Any, new_val: Any, rule_name: str) -> None:
             if not bool(self.chk_audit_export.get()):
@@ -991,7 +1001,7 @@ class CSVMappingApp(ctk.CTk):
                                 clean_n = clean_name_list[r_i]
                                 ext_t = titel_list[r_i]
                                 if ext_t:
-                                    add_applied_rule("split_title")
+                                    track_rule_execution("split_title")
                                     record_change(r_i, target_col, orig_n, clean_n, RULE_NAMES.get("split_title", "Titel trennen"))
                                     if has_titel_col:
                                         record_change(r_i, 'titel', "", ext_t, RULE_NAMES.get("split_title", "Titel trennen"))
@@ -1009,7 +1019,7 @@ class CSVMappingApp(ctk.CTk):
                                 orig_k = str(raw_source_df.at[r_i, src_c])
                                 cleaned_k = orig_k.upper().replace("O", "0")
                                 if orig_k != cleaned_k:
-                                    add_applied_rule("clean_kvnr")
+                                    track_rule_execution("clean_kvnr")
                                     record_change(r_i, target_col, orig_k, cleaned_k, RULE_NAMES.get("clean_kvnr", "KVNR-Format bereinigen"))
                             self.source_df[src_c] = self.source_df[src_c].astype(str).str.upper().str.replace("O", "0")
 
@@ -1031,8 +1041,7 @@ class CSVMappingApp(ctk.CTk):
                 elif 'street' in target_col.lower():
                     rule_type = 'split_street'
 
-            if rule_type:
-                add_applied_rule(rule_type)
+            # Pauschales Vorab-Registrieren entfernt: Regeln werden nun dynamisch beim Ausführen gezählt.
 
             if rule_type == "validate_ik":
                 if source_col and source_col in self.source_df.columns:
@@ -1122,8 +1131,7 @@ class CSVMappingApp(ctk.CTk):
                     rule_type = 'split_number'
                 elif 'street' in target_col.lower():
                     rule_type = 'split_street'
-            if rule_type:
-                add_applied_rule(rule_type)
+            # Pauschales Vorab-Registrieren entfernt: Regeln werden nun dynamisch beim Ausführen gezählt.
             source_col = self.mapping_dropdowns[target_col].get() if target_col in self.mapping_dropdowns else None
 
             if rule_type == "lookup_plz_by_city":
@@ -1139,6 +1147,7 @@ class CSVMappingApp(ctk.CTk):
                         if pd.notna(city_val) and str(city_val).strip():
                             found_plz: Optional[str] = self.plz_service.get_plz_by_city(str(city_val))
                             if found_plz:
+                                track_rule_execution("lookup_plz_by_city")
                                 record_change(int(cast(Any, r_idx)), target_col, val, found_plz, RULE_NAMES.get("lookup_plz_by_city", "PLZ aus Ort ergänzen"))
                                 return found_plz
                     return default_empty_value
@@ -1167,6 +1176,7 @@ class CSVMappingApp(ctk.CTk):
                         if pd.notna(plz_val) and str(plz_val).strip():
                             found_city: Optional[str] = self.plz_service.get_city_by_plz(str(plz_val))
                             if found_city:
+                                track_rule_execution("lookup_city_by_plz")
                                 record_change(int(cast(Any, r_idx)), target_col, val, found_city, RULE_NAMES.get("lookup_city_by_plz", "Ort aus PLZ ergänzen"))
                                 return found_city
                     return default_empty_value
@@ -1184,6 +1194,7 @@ class CSVMappingApp(ctk.CTk):
                             cleaned_ik: str = str(val).strip().split('.')[0]
                             provider_name: Optional[str] = ik_service.get_provider_by_ik(cleaned_ik) if ik_service else None
                             if provider_name:
+                                track_rule_execution("lookup_ik_provider")
                                 record_change(int(cast(Any, r_idx)), target_col, val, provider_name, RULE_NAMES.get("lookup_ik_provider", "Krankenkasse aus IK"))
                                 res_ik.append(provider_name)
                             else:
@@ -1360,6 +1371,12 @@ class CSVMappingApp(ctk.CTk):
 
                 if action == 'clear':
                     out_df.at[r_idx, col] = default_empty_value
+                    track_rule_execution(
+                        "Dialog: Ungültigen Wert geleert (NULL)",
+                        count=1,
+                        custom_name="Dialog: Ungültigen Wert geleert (NULL)",
+                        custom_desc="Von Ihnen autorisiertes Leeren ungültiger Felder."
+                    )
                     if bool(self.chk_audit_export.get()):
                         entry: Dict[str, Any] = {
                             'Original_Zeile': int(r_idx) + 1,
@@ -1376,6 +1393,12 @@ class CSVMappingApp(ctk.CTk):
                 elif action == 'custom':
                     new_v = item['custom_val'] if item['custom_val'] else default_empty_value
                     out_df.at[r_idx, col] = new_v
+                    track_rule_execution(
+                        "Dialog: Manuelle Korrektur eingegeben",
+                        count=1,
+                        custom_name="Dialog: Manuelle Korrektur eingegeben",
+                        custom_desc="Von Ihnen manuell im Korrektur-Dialog eingegebener Ersatzwert."
+                    )
                     if bool(self.chk_audit_export.get()):
                         entry: Dict[str, Any] = {
                             'Original_Zeile': int(r_idx) + 1,
@@ -1390,6 +1413,12 @@ class CSVMappingApp(ctk.CTk):
                             entry[key_name] = "" if pd.isna(orig_val_col) else str(orig_val_col)
                         audit_entries.append(entry)
                 elif action == 'keep':
+                    track_rule_execution(
+                        "Dialog: Wert trotz Validierungsfehler beibehalten",
+                        count=1,
+                        custom_name="Dialog: Wert trotz Validierungsfehler beibehalten",
+                        custom_desc="Explizite Nutzerentscheidung: Abweichenden Wert unverändert belassen."
+                    )
                     if bool(self.chk_audit_export.get()):
                         entry: Dict[str, Any] = {
                             'Original_Zeile': int(r_idx) + 1,
@@ -1445,12 +1474,18 @@ class CSVMappingApp(ctk.CTk):
             for res in resolved_items:
                 r_idx: Any = res['row_idx']
                 col: str = res['col_name']
-                orig_v: Any = res['orig_val']
+                orig_v: Any = res.get('orig_val', out_df.at[r_idx, col])
                 new_v: Any = res['new_val']
                 out_df.at[r_idx, col] = new_v
 
+                if str(orig_v) != str(new_v):
+                    rule_label = "Dialog: Zeichenkette auf Max-Länge gekürzt"
+                    track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Von Ihnen im Dialog bestätigte Kürzung eines Feldes auf das Limit.")
+                else:
+                    rule_label = "Dialog: Überlangen Wert trotz Limit beibehalten"
+                    track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Explizite Nutzerentscheidung: Zeichenlimit für diesen Wert übergehen.")
+
                 if bool(self.chk_audit_export.get()):
-                    rule_label = "Dialog: Zeichenkette auf Max-Länge gekürzt" if str(orig_v) != str(new_v) else "Dialog: Überlangen Wert trotz Limit beibehalten"
                     entry: Dict[str, Any] = {
                         'Original_Zeile': int(r_idx) + 1,
                         'Regelname': rule_label,
@@ -1562,19 +1597,25 @@ class CSVMappingApp(ctk.CTk):
         manual_kept_cnt = sum(1 for e in audit_entries if str(e.get('Regelname', '')).startswith("Dialog:") and str(e.get('Alter_Wert', '')) == str(e.get('Neuer_Wert', '')))
 
         summary_rows: List[Dict[str, str]] = [
-            {"Regelname": "=== SHA-256 FINGERABDRÜCKE ===", "Erklärung": ""},
-            {"Regelname": "Quelldatei SHA-256", "Erklärung": source_sha256},
-            {"Regelname": "Zieldatei SHA-256", "Erklärung": export_sha256},
-            {"Regelname": "=== REVISIONS-STATISTIK ===", "Erklärung": ""},
-            {"Regelname": "Gesamtzahl verarbeiteter Zeilen", "Erklärung": str(total_rows_cnt)},
-            {"Regelname": "Protokollierte Ereignisse (Gesamt)", "Erklärung": str(total_audit_cnt)},
-            {"Regelname": "Automatische Regel-Korrekturen", "Erklärung": str(auto_changes_cnt)},
-            {"Regelname": "Manuelle Dialog-Korrekturen", "Erklärung": str(manual_changes_cnt)},
-            {"Regelname": "Manuell beibehaltene Abweichungen (Keep)", "Erklärung": str(manual_kept_cnt)},
-            {"Regelname": "=== ANGEWENDETE TRANSFORMATIONSREGELN ===", "Erklärung": ""},
+            {"Regelname": "=== SHA-256 FINGERABDRÜCKE ===", "Anzahl Anwendungen": "-", "Beschreibung": ""},
+            {"Regelname": "Quelldatei SHA-256", "Anzahl Anwendungen": "-", "Beschreibung": source_sha256},
+            {"Regelname": "Zieldatei SHA-256", "Anzahl Anwendungen": "-", "Beschreibung": export_sha256},
+            {"Regelname": "=== REVISIONS-STATISTIK ===", "Anzahl Anwendungen": "-", "Beschreibung": ""},
+            {"Regelname": "Gesamtzahl verarbeiteter Zeilen", "Anzahl Anwendungen": str(total_rows_cnt), "Beschreibung": "Gesamtanzahl aller Datensätze in der Quelltabelle."},
+            {"Regelname": "Protokollierte Ereignisse (Gesamt)", "Anzahl Anwendungen": str(total_audit_cnt), "Beschreibung": "Gesamtanzahl aller protokollierten Regel- und Dialog-Aktionen."},
+            {"Regelname": "Automatische Regel-Korrekturen", "Anzahl Anwendungen": str(auto_changes_cnt), "Beschreibung": "Automatisch durch Transformationsregeln durchgeführte Anpassungen."},
+            {"Regelname": "Manuelle Dialog-Korrekturen", "Anzahl Anwendungen": str(manual_changes_cnt), "Beschreibung": "Manuell von Ihnen im Dialog geänderte Werte."},
+            {"Regelname": "Manuell beibehaltene Abweichungen (Keep)", "Anzahl Anwendungen": str(manual_kept_cnt), "Beschreibung": "Im Dialog von Ihnen explizit unverändert belassene Werte."},
+            {"Regelname": "=== AUSGEFÜHRTE TRANSFORMATIONS- & DIALOG-REGELN ===", "Anzahl Anwendungen": "-", "Beschreibung": ""},
         ]
-        for k, v in applied_rules_summary.items():
-            summary_rows.append({"Regelname": k, "Erklärung": v})
+        for r_name, count in rule_counts.items():
+            if count > 0:
+                r_desc = rule_descriptions.get(r_name, "Ausgeführte Transformationsregel oder Dialog-Aktion.")
+                summary_rows.append({
+                    "Regelname": r_name,
+                    "Anzahl Anwendungen": str(count),
+                    "Beschreibung": r_desc
+                })
         
         df_rules_summary = pd.DataFrame(summary_rows)
 
