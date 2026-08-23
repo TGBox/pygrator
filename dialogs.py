@@ -657,6 +657,7 @@ class ImportApp(ctk.CTk):
             "infer_plz": True,              # PLZ aus dem Ortsnamen ableiten.
             "validate_email": True,         # E-Mailadresse prüfen.
             "clean_email": True,            # E-Mailadresse automatisch korrigieren.
+            "convert_googlemail": False,    # @googlemail.com zu @gmail.com vereinheitlichen.
         }
         # ... dein restlicher Init-Code ...
 
@@ -685,7 +686,8 @@ class ImportApp(ctk.CTk):
             ("infer_city_name", "Ortsnamen aus PLZ ableiten"),
             ("infer_plz", "PLZ aus Ortsnamen ableiten"),
             ("validate_email", "E-Mail Adresse validieren"),
-            ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren")
+            ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren"),
+            ("convert_googlemail", "📧 @googlemail.com zu @gmail.com vereinheitlichen")
         ]
 
         for key, label_text in options:

@@ -90,7 +90,7 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
                 return True, tmp_fix
             
     return False, vnr
-def try_to_fix_email(email: str) -> tuple[bool, str]:
+def try_to_fix_email(email: str, convert_googlemail: bool = False) -> tuple[bool, str]:
     """Sucht nach häufigen Tippfehlern in E-Mail-Adressen und korrigiert diese."""
     from db_util import validate_email
     
@@ -191,8 +191,6 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
         'gmei.com': 'gmail.com',
         'gmai.com': 'gmail.com',
         'gmail.de': 'gmail.com',
-        'googlemail.com': 'gmail.com',
-        'googlemail.de': 'gmail.com',
         'gmailcom': 'gmail.com',
         'gamilcom': 'gmail.com',
         # GMX
@@ -243,6 +241,10 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
         'vodafonede': 'vodafone.de',
         'arcorde': 'arcor.de',
     }
+
+    if convert_googlemail:
+        domain_fixes['googlemail.com'] = 'gmail.com'
+        domain_fixes['googlemail.de'] = 'gmail.com'
 
     if domain_lower in domain_fixes:
         domain_part = domain_fixes[domain_lower]

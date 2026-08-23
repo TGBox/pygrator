@@ -181,7 +181,7 @@ Beim Laden einer CSV-Quelldatei führt Pygrator einen automatischen Namensabglei
 
 ---
 
-### 🪄 2. Auto-Vervollständigungs- & Korrekturmuster (Auto-Fix)
+### 2. Auto-Vervollständigungs- & Korrekturmuster (Auto-Fix)
 
 Pygrator enthält intelligente Auto-Korrektur-Algorithmen, um fehlerhafte Eingaben, Tippfehler oder Ablesefehler aus Scans/OCR beim Datenimport automatisch zu reparieren:
 
@@ -194,7 +194,8 @@ Pygrator enthält intelligente Auto-Korrektur-Algorithmen, um fehlerhafte Eingab
 | **T-Online Tastaturfehler** | `rudipT-online.de` | `rudip@t-online.de` | Ergänzt fehlendes `@` vor `T-online.de`. |
 | **Fehlendes `t` bei T-Online** | `dehner@-online.de` | `dehner@t-online.de` | Repariert `@-online.de` zu `@t-online.de`. |
 | **Fehlerhafter Punkt im Provider** | `max.lauren@t.-online.de` | `max.lauren@t-online.de` | Entfernt Punkte zwischen Provider-Bestandteilen (`t.-online` $\rightarrow$ `t-online`). |
-| **Standard Domain-Tippfehler** | `max.mustermann@gamil.com` | `max.mustermann@gmail.com` | Repariert Schreibfehler (`gamil`, `gmeil`, `googlemail` $\rightarrow$ `gmail.com`). |
+| **Standard Domain-Tippfehler** | `max.mustermann@gamil.com` | `max.mustermann@gmail.com` | Repariert Schreibfehler (`gamil`, `gmeil`, `gmai` $\rightarrow$ `gmail.com`). |
+| **Googlemail-Erhaltung** | `user@googlemail.com` | `user@googlemail.com` | Bleibt standardmäßig unverändert erhalten. Kann optional per Auto-Vervollständigungs-Option (`convert_googlemail`) zu `@gmail.com` vereinheitlicht werden. |
 | **GMX / Web.de Tippfehler** | `hans.mueller@gmxde` | `hans.mueller@gmx.de` | Führt fehlende TLD-Punkte wieder ein (`gmxde` $\rightarrow$ `gmx.de`, `webde` $\rightarrow$ `web.de`). |
 | **Fehlendes `@` bei Hauptdomains** | `usernamegmx.de` | `username@gmx.de` | Fügt `@` vor bekannten Provider-Domains (`gmx`, `web`, `gmail`, `hotmail`, `outlook`) ein. |
 | **Formatierung & Klammern** | `(user@domain.de.)` | `user@domain.de` | Entfernt umschließende Satzzeichen/Klammern und bereinigt `@@` zu `@`. |
@@ -216,6 +217,8 @@ Pygrator enthält intelligente Auto-Korrektur-Algorithmen, um fehlerhafte Eingab
 | Eingabewert | Korrigiertes Ergebnis | Korrekturregel |
 | :--- | :--- | :--- |
 | `26012345.0` | `260123456` | Entfernt `.0` und prüft Stelle 9 auf Modulo-10 Prüfziffer. |
+
+> **Hinweis zur automatischen Regel-Aktivierung:** Die Validierungsregeln `validate_ik`, `validate_kvnr` und `validate_email` werden beim Laden einer Datei nur dann automatisch aktiviert, wenn von Anfang an eine passende Quellspalte der jeweiligen Zielspalte zugeordnet wurde.
 
 #### 🎓 Titel & Namen (`split_title` / `extract_title_and_clean_name`)
 
@@ -263,8 +266,8 @@ Pygrator enthält intelligente Auto-Korrektur-Algorithmen, um fehlerhafte Eingab
 | **`lookup_ik_provider`** | **Krankenkasse aus IK** | Stimmigkeit | Ermittelt den Krankenkassennamen anhand des Institutionskennzeichens (IK). |
 | **`lookup_plz_by_city`** | **PLZ aus Ort ergänzen** | Stimmigkeit | Ermittelt und ergänzt die Postleitzahl basierend auf dem Ortsnamen. |
 | **`lookup_city_by_plz`** | **Ort aus PLZ ergänzen** | Stimmigkeit | Ermittelt und ergänzt den Ortsnamen basierend auf der 5-stelligen PLZ. |
-| **`validate_ik`** | **IK-Nummer prüfen** | Validierung | Validiert 9-stellige Institutionskennzeichen inkl. Prüfziffer. |
-| **`validate_kvnr`** | **Versichertennr. prüfen** | Validierung | Korrigiert O/0-Ablesefehler und prüft KVNR-Format inkl. Modulo-10. |
+| **`validate_ik`** | **IK-Nummer prüfen** | Validierung | Validiert 9-stellige Institutionskennzeichen inkl. Prüfziffer (wird nur bei zugeordneter Quellspalte automatisch aktiviert). |
+| **`validate_kvnr`** | **Versichertennr. prüfen** | Validierung | Korrigiert O/0-Ablesefehler und prüft KVNR-Format inkl. Modulo-10 (wird nur bei zugeordneter Quellspalte automatisch aktiviert). |
 | **`validate_email`** | **E-Mail prüfen** | Validierung | Validiert Mail-Syntax und wendet umfassende Auto-Fix-Logik an. |
 | **`auto_sequence_6`** | **Lineare Nummerierung (6-stellig)** | Generierung | Erzeugt eine fortlaufende 6-stellige Nummer (z. B. `000001`, `000002`). |
 

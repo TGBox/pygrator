@@ -19,6 +19,33 @@ RULE_NAMES = {
     "validate_email": "E-Mail prüfen",
     "auto_sequence_6": "Lineare Nummerierung (6-stellig)"
 }
+
+RULE_DESCRIPTIONS = {
+    "generate_uid": "Erzeugt eine eindeutige, 12-stellige alphanumerische Kennung (UID) für jeden Datensatz.",
+    "copy_target": "Übernimmt den bereinigten Wert aus einer anderen bereits verarbeiteten Zielspalte.",
+    "format_date": "Konvertiert verschiedene Datumsformate einheitlich in den ISO-Standard YYYY-MM-DD.",
+    "default_value": "Befüllt leere Datenfelder mit einem vorgegebenen Standard-Fallbackwert.",
+    "static_value": "Weist allen Datensätzen in dieser Zielspalte ausnahmslos denselben statischen Festwert zu.",
+    "clean_plz": "Entfernt führende/nachfolgende Leerzeichen und '.0'-Suffixe bei PLZ-Werten. Füllt die Postleitzahl mit führenden Nullen auf 5 Stellen auf.",
+    "gender": "Konvertiert verschiedenartige Geschlechts- oder Anrededaten (z. B. 'M', '1', 'männlich') in standardisierte Anreden ('Herr' / 'Frau').",
+    "split_street": "Trennt Hausnummern und Adresszusätze ab, um ausschließlich den Straßennamen in das Zielfeld zu übernehmen.",
+    "split_number": "Extrahiert die Hausnummer inklusive eventueller Zusätze aus einer kombinierten Adresszeile.",
+    "merge_columns": "Führt Werte aus zwei separaten Quellspalten mit einem Leerzeichen als Trennzeichen in eine Zielspalte zusammen.",
+    "lookup_ik_provider": "Bestimmt den Namen der Krankenkasse anhand der Institutionskennzeichen-Nummer (IK).",
+    "lookup_plz_by_city": "Ermittelt die entsprechende Postleitzahl basierend auf dem angegebenen Ortsnamen aus der internen Datenbank.",
+    "lookup_city_by_plz": "Sucht automatisch den passenden Ortsnamen anhand der vorhandenen Postleitzahl in der Datenbank.",
+    "validate_ik": "Überprüft Institutionskennzeichen (IK) auf Korrektheit und 9-stellige Formatierung.",
+    "validate_kvnr": "Prüft Krankenversichertennummern auf Korrektheit und behebt bekannte Formatfehler (z. B. Ersetzen des Buchstaben 'O' durch '0').",
+    "validate_email": "Bereinigt E-Mail-Adressen von Typografie-/Tippfehlern sowie Leerzeichen und verifiziert das E-Mail-Format.",
+    "auto_sequence_6": "Erzeugt eine fortlaufende 6-stellige Nummerierung (z. B. 000001, 000002) für alle Datensätze.",
+    "split_title": "Trennt akademische Titel (z. B. Dr. med.) vom Vornamen/Nachnamen und ordnet sie dem Titelfeld zu.",
+    "infer_gender": "Ermittelt automatisch das biologische Geschlecht anhand des Vornamens aus einer Datenbank.",
+    "infer_salutation": "Leitet automatisch die passende Anrede (Herr/Frau) basierend auf dem Vornamen oder Geschlecht ab.",
+    "clean_kvnr": "Korrigiert typische Eingabefehler in Krankenversichertennummern automatisch.",
+    "clean_email": "Korrigiert fehlerhaft formatierte E-Mail-Adressen automatisch.",
+    "varchar_limit": "Kürzt Werte, die das maximale Zeichenlimit des Zielfelds in der Ziel-Datenbank überschreiten.",
+    "string_cleanup": "Bereinigt Steuerzeichen, doppelte Leerzeichen und unerwünschte Sonderzeichen aus Freitextfeldern."
+}
 APP_WIDTH = 1040
 APP_HEIGHT = 880
 FONT_TYPE = "Roboto"

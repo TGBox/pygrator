@@ -67,6 +67,7 @@ class CSVMappingApp(ctk.CTk):
     combo_encoding: ctk.CTkOptionMenu
     scroll_frame: ctk.CTkScrollableFrame
     cleanup_dialog: Optional[StringCleanupPreviewDialog]
+    chk_audit_export: ctk.CTkCheckBox
     ik_service: Any
     plz_service: Any
     _current_toast_frame: Optional[ctk.CTkFrame]
@@ -85,6 +86,7 @@ class CSVMappingApp(ctk.CTk):
             "infer_salutation": False,  # Anrede generieren
             "clean_kvnr": False,        # KVNR bereinigen (O -> 0)
             "clean_email": True,        # E-Mail-Adressen automatisch korrigieren
+            "convert_googlemail": False,# @googlemail.com/de zu @gmail.com vereinheitlichen
         }
 
         self.source_df = None
@@ -192,16 +194,13 @@ class CSVMappingApp(ctk.CTk):
         btn_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
         btn_frame.pack(side="right", padx=PADDING_M, pady=PADDING_M)
 
-        ctk.CTkButton(
-            btn_frame, 
-            text="⚠️ Nur Abweichungen prüfen",
-            text_color=COL_WHITE,
-            fg_color=COL_ORANGE,
-            hover_color=COL_DARK_ORANGE,
-            font=BUTTON_FONT,
-            width=PROCESS_BUTTON_WIDTH,
-            command=self.run_pre_check_export
-        ).pack(anchor="w", padx=(0, PADDING_S), pady=(0, PADDING_S), side="top")
+        self.chk_audit_export = ctk.CTkCheckBox(
+            btn_frame,
+            text="📋 Regelübersicht & Änderungskontroll-Protokoll generieren",
+            font=LABEL_FONT_BOLD
+        )
+        self.chk_audit_export.select()
+        self.chk_audit_export.pack(anchor="w", padx=(0, PADDING_S), pady=(0, PADDING_S), side="top")
 
         ctk.CTkButton(
             btn_frame, 
@@ -231,7 +230,8 @@ class CSVMappingApp(ctk.CTk):
             ("infer_gender", "⚥ Geschlecht anhand des Vornamens ermitteln"),
             ("infer_salutation", "✉️ Anrede (Herr/Frau) automatisch ergänzen"),
             ("clean_kvnr", "🆔 KVNR bereinigen ('O' -> '0')"),
-            ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren")
+            ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren"),
+            ("convert_googlemail", "📧 @googlemail.com zu @gmail.com vereinheitlichen")
         ]
 
         for key, label_text in options:
@@ -451,11 +451,12 @@ class CSVMappingApp(ctk.CTk):
                                 'param': src_col
                             }
                             break
-                elif target_col in ("p_ik", "ik") or "ik_nummer" in target_col:
+                is_mapped: bool = bool(combo.get() and combo.get() != "-- Nicht zuordnen / Spezielle Regel --")
+                if (target_col in ("p_ik", "ik") or "ik_nummer" in target_col) and is_mapped:
                     self.transformations[target_col] = {'type': 'validate_ik'}
-                elif target_col in ("p_vnr", "vnr", "kvnr") or "versichertennummer" in target_col:
+                elif (target_col in ("p_vnr", "vnr", "kvnr") or "versichertennummer" in target_col) and is_mapped:
                     self.transformations[target_col] = {'type': 'validate_kvnr'}
-                elif target_col in ("p_email", "email", "mail", "Email", "E-Mail"):
+                elif (target_col in ("p_email", "email", "mail", "Email", "E-Mail")) and is_mapped:
                     self.transformations[target_col] = {'type': 'validate_email'}
 
             btn_trans: ctk.CTkButton = ctk.CTkButton(
@@ -908,12 +909,14 @@ class CSVMappingApp(ctk.CTk):
 
         assert self.source_df is not None
 
+        raw_source_df: pd.DataFrame = self.source_df.copy()
         out_df: pd.DataFrame = pd.DataFrame()
         mapped_source_cols: Set[str] = set()
         row_count: int = len(self.source_df)
 
         target_schema: Dict[str, str] = SCHEMAS[self.combo_schema.get()]
-        default_empty_value: str = "NULL" if self.chk_fill_null.cget("state") else ""
+        should_fill_null: bool = bool(self.chk_fill_null.get())
+        default_empty_value: str = "NULL" if should_fill_null else ""
 
         copy_rules: Dict[str, str] = {}
         invalid_records: List[Dict[str, Any]] = []
@@ -921,44 +924,100 @@ class CSVMappingApp(ctk.CTk):
         if not hasattr(self, 'plz_service'):
             from services.plz_lookup import PLZLookupService
             self.plz_service = PLZLookupService()
-            
-        # =========================================================================
-        # NEU: PRE-PROCESSING / AUTO-VERVOLLSTÄNDIGUNG (basierend auf Settings)
-        # =========================================================================
+
+        applied_rules_summary: Dict[str, str] = {}
+        audit_entries: List[Dict[str, Any]] = []
+
+        def add_applied_rule(rule_key: str, custom_name: Optional[str] = None, custom_desc: Optional[str] = None) -> None:
+            r_name = custom_name if custom_name else RULE_NAMES.get(rule_key, rule_key)
+            r_desc = custom_desc if custom_desc else RULE_DESCRIPTIONS.get(rule_key, "Angewendete Transformationsregel.")
+            applied_rules_summary[r_name] = r_desc
+
+        def record_change(r_idx: int, target_col: str, orig_val: Any, new_val: Any, rule_name: str) -> None:
+            if not bool(self.chk_audit_export.get()):
+                return
+            o_str: str = "" if (pd.isna(orig_val) or str(orig_val).strip() in ["", "nan", "None", "NULL"]) else str(orig_val).strip()
+            n_str: str = "" if (pd.isna(new_val) or str(new_val).strip() in ["", "nan", "None", "NULL"]) else str(new_val).strip()
+            if o_str != n_str:
+                entry: Dict[str, Any] = {
+                    'Original_Zeile': r_idx + 1,
+                    'Regelname': rule_name,
+                    'Zielspalte': target_col,
+                    'Alter_Wert': "" if pd.isna(orig_val) else str(orig_val),
+                    'Neuer_Wert': "" if pd.isna(new_val) else str(new_val),
+                }
+                for orig_col in raw_source_df.columns:
+                    orig_val_col = raw_source_df.at[r_idx, orig_col]
+                    key_name = orig_col if orig_col not in ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] else f"Quellspalte_{orig_col}"
+                    entry[key_name] = "" if pd.isna(orig_val_col) else str(orig_val_col)
+                audit_entries.append(entry)
+
         if hasattr(self, 'autocomplete_settings'):
-            # 1. Title Split & Name Cleaning
             if self.autocomplete_settings.get("split_title"):
                 for target_col, dropdown in self.mapping_dropdowns.items():
                     if 'nachname' in target_col.lower() or 'name' in target_col.lower():
                         src_c = dropdown.get()
                         if src_c and src_c in self.source_df.columns:
-                            # Wendet extract_title_and_clean_name auf die Quell-Spalte an
                             res = self.source_df[src_c].astype(str).apply(extract_title_and_clean_name)
-                            # Wenn eine eigene Titel-Spalte existiert, befüllen wir sie mit dem extrahierten Titel
-                            if 'titel' in self.mapping_dropdowns:
-                                out_df['titel'] = [t[0] for t in res]
-                            self.source_df[src_c] = [t[1] for t in res]
+                            has_titel_col = 'titel' in self.mapping_dropdowns
+                            titel_list = [t[0] for t in res]
+                            clean_name_list = [t[1] for t in res]
 
-            # 2. KVNR-Bereinigung ('O' -> '0') vor der Validierung
+                            for r_i in range(row_count):
+                                orig_n = raw_source_df.at[r_i, src_c]
+                                clean_n = clean_name_list[r_i]
+                                ext_t = titel_list[r_i]
+                                if ext_t:
+                                    add_applied_rule("split_title")
+                                    record_change(r_i, target_col, orig_n, clean_n, RULE_NAMES.get("split_title", "Titel trennen"))
+                                    if has_titel_col:
+                                        record_change(r_i, 'titel', "", ext_t, RULE_NAMES.get("split_title", "Titel trennen"))
+
+                            if has_titel_col:
+                                out_df['titel'] = titel_list
+                            self.source_df[src_c] = clean_name_list
+
             if self.autocomplete_settings.get("clean_kvnr"):
                 for target_col, dropdown in self.mapping_dropdowns.items():
                     if 'kvnr' in target_col.lower() or 'versichertennummer' in target_col.lower():
                         src_c = dropdown.get()
                         if src_c and src_c in self.source_df.columns:
+                            for r_i in range(row_count):
+                                orig_k = str(raw_source_df.at[r_i, src_c])
+                                cleaned_k = orig_k.upper().replace("O", "0")
+                                if orig_k != cleaned_k:
+                                    add_applied_rule("clean_kvnr")
+                                    record_change(r_i, target_col, orig_k, cleaned_k, RULE_NAMES.get("clean_kvnr", "KVNR-Format bereinigen"))
                             self.source_df[src_c] = self.source_df[src_c].astype(str).str.upper().str.replace("O", "0")
 
-        # PASS 1: Transformationen ausführen
         for target_col, _ in target_schema.items():
             rule: Dict[str, Any] = self.transformations.get(target_col, {})
             rule_type: Optional[str] = rule.get('type') if rule else None
             param: Optional[Any] = rule.get('param') if rule else None
             source_col: Optional[str] = self.mapping_dropdowns[target_col].get() if target_col in self.mapping_dropdowns else None
 
+            if not rule_type:
+                if 'birth' in target_col.lower() or 'datum' in target_col.lower() or target_col.endswith('_bis'):
+                    rule_type = 'format_date'
+                elif 'plz' in target_col.lower():
+                    rule_type = 'clean_plz'
+                elif 'anrede' in target_col.lower():
+                    rule_type = 'gender'
+                elif 'hausnummer' in target_col.lower():
+                    rule_type = 'split_number'
+                elif 'street' in target_col.lower():
+                    rule_type = 'split_street'
+
+            if rule_type:
+                add_applied_rule(rule_type)
+
             if rule_type == "validate_ik":
                 if source_col and source_col in self.source_df.columns:
-                    for row_idx, val in self.source_df[source_col].items():
+                    for row_idx, val in enumerate(self.source_df[source_col]):
                         if pd.notna(val) and str(val).strip():
                             cleaned_ik: str = str(val).strip().split('.')[0].zfill(9)
+                            if str(val) != cleaned_ik:
+                                record_change(row_idx, target_col, val, cleaned_ik, RULE_NAMES.get("validate_ik", "IK-Nummer prüfen"))
                             if not validate_ik_number(cleaned_ik):
                                 invalid_records.append({
                                     'row_idx': row_idx,
@@ -975,18 +1034,13 @@ class CSVMappingApp(ctk.CTk):
             elif rule_type == "validate_kvnr":
                 if source_col and source_col in self.source_df.columns:
                     out_df[target_col] = self.source_df[source_col].copy()
-
-                    for row_idx, val in self.source_df[source_col].items():
+                    for row_idx, val in enumerate(self.source_df[source_col]):
                         if pd.notna(val) and str(val).strip():
                             cleaned_kvnr: str = str(val).strip().upper()
-
-                            is_fixed: bool
-                            fixed_kvnr: str
                             is_fixed, fixed_kvnr = try_to_fix_insurance_number(cleaned_kvnr)
-
                             if is_fixed:
                                 out_df.at[row_idx, target_col] = fixed_kvnr
-
+                                record_change(row_idx, target_col, val, fixed_kvnr, RULE_NAMES.get("validate_kvnr", "Versichertennr. prüfen"))
                             if not validate_insurance_number(fixed_kvnr):
                                 invalid_records.append({
                                     'row_idx': row_idx,
@@ -1001,15 +1055,17 @@ class CSVMappingApp(ctk.CTk):
                     
             elif rule_type == "validate_email":
                 if source_col and source_col in self.source_df.columns:
-                    for row_idx, val in self.source_df[source_col].items():
+                    for row_idx, val in enumerate(self.source_df[source_col]):
                         if pd.notna(val) and str(val).strip():
                             email_val: str = str(val).strip()
                             cleaned_email: str = email_val
                             if self.autocomplete_settings.get("clean_email", True):
-                                is_fixed, fixed_email = try_to_fix_email(email_val)
+                                convert_g = self.autocomplete_settings.get("convert_googlemail", False)
+                                is_fixed, fixed_email = try_to_fix_email(email_val, convert_googlemail=convert_g)
                                 if is_fixed:
                                     self.source_df.at[row_idx, source_col] = fixed_email
                                     cleaned_email = fixed_email
+                                    record_change(row_idx, target_col, val, fixed_email, RULE_NAMES.get("validate_email", "E-Mail prüfen"))
                             if not validate_email(cleaned_email):
                                 invalid_records.append({
                                     'row_idx': row_idx,
@@ -1023,6 +1079,14 @@ class CSVMappingApp(ctk.CTk):
                 else:
                     out_df[target_col] = default_empty_value
 
+            if rule_type == "copy_target" and isinstance(param, str):
+                copy_rules[target_col] = param
+                continue
+
+        for target_col, _ in target_schema.items():
+            rule = self.transformations.get(target_col, {})
+            rule_type = rule.get('type') if rule else None
+            param = rule.get('param') if rule else None
             if not rule_type:
                 if 'birth' in target_col.lower() or 'datum' in target_col.lower() or target_col.endswith('_bis'):
                     rule_type = 'format_date'
@@ -1034,91 +1098,73 @@ class CSVMappingApp(ctk.CTk):
                     rule_type = 'split_number'
                 elif 'street' in target_col.lower():
                     rule_type = 'split_street'
-
-            if rule_type == "copy_target" and isinstance(param, str):
-                copy_rules[target_col] = param
-                continue
-        # PASS 2.
-        for target_col, _ in target_schema.items():
-            rule = self.transformations.get(target_col, {})
-            rule_type = rule.get('type') if rule else None
-            param = rule.get('param') if rule else None
-
+            if rule_type:
+                add_applied_rule(rule_type)
             source_col = self.mapping_dropdowns[target_col].get() if target_col in self.mapping_dropdowns else None
 
             if rule_type == "lookup_plz_by_city":
                 city_source_col: Optional[str] = str(param) if (param and str(param) in self.source_df.columns) else source_col
-                
                 def fill_plz(row: pd.Series) -> str:
                     assert self.source_df is not None
+                    r_idx = row.name
                     val: Any = row[source_col] if (source_col and source_col in self.source_df.columns) else None
                     if pd.notna(val) and str(val).strip():
                         return str(val).strip().zfill(PADDING_S)
-                    
                     if city_source_col and city_source_col in self.source_df.columns:
                         city_val: Any = row[city_source_col]
                         if pd.notna(city_val) and str(city_val).strip():
                             found_plz: Optional[str] = self.plz_service.get_plz_by_city(str(city_val))
                             if found_plz:
+                                record_change(int(cast(Any, r_idx)), target_col, val, found_plz, RULE_NAMES.get("lookup_plz_by_city", "PLZ aus Ort ergänzen"))
                                 return found_plz
                     return default_empty_value
-
                 out_df[target_col] = self.source_df.apply(fill_plz, axis=1)
                 
             elif rule_type == "auto_sequence_6":
-                # Überprüfen, ob der Nutzer eine Quellspalte im Dropdown ausgewählt hat
                 if source_col and source_col in self.source_df.columns and source_col != "-- Nicht zuordnen / Spezielle Regel --":
                     mapped_source_cols.add(source_col)
-                    # Übernehme existierende IDs aus der Quelldatei
                     existing_ids = self.source_df[source_col].astype(str).str.strip()
-                    
-                    # Generiere Sequenz (000001, 000002, ...) als Fallback für Lücken/Leereinträge
                     fallback_seq = [str(i + 1).zfill(6) for i in range(row_count)]
-                    
-                    # Behalte bestehende IDs; fülle Lücken (NaN/Leerstr) mit der Sequenz auf
                     def_mask = existing_ids.isin(["", "nan", "None", "NULL"]) | existing_ids.isna()
                     out_df[target_col] = [fallback_seq[i] if def_mask.iloc[i] else existing_ids.iloc[i] for i in range(row_count)]
                 else:
-                    # Keine Quellspalte zugewiesen -> Rein fortlaufende 6-stellige Nummerierung
                     out_df[target_col] = [str(i + 1).zfill(6) for i in range(row_count)]
 
             elif rule_type == "lookup_city_by_plz":
                 plz_source_col: Optional[str] = str(param) if (param and str(param) in self.source_df.columns) else source_col
-
                 def fill_city(row: pd.Series) -> str:
                     assert self.source_df is not None
+                    r_idx = row.name
                     val: Any = row[source_col] if (source_col and source_col in self.source_df.columns) else None
                     if pd.notna(val) and str(val).strip():
                         return str(val).strip()
-
                     if plz_source_col and plz_source_col in self.source_df.columns:
                         plz_val: Any = row[plz_source_col]
                         if pd.notna(plz_val) and str(plz_val).strip():
                             found_city: Optional[str] = self.plz_service.get_city_by_plz(str(plz_val))
                             if found_city:
+                                record_change(int(cast(Any, r_idx)), target_col, val, found_city, RULE_NAMES.get("lookup_city_by_plz", "Ort aus PLZ ergänzen"))
                                 return found_city
                     return default_empty_value
-
                 out_df[target_col] = self.source_df.apply(fill_city, axis=1)
 
             elif rule_type == "lookup_ik_provider":
                 ik_source_col: Optional[str] = str(param) if (param and str(param) in self.source_df.columns) else source_col
-                
                 if ik_source_col and ik_source_col in self.source_df.columns:
                     ik_service: Any = getattr(self, 'ik_service', None)
-
-                    def resolve_ik(val: Any) -> str:
+                    res_ik: List[str] = []
+                    for r_idx, val in self.source_df[ik_source_col].items():
                         if pd.isna(val) or not str(val).strip():
-                            return default_empty_value
-                        
-                        cleaned_ik: str = str(val).strip().split('.')[0]
-                        
-                        if ik_service:
-                            provider_name: Optional[str] = ik_service.get_provider_by_ik(cleaned_ik)
-                            return provider_name if provider_name else default_empty_value
-                        return default_empty_value
-
-                    out_df[target_col] = self.source_df[ik_source_col].apply(resolve_ik)
+                            res_ik.append(default_empty_value)
+                        else:
+                            cleaned_ik: str = str(val).strip().split('.')[0]
+                            provider_name: Optional[str] = ik_service.get_provider_by_ik(cleaned_ik) if ik_service else None
+                            if provider_name:
+                                record_change(int(cast(Any, r_idx)), target_col, val, provider_name, RULE_NAMES.get("lookup_ik_provider", "Krankenkasse aus IK"))
+                                res_ik.append(provider_name)
+                            else:
+                                res_ik.append(default_empty_value)
+                    out_df[target_col] = res_ik
                 else:
                     out_df[target_col] = default_empty_value
                     
@@ -1260,8 +1306,10 @@ class CSVMappingApp(ctk.CTk):
                         s2: pd.Series = self.source_df[second_col].astype(str).apply(_clean_s2_val)
                         series = (series + " " + s2).str.strip()
 
-                if self.chk_fill_null.cget("state") and rule_type != "default_value" and not (rule_type == "format_date" and rule.get('param')):
+                if should_fill_null and rule_type != "default_value" and not (rule_type == "format_date" and rule.get('param')):
                     series = series.replace(r'^\s*$', "NULL", regex=True).fillna("NULL")
+                elif not should_fill_null:
+                    series = series.replace(r'^\s*$', "", regex=True).fillna("")
 
                 out_df[target_col] = series
 
@@ -1297,6 +1345,13 @@ class CSVMappingApp(ctk.CTk):
                 out_df[target_col] = default_empty_value
 
         out_df = cast(pd.DataFrame, out_df[list(target_schema.keys())])
+
+        fill_val: str = "NULL" if should_fill_null else ""
+        for col in out_df.columns:
+            out_df[col] = out_df[col].fillna(fill_val)
+            out_df[col] = out_df[col].astype(str).apply(
+                lambda x: fill_val if x.strip().lower() in ["nan", "none", "null", "<na>", ""] or (not should_fill_null and x.strip() == "NULL") else x.strip()
+            )
 
         # PASS 3: Überlängen-Erfassung
         conflicts: List[Dict[str, Any]] = []
@@ -1383,7 +1438,7 @@ class CSVMappingApp(ctk.CTk):
                 for p_id, raw_val in zip(patient_ids, self.source_df[src_col]):
                     if pd.notna(raw_val) and str(raw_val).strip() != "":
                         map_rows.append({
-                            'id': str(generate_id()),
+                            'id': generate_id(),
                             'property_id': property_id,
                             'patienten_id': p_id,
                             'content': str(raw_val).strip()
@@ -1399,435 +1454,44 @@ class CSVMappingApp(ctk.CTk):
             df_pat_property.to_csv(path_property, index=False, sep=";", encoding="utf-8-sig")
             df_pat_property_map.to_csv(path_property_map, index=False, sep=";", encoding="utf-8-sig")
 
+        # Protokolle für Export aufbereiten
+        df_rules_summary = pd.DataFrame([
+            {"Regelname": k, "Erklärung": v} for k, v in applied_rules_summary.items()
+        ])
+        if audit_entries:
+            df_changes_log = pd.DataFrame(audit_entries)
+            df_changes_log.sort_values(by=['Original_Zeile'], inplace=True)
+        else:
+            base_cols = ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] + list(raw_source_df.columns)
+            df_changes_log = pd.DataFrame(columns=base_cols)
+
         _, ext = os.path.splitext(export_path)
+        enc_choice = self.combo_encoding.get().split()[0] if hasattr(self, 'combo_encoding') else "utf-8-sig"
+        schema_sheet_name = self.combo_schema.get().capitalize()
 
         if ext.lower() == ".xlsx":
             writer: pd.ExcelWriter[Workbook | Any] = pd.ExcelWriter(export_path) # type: ignore
             with writer:
-                out_df.to_excel(writer, sheet_name="Patienten", index=False) # type: ignore
+                out_df.to_excel(writer, sheet_name=schema_sheet_name, index=False) # type: ignore
+                if bool(self.chk_audit_export.get()):
+                    df_rules_summary.to_excel(writer, sheet_name="Regelübersicht", index=False) # type: ignore
+                    df_changes_log.to_excel(writer, sheet_name="Änderungskontrolle", index=False) # type: ignore
         else:
-            out_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
+            out_df.to_csv(export_path, index=False, sep=";", encoding=enc_choice)
+            if bool(self.chk_audit_export.get()):
+                base_path, _ = os.path.splitext(export_path)
+                rules_path = f"{base_path}_regeluebersicht.csv"
+                changes_path = f"{base_path}_aenderungsprotokoll.csv"
+                df_rules_summary.to_csv(rules_path, index=False, sep=";", encoding=enc_choice)
+                df_changes_log.to_csv(changes_path, index=False, sep=";", encoding=enc_choice)
             
-        if self.combo_schema.get() == "patienten":
+        if bool(self.chk_audit_export.get()):
+            self.show_toast("Export erfolgreich abgeschlossen inkl. Regelübersicht & Änderungskontroll-Protokoll.", icon="✅")
+        elif self.combo_schema.get() == "patienten":
             self.show_toast("Die Patientendaten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.", icon="✅")
         elif self.combo_schema.get() == "adressen":
             self.show_toast("Die Adressen wurden erfolgreich exportiert.", icon="✅")
-                    
-    def run_pre_check_export(self) -> None:
-        """Identifiziert und exportiert alle geflaggten, veränderten, automatisch geänderten oder ergänzten Datensätze als Audit-Protokoll."""
-        if self.source_df is None:
-            messagebox.showerror("Fehler", "Keine Datei geladen!")
-            return
 
-        assert self.source_df is not None
-
-        # 1. Aktive Quellspalten ermitteln
-        active_source_cols: Set[str] = set()
-        if hasattr(self, 'mapping_dropdowns'):
-            for combo in self.mapping_dropdowns.values():
-                src_col: str = combo.get()
-                if src_col and src_col != "-- Nicht zuordnen / Spezielle Regel --" and src_col in self.source_df.columns:
-                    active_source_cols.add(src_col)
-
-        for rule in self.transformations.values():
-            if rule.get('param'):
-                p_col: str = str(rule['param'])
-                if p_col in self.source_df.columns:
-                    active_source_cols.add(p_col)
-
-        audit_entries: List[Dict[str, Any]] = []
-        df_work: pd.DataFrame = self.source_df.copy()
-
-        # 2. String-Bereinigung (mit Vorschau-Dialog, falls vorhanden)
-        if hasattr(self, 'var_clean_strings') and self.var_clean_strings.get() and active_source_cols:
-            preview_items: List[Dict[str, Any]] = []
-            
-            for col in active_source_cols:
-                for idx, original_val in df_work[col].items():
-                    if pd.isna(original_val):
-                        continue
-                    
-                    orig_str: str = str(original_val)
-                    if not orig_str.strip():
-                        continue
-
-                    cleaned_val: str = sanitize_data_string(orig_str, remove_special_chars=True)
-                    
-                    if cleaned_val != orig_str:
-                        if orig_str.strip() == cleaned_val.strip():
-                            df_work.at[idx, col] = cleaned_val
-                        else:
-                            preview_items.append({
-                                'row_idx': idx,
-                                'col_name': col,
-                                'original': orig_str,
-                                'cleaned': cleaned_val
-                            })
-            
-            if preview_items:
-                self.cleanup_dialog = StringCleanupPreviewDialog(self, preview_items)
-                self.wait_window(self.cleanup_dialog)
-                
-                accepted_changes: Optional[List[Dict[str, Any]]] = self.cleanup_dialog.result
-                
-                if accepted_changes is None:
-                    return
-                
-                for change in accepted_changes:
-                    r: Any = change['row_idx']
-                    c: str = str(change['col_name'])
-                    df_work.at[r, c] = change['cleaned']
-                    audit_entries.append({
-                        'Zeile': int(r) + 1,
-                        'Zielspalte': c,
-                        'Originalwert': change['original'],
-                        'Neuer Wert': change['cleaned'],
-                        'Aktion / Grund': "String-Bereinigung (Steuerzeichen / Trim)"
-                    })
-
-        def add_audit(row_idx: Any, target_col: str, orig_val: Any, new_val: Any, action_desc: str) -> None:
-            o_str: str = "" if (pd.isna(orig_val) or str(orig_val).strip() in ["", "nan", "None", "NULL"]) else str(orig_val).strip()
-            n_str: str = "" if (pd.isna(new_val) or str(new_val).strip() in ["", "nan", "None", "NULL"]) else str(new_val).strip()
-            
-            # Ignoriere leere Felder, die mit NULL oder leer aufgefüllt wurden (solange keine Warnung vorliegt)
-            if not o_str and not n_str and "⚠️" not in action_desc:
-                return
-
-            if o_str != n_str or "⚠️" in action_desc:
-                audit_entries.append({
-                    'Zeile': int(row_idx) + 1,
-                    'Zielspalte': target_col,
-                    'Originalwert': "" if pd.isna(orig_val) else str(orig_val),
-                    'Neuer Wert': "" if pd.isna(new_val) else str(new_val),
-                    'Aktion / Grund': action_desc
-                })
-
-        row_count: int = len(df_work)
-        target_schema_name: str = self.combo_schema.get()
-        target_schema: Dict[str, str] = SCHEMAS[target_schema_name]
-        default_empty_value: str = "NULL" if self.chk_fill_null.cget("state") else ""
-
-        out_df: pd.DataFrame = pd.DataFrame()
-        copy_rules: Dict[str, str] = {}
-
-        if not hasattr(self, 'plz_service'):
-            from services.plz_lookup import PLZLookupService
-            self.plz_service = PLZLookupService()
-
-        # PRE-PROCESSING / AUTO-VERVOLLSTÄNDIGUNG
-        if hasattr(self, 'autocomplete_settings'):
-            if self.autocomplete_settings.get("split_title"):
-                for target_col, dropdown in self.mapping_dropdowns.items():
-                    if 'nachname' in target_col.lower() or 'name' in target_col.lower():
-                        src_c = dropdown.get()
-                        if src_c and src_c in df_work.columns:
-                            res = df_work[src_c].astype(str).apply(extract_title_and_clean_name)
-                            has_titel_col = 'titel' in self.mapping_dropdowns
-                            titel_list = [t[0] for t in res]
-                            clean_name_list = [t[1] for t in res]
-
-                            for r_i in range(row_count):
-                                orig_n = df_work.at[r_i, src_c]
-                                new_n = clean_name_list[r_i]
-                                ext_t = titel_list[r_i]
-                                if ext_t:
-                                    add_audit(r_i, target_col, orig_n, new_n, f"Titel von Name getrennt (Titel: '{ext_t}')")
-                                    if has_titel_col:
-                                        add_audit(r_i, 'titel', "", ext_t, "Titel aus Name extrahiert")
-
-                            if has_titel_col:
-                                out_df['titel'] = titel_list
-                            df_work[src_c] = clean_name_list
-
-            if self.autocomplete_settings.get("clean_kvnr"):
-                for target_col, dropdown in self.mapping_dropdowns.items():
-                    if 'kvnr' in target_col.lower() or 'versichertennummer' in target_col.lower():
-                        src_c = dropdown.get()
-                        if src_c and src_c in df_work.columns:
-                            for r_i in range(row_count):
-                                orig_k = str(df_work.at[r_i, src_c])
-                                cleaned_k = orig_k.upper().replace("O", "0")
-                                if orig_k != cleaned_k:
-                                    add_audit(r_i, target_col, orig_k, cleaned_k, "KVNR bereinigt ('O' -> '0')")
-                                df_work.at[r_i, src_c] = cleaned_k
-
-        # PASS 1: Validierungen & Grundtransformationen
-        for target_col, _ in target_schema.items():
-            rule = self.transformations.get(target_col, {})
-            rule_type: Optional[str] = rule.get('type') if rule else None
-            param: Optional[Any] = rule.get('param') if rule else None
-            source_col: Optional[str] = self.mapping_dropdowns[target_col].get() if target_col in self.mapping_dropdowns else None
-
-            if rule_type == "validate_ik":
-                if source_col and source_col in df_work.columns:
-                    for row_idx, val in df_work[source_col].items():
-                        if pd.notna(val) and str(val).strip():
-                            cleaned_ik: str = str(val).strip().split('.')[0].zfill(9)
-                            if str(val) != cleaned_ik:
-                                add_audit(row_idx, target_col, val, cleaned_ik, "IK-Nummer auf 9 Stellen formatiert")
-                            if not validate_ik_number(cleaned_ik):
-                                add_audit(row_idx, target_col, val, cleaned_ik, "⚠️ Validierungswarnung: Ungültige IK-Nummer")
-                    out_df[target_col] = df_work[source_col]
-                else:
-                    out_df[target_col] = default_empty_value
-
-            elif rule_type == "validate_kvnr":
-                if source_col and source_col in df_work.columns:
-                    out_df[target_col] = df_work[source_col].copy()
-                    for row_idx, val in df_work[source_col].items():
-                        if pd.notna(val) and str(val).strip():
-                            cleaned_kvnr: str = str(val).strip().upper()
-                            is_fixed, fixed_kvnr = try_to_fix_insurance_number(cleaned_kvnr)
-                            if is_fixed:
-                                add_audit(row_idx, target_col, val, fixed_kvnr, "KVNR-Format automatisch korrigiert")
-                                out_df.at[row_idx, target_col] = fixed_kvnr
-                            if not validate_insurance_number(fixed_kvnr):
-                                add_audit(row_idx, target_col, val, fixed_kvnr, "⚠️ Validierungswarnung: Ungültige KVNR")
-                else:
-                    out_df[target_col] = default_empty_value
-
-            elif rule_type == "validate_email":
-                if source_col and source_col in df_work.columns:
-                    for row_idx, val in df_work[source_col].items():
-                        if pd.notna(val) and str(val).strip():
-                            email_val: str = str(val).strip()
-                            cleaned_email: str = email_val
-                            if self.autocomplete_settings.get("clean_email", True):
-                                is_fixed, fixed_email = try_to_fix_email(email_val)
-                                if is_fixed:
-                                    add_audit(row_idx, target_col, val, fixed_email, "E-Mail-Adresse automatisch korrigiert")
-                                    df_work.at[row_idx, source_col] = fixed_email
-                                    cleaned_email = fixed_email
-                            if not validate_email(cleaned_email):
-                                add_audit(row_idx, target_col, val, cleaned_email, "⚠️ Validierungswarnung: Ungültiges E-Mail-Format")
-                    out_df[target_col] = df_work[source_col]
-                else:
-                    out_df[target_col] = default_empty_value
-
-            if not rule_type:
-                if 'birth' in target_col.lower() or 'datum' in target_col.lower() or target_col.endswith('_bis'):
-                    rule_type = 'format_date'
-                elif 'plz' in target_col.lower():
-                    rule_type = 'clean_plz'
-                elif 'anrede' in target_col.lower():
-                    rule_type = 'gender'
-                elif 'hausnummer' in target_col.lower():
-                    rule_type = 'split_number'
-                elif 'street' in target_col.lower():
-                    rule_type = 'split_street'
-
-            if rule_type == "copy_target" and isinstance(param, str):
-                copy_rules[target_col] = param
-                continue
-
-        # PASS 2: Transformationen & Lookups
-        for target_col, _ in target_schema.items():
-            rule = self.transformations.get(target_col, {})
-            rule_type = rule.get('type') if rule else None
-            param = rule.get('param') if rule else None
-            source_col = self.mapping_dropdowns[target_col].get() if target_col in self.mapping_dropdowns else None
-
-            if rule_type == "lookup_plz_by_city":
-                city_source_col: Optional[str] = str(param) if (param and str(param) in df_work.columns) else source_col
-                res_plz: List[str] = []
-                for r_idx in range(row_count):
-                    val = df_work.at[r_idx, source_col] if (source_col and source_col in df_work.columns) else None
-                    if pd.notna(val) and str(val).strip():
-                        res_plz.append(str(val).strip().zfill(PADDING_S))
-                    elif city_source_col and city_source_col in df_work.columns:
-                        city_val = df_work.at[r_idx, city_source_col]
-                        if pd.notna(city_val) and str(city_val).strip():
-                            found_plz = self.plz_service.get_plz_by_city(str(city_val))
-                            if found_plz:
-                                add_audit(r_idx, target_col, val, found_plz, f"PLZ automatisch ermittelt (aus Ort '{city_val}')")
-                                res_plz.append(found_plz)
-                            else:
-                                res_plz.append(default_empty_value)
-                        else:
-                            res_plz.append(default_empty_value)
-                    else:
-                        res_plz.append(default_empty_value)
-                out_df[target_col] = res_plz
-
-            elif rule_type == "auto_sequence_6":
-                if source_col and source_col in df_work.columns and source_col != "-- Nicht zuordnen / Spezielle Regel --":
-                    existing_ids = df_work[source_col].astype(str).str.strip()
-                    fallback_seq = [str(i + 1).zfill(6) for i in range(row_count)]
-                    res_seq: list[str] = []
-                    for r_idx in range(row_count):
-                        e_id = existing_ids.iloc[r_idx]
-                        if e_id in ["", "nan", "None", "NULL"] or pd.isna(df_work.at[r_idx, source_col]):
-                            new_s = fallback_seq[r_idx]
-                            add_audit(r_idx, target_col, e_id, new_s, "Fortlaufende Nummer ergänzt")
-                            res_seq.append(new_s)
-                        else:
-                            res_seq.append(e_id)
-                    out_df[target_col] = res_seq
-                else:
-                    seq_list = [str(i + 1).zfill(6) for i in range(row_count)]
-                    for r_idx in range(row_count):
-                        add_audit(r_idx, target_col, "", seq_list[r_idx], "Fortlaufende Nummer generiert")
-                    out_df[target_col] = seq_list
-
-            elif rule_type == "lookup_city_by_plz":
-                plz_source_col: Optional[str] = str(param) if (param and str(param) in df_work.columns) else source_col
-                res_city: List[str] = []
-                for r_idx in range(row_count):
-                    val = df_work.at[r_idx, source_col] if (source_col and source_col in df_work.columns) else None
-                    if pd.notna(val) and str(val).strip():
-                        res_city.append(str(val).strip())
-                    elif plz_source_col and plz_source_col in df_work.columns:
-                        plz_val = df_work.at[r_idx, plz_source_col]
-                        if pd.notna(plz_val) and str(plz_val).strip():
-                            found_city = self.plz_service.get_city_by_plz(str(plz_val))
-                            if found_city:
-                                add_audit(r_idx, target_col, val, found_city, f"Ort automatisch ermittelt (aus PLZ '{plz_val}')")
-                                res_city.append(found_city)
-                            else:
-                                res_city.append(default_empty_value)
-                        else:
-                            res_city.append(default_empty_value)
-                    else:
-                        res_city.append(default_empty_value)
-                out_df[target_col] = res_city
-
-            elif rule_type == "lookup_ik_provider":
-                ik_source_col: Optional[str] = str(param) if (param and str(param) in df_work.columns) else source_col
-                if ik_source_col and ik_source_col in df_work.columns:
-                    ik_service = getattr(self, 'ik_service', None)
-                    res_ik: List[str] = []
-                    for r_idx, val in df_work[ik_source_col].items():
-                        if pd.isna(val) or not str(val).strip():
-                            res_ik.append(default_empty_value)
-                        else:
-                            c_ik = str(val).strip().split('.')[0]
-                            p_name = ik_service.get_provider_by_ik(c_ik) if ik_service else None
-                            if p_name:
-                                add_audit(r_idx, target_col, val, p_name, f"Krankenkasse ermittelt (IK '{c_ik}')")
-                                res_ik.append(p_name)
-                            else:
-                                res_ik.append(default_empty_value)
-                    out_df[target_col] = res_ik
-                else:
-                    out_df[target_col] = default_empty_value
-
-            elif rule_type == "generate_uid":
-                uids = [generate_id() for _ in range(row_count)]
-                for r_idx in range(row_count):
-                    add_audit(r_idx, target_col, "", uids[r_idx], "Automatische UID generiert")
-                out_df[target_col] = uids
-
-            elif source_col and source_col != "-- Nicht zuordnen / Spezielle Regel --" and source_col in df_work.columns:
-                series: pd.Series = df_work[source_col].copy()
-                is_email: bool = rule_type == "validate_email" or any(k in target_col.lower() for k in ['email', 'mail'])
-                is_city: bool = any(k in target_col.lower() for k in ['ort', 'city', 'stadt'])
-                is_name: bool = any(k in target_col.lower() for k in ['name', 'vname'])
-
-                for r_idx, orig_val in series.items():
-                    val_str = str(orig_val) if pd.notna(orig_val) else ""
-                    new_val_str = val_str
-
-                    if is_email:
-                        new_val_str = val_str.strip()
-                    elif is_city:
-                        new_val_str = sanitize_data_string(val_str, remove_special_chars=False)
-                    else:
-                        new_val_str = sanitize_data_string(val_str, remove_special_chars=is_name)
-
-                    if rule_type == "format_date" or 'birth' in target_col.lower() or 'datum' in target_col.lower():
-                        date_fallback = str(rule.get('param', '')).strip() if rule.get('param') else ""
-                        if date_fallback and (not new_val_str or new_val_str.lower() in ['nan', 'null', 'none']):
-                            new_val_str = date_fallback
-                            add_audit(r_idx, target_col, orig_val, date_fallback, "Datums-Fallback gesetzt")
-                        formatted = format_date_iso(new_val_str)
-                        if formatted != val_str:
-                            add_audit(r_idx, target_col, orig_val, formatted, "Datumsformatierung (ISO)")
-                        new_val_str = formatted
-
-                    elif rule_type == "default_value":
-                        fallback_val = str(rule.get('param', ''))
-                        if not new_val_str or new_val_str.lower() in ['nan', 'null', 'none']:
-                            new_val_str = fallback_val
-                            add_audit(r_idx, target_col, orig_val, fallback_val, "Standardwert gesetzt")
-
-                    elif rule_type == "clean_plz":
-                        c_plz = new_val_str.strip()
-                        if c_plz and c_plz.lower() not in ['nan', 'null', 'none']:
-                            c_plz = re.sub(r'\.0$', '', c_plz)
-                            if c_plz.isdigit() and len(c_plz) <= PADDING_S:
-                                c_plz = c_plz.zfill(PADDING_S)
-                        else:
-                            c_plz = ""
-                        if c_plz != val_str:
-                            add_audit(r_idx, target_col, orig_val, c_plz, "PLZ bereinigt / 5-stellig aufgefüllt")
-                        new_val_str = c_plz
-
-                    elif rule_type == "gender":
-                        mapping_dict = {
-                            "M": "Herr", "m": "Herr", "HERR": "Herr", "Herr": "Herr", "männlich": "Herr", "1": "Herr",
-                            "W": "Frau", "w": "Frau", "FRAU": "Frau", "Frau": "Frau", "weiblich": "Frau", "F": "Frau", "f": "Frau", "2": "Frau"
-                        }
-                        mapped_g = mapping_dict.get(new_val_str.strip(), new_val_str.strip() if new_val_str.strip() else default_empty_value)
-                        if mapped_g != val_str:
-                            add_audit(r_idx, target_col, orig_val, mapped_g, "Anrede/Geschlecht automatisch zugewiesen")
-                        new_val_str = mapped_g
-
-                    elif rule_type == "split_street":
-                        street_name = re.sub(r'\s*\d+.*$', '', new_val_str).strip() if new_val_str else ""
-                        if street_name != val_str:
-                            add_audit(r_idx, target_col, orig_val, street_name, "Straßenname extrahiert")
-                        new_val_str = street_name
-
-                    elif rule_type == "split_number":
-                        numbers = re.findall(r'\d+.*$', new_val_str) if new_val_str else []
-                        house_num = "".join(numbers).strip() if numbers else ""
-                        if house_num != val_str:
-                            add_audit(r_idx, target_col, orig_val, house_num, "Hausnummer extrahiert")
-                        new_val_str = house_num
-
-                    if self.chk_fill_null.cget("state") and not new_val_str:
-                        new_val_str = "NULL"
-
-                    out_df.at[r_idx, target_col] = new_val_str
-            else:
-                if rule_type == "default_value":
-                    def_val = str(rule.get('param', ''))
-                    out_df[target_col] = def_val
-                else:
-                    out_df[target_col] = default_empty_value
-
-        # Copy target rules
-        for target_col, source_target_col in copy_rules.items():
-            if source_target_col in out_df.columns:
-                out_df[target_col] = out_df[source_target_col].copy()
-
-        # PASS 3: Überlängen-Erfassung (VARCHAR Limits)
-        for target_col, dtype_str in target_schema.items():
-            limit = parse_varchar_limit(dtype_str)
-            if limit and target_col in out_df.columns:
-                for r_idx, val in enumerate(out_df[target_col]):
-                    val_str = str(val)
-                    if val_str != "NULL" and pd.notna(val) and len(val_str) > limit:
-                        add_audit(r_idx, target_col, val_str, val_str[:limit], f"⚠️ Wert überschreitet VARCHAR-Limit ({limit}) und wird gekürzt")
-
-        if not audit_entries:
-            self.show_toast("Prüfung abgeschlossen: Keine Abweichungen oder geflaggten Datensätze gefunden!", icon="✅")
-            return
-
-        audit_df: pd.DataFrame = pd.DataFrame(audit_entries)
-        audit_df.sort_values(by=['Zeile', 'Zielspalte'], inplace=True)
-
-        export_path: str = filedialog.asksaveasfilename(
-            title="Audit-Protokoll der Abweichungen speichern",
-            initialfile="geflaggte_datensaetze_kontrolle.csv",
-            defaultextension=".csv",
-            filetypes=[("CSV Dateien", "*.csv")]
-        )
-
-        if export_path:
-            audit_df.to_csv(export_path, index=False, sep=";", encoding="utf-8-sig")
-            self.show_toast(f"Audit-Export erfolgreich: {len(audit_df)} Einträge in Protokoll exportiert.", icon="✅")
-        
 def main():
     app = CSVMappingApp()
     app.mainloop()
