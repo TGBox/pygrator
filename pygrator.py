@@ -903,10 +903,16 @@ class CSVMappingApp(ctk.CTk):
                     clean_v = change['cleaned']
                     self.source_df.at[r, c] = clean_v
 
+                    act: str = str(change.get('action', 'clean'))
+                    if act == 'custom':
+                        rule_lbl = "Dialog: Manuelle Eingabe (Sonderzeichen-Vorschau)"
+                    else:
+                        rule_lbl = "Dialog: Sonderzeichen bereinigt"
+
                     if bool(self.chk_audit_export.get()):
                         entry: Dict[str, Any] = {
                             'Original_Zeile': int(r) + 1,
-                            'Regelname': "Dialog: Sonderzeichen bereinigt",
+                            'Regelname': rule_lbl,
                             'Zielspalte': c,
                             'Alter_Wert': "" if pd.isna(orig_v) else str(orig_v),
                             'Neuer_Wert': "" if pd.isna(clean_v) else str(clean_v),
@@ -1482,7 +1488,11 @@ class CSVMappingApp(ctk.CTk):
                 new_v: Any = res['new_val']
                 out_df.at[r_idx, col] = new_v
 
-                if str(orig_v) != str(new_v):
+                act: str = str(res.get('action', 'truncate'))
+                if act == 'custom':
+                    rule_label = "Dialog: Manuelle Eingabe (Längen-Konflikt)"
+                    track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Von Ihnen im Dialog manuell eingegebener Ersatzwert.")
+                elif act == 'truncate' or (act != 'ignore' and str(orig_v) != str(new_v)):
                     rule_label = "Dialog: Zeichenkette auf Max-Länge gekürzt"
                     track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Von Ihnen im Dialog bestätigte Kürzung eines Feldes auf das Limit.")
                 else:

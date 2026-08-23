@@ -267,7 +267,8 @@ class RowValidationDialog(ctk.CTkToplevel):
                 'row_idx': r['row_idx'],
                 'col_name': r['col_name'],
                 'orig_val': orig_val,
-                'new_val': final_val
+                'new_val': final_val,
+                'action': action
             })
 
         self.confirmed = True
@@ -712,7 +713,8 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
                     'row_idx': rw['item']['row_idx'],
                     'col_name': rw['item']['col_name'],
                     'original': orig_val,
-                    'cleaned': final_val
+                    'cleaned': final_val,
+                    'action': action
                 })
         self.destroy()
 

@@ -294,7 +294,7 @@ NULL_STRING_VALUES: Set[str] = {"nan", "none", "null", "<na>", ""}
 # GUI Styling & Layout Constants
 # =============================================================================
 
-APP_WIDTH = 1040
+APP_WIDTH = 1140
 APP_HEIGHT = 880
 FONT_TYPE = "Roboto"
 LABEL_FONT_BOLD: Tuple[str, int, str] = (FONT_TYPE, 11, "bold")
