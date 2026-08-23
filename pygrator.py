@@ -548,7 +548,8 @@ class CSVMappingApp(ctk.CTk):
 
         if rule_type and rule_type != "none":
             rule_title: str = RULE_NAMES.get(rule_type, rule_type)
-            button_text: str = f"✓ {rule_title} (\"{param}\")" if param else f"✓ {rule_title}"
+            log_suffix: str = " 📋" if rule.get('log_affected') else ""
+            button_text: str = f"✓ {rule_title} (\"{param}\"){log_suffix}" if param else f"✓ {rule_title}{log_suffix}"
 
             cast(Any, btn).configure(
                 text=button_text,
@@ -780,11 +781,11 @@ class CSVMappingApp(ctk.CTk):
         r_title = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_TITLE, variable=rule_type, value="split_title")
         r_title.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        r_name_no_title = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_NAME_NO_TITLE, variable=rule_type, value="split_name_without_title")
-        r_name_no_title.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-        
-        r_merge = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_MERGE_COLUMNS, variable=rule_type, value="merge_columns")
+        r_merge = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_NAME_NO_TITLE, variable=rule_type, value="split_name_without_title")
         r_merge.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+        
+        r_merge2 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_MERGE_COLUMNS, variable=rule_type, value="merge_columns")
+        r_merge2.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         merge_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         merge_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
@@ -795,6 +796,18 @@ class CSVMappingApp(ctk.CTk):
 
         if existing_rule.get('type') == 'merge_columns' and str(existing_rule.get('param')) in source_cols_list:
             combo_merge_source.set(str(existing_rule.get('param')))
+
+        separator_bottom = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
+        separator_bottom.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
+
+        var_log_affected = ctk.BooleanVar(value=bool(existing_rule.get('log_affected', False)))
+        chk_log_affected = ctk.CTkCheckBox(
+            scroll_frame, 
+            text=CHK_LOG_AFFECTED_ROWS, 
+            variable=var_log_affected,
+            font=LABEL_FONT_BOLD
+        )
+        chk_log_affected.pack(anchor="w", padx=PADDING_XL, pady=PADDING_S)
 
         def save_rule() -> None:
             t_type: str = rule_type.get()
@@ -817,7 +830,8 @@ class CSVMappingApp(ctk.CTk):
 
             self.transformations[target_col] = {
                 'type': t_type,
-                'param': param
+                'param': param,
+                'log_affected': var_log_affected.get()
             }
             self.update_rule_button_state(target_col)
             rule_title: str = RULE_NAMES.get(t_type, t_type)
@@ -1640,17 +1654,46 @@ class CSVMappingApp(ctk.CTk):
             base_cols = ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] + list(raw_source_df.columns)
             df_changes_log = pd.DataFrame(columns=base_cols)
 
+        # Erfassung der betroffenen Quellzeilen für Regeln mit aktivierter log_affected-Option
+        affected_rows_exports: Dict[str, pd.DataFrame] = {}
+        for t_col, rule in self.transformations.items():
+            if rule.get('log_affected'):
+                source_col_name: Optional[str] = self.mapping_dropdowns[t_col].get() if t_col in self.mapping_dropdowns else None
+                if source_col_name and source_col_name in self.source_df.columns:
+                    series_src = self.source_df[source_col_name]
+                    empty_mask = series_src.isna() | series_src.astype(str).str.strip().isin(["", "nan", "none", "null", "<na>"])
+                    affected_df: pd.DataFrame = cast(pd.DataFrame, raw_source_df[empty_mask].copy())
+                    if not affected_df.empty:
+                        affected_rows_exports[t_col] = affected_df
+
         if bool(self.chk_audit_export.get()):
             if ext.lower() == ".xlsx":
                 with pd.ExcelWriter(export_path, engine='openpyxl', mode='a') as writer_append: # type: ignore
                     df_rules_summary.to_excel(writer_append, sheet_name="Regelübersicht", index=False) # type: ignore
                     df_changes_log.to_excel(writer_append, sheet_name="Änderungskontrolle", index=False) # type: ignore
+                    for t_col, aff_df in affected_rows_exports.items():
+                        sheet_name = f"Standardwert_{t_col}"[:31]
+                        aff_df.to_excel(writer_append, sheet_name=sheet_name, index=False) # type: ignore
             else:
                 base_path, _ = os.path.splitext(export_path)
                 rules_path = f"{base_path}_regeluebersicht.csv"
                 changes_path = f"{base_path}_aenderungsprotokoll.csv"
                 df_rules_summary.to_csv(rules_path, index=False, sep=";", encoding=enc_choice)
                 df_changes_log.to_csv(changes_path, index=False, sep=";", encoding=enc_choice)
+                for t_col, aff_df in affected_rows_exports.items():
+                    aff_path = f"{base_path}_standardwert_{t_col.lower()}.csv"
+                    aff_df.to_csv(aff_path, index=False, sep=";", encoding=enc_choice)
+        elif affected_rows_exports:
+            if ext.lower() == ".xlsx":
+                with pd.ExcelWriter(export_path, engine='openpyxl', mode='a') as writer_append: # type: ignore
+                    for t_col, aff_df in affected_rows_exports.items():
+                        sheet_name = f"Standardwert_{t_col}"[:31]
+                        aff_df.to_excel(writer_append, sheet_name=sheet_name, index=False) # type: ignore
+            else:
+                base_path, _ = os.path.splitext(export_path)
+                for t_col, aff_df in affected_rows_exports.items():
+                    aff_path = f"{base_path}_standardwert_{t_col.lower()}.csv"
+                    aff_df.to_csv(aff_path, index=False, sep=";", encoding=enc_choice)
             
         if bool(self.chk_audit_export.get()):
             self.show_toast(TOAST_EXPORT_SUCCESS_AUDIT, icon="✅")

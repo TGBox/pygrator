@@ -274,6 +274,7 @@ TXT_RULE_MERGE_COLUMNS = "🔗 Zwei Quellspalten zusammenführen (mit Leerzeiche
 
 LBL_COPY_FROM = "Kopieren aus:"
 LBL_DEFAULT_DATE_HINT = "Standardwert bei leeren Feldern (optional):"
+CHK_LOG_AFFECTED_ROWS = "📋 Betroffene Quellzeilen in separater Liste/Tabelle erfassen"
 LBL_REPLACEMENT_VAL = "Ersatzwert:"
 LBL_VALUE = "Wert:"
 LBL_IK_SOURCE_COL = "IK-Quellspalte:"
