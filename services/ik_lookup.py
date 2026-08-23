@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, cast, Any
 from difflib import get_close_matches
 from rapidfuzz import process, fuzz
 
@@ -93,7 +93,7 @@ class IKLookupService:
         # 2. Fuzzy Matching
         if fuzzy:
             # Schneller und intelligenter über rapidfuzz (falls vorhanden)
-            match = process.extractOne(cleaned_name, self.provider_names_list, scorer=fuzz.WRatio)
+            match = process.extractOne(cleaned_name, self.provider_names_list, scorer=cast(Any, fuzz.WRatio)) # Typecast for fixing type error from overloaded function call.
             if match and match[1] >= (cutoff * 100):
                 best_name = match[0]
                 score = match[1] / 100.0

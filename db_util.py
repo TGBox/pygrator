@@ -85,7 +85,12 @@ def sanitize_data_string(val: Any, remove_special_chars: bool = False) -> str:
 
 def validate_ik_number(ik: Any) -> bool:
     """Validiert Form und Prüfziffer (Stelle 9) einer 9-stelligen IK-Nummer (§ 293 SGB V)."""
-    ik = str(ik).strip().split('.')[0].zfill(9)
+    if not ik:
+        return False
+    ik_str = str(ik).strip()
+    if not ik_str or ik_str.lower() in ["nan", "none", "null"]:
+        return False
+    ik = ik_str.split('.')[0]
     if not ik.isdigit() or len(ik) != 9:
         return False
 

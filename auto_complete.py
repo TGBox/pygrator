@@ -1,10 +1,11 @@
+from typing import Any
 import re
 from typing import Tuple
 
 # Bekannte akademische und medizinische Titel
 TITLES = [
-    "Prof. Dr. med. dent.", "Prof. Dr. med.", "PD Dr. med.", 
-    "Prof. Dr.", "Dr. med. dent.", "Dr. med.", "Dr. rer. nat.", 
+    "Prof. Dr. med. dent.", "Prof. Dr. med.", "PD Dr. med. dent.", "PD Dr. med.", 
+    "Dr. med. dent.", "Dr. med.", "Dr. rer. nat.", "Prof. Dr.",
     "Dr.", "Prof.", "PD"
 ]
 
@@ -105,7 +106,8 @@ def try_to_fix_insurance_number(vnr: Any) -> tuple[bool, str]:
                 return True, tmp_fix
             
     return False, vnr
-def try_to_fix_email(email: str, convert_googlemail: bool = False, clean_umlaute: bool = False) -> tuple[bool, str]:
+
+def try_to_fix_email(email: Any, convert_googlemail: bool = False, clean_umlaute: bool = False) -> tuple[bool, str]:
     """Sucht nach häufigen Tippfehlern in E-Mail-Adressen und korrigiert diese."""
     from db_util import validate_email
     
@@ -113,6 +115,8 @@ def try_to_fix_insurance_number(vnr: Any) -> tuple[bool, str]:
         return False, ""
 
     orig = str(email).strip()
+    if not orig or orig.lower() in ["nan", "none", "null"]:
+        return False, ""
     
     # 0. Vorab-Prüfung auf Mehrfach-Adressen (z. B. "a@b.de; c@d.de" oder "a@b.de, c@d.de")
     # Falls mehr als eine vollwertige E-Mail enthalten ist, nicht automatisch verändern
@@ -276,4 +280,4 @@ def try_to_fix_insurance_number(vnr: Any) -> tuple[bool, str]:
     if cleaned_email != orig and validate_email(cleaned_email):
         return True, cleaned_email
 
-    return False, orig
+    return False, orig
