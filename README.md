@@ -273,6 +273,38 @@ Pygrator enthält intelligente Auto-Korrektur-Algorithmen, um fehlerhafte Eingab
 
 ---
 
+## 🔍 4. Revisionskontrolle, Audit-Protokollierung & SHA-256 Fingerabdrücke
+
+Wenn die Option **"Prüfprotokoll beim Export erzeugen"** (`chk_audit_export`) aktiviert ist, generiert Pygrator bei jedem Export ein vollständiges, rechtssicheres Revisions- und Änderungsprotokoll (in Excel als zusätzliche Tabellenblätter `Regelübersicht` und `Änderungskontrolle`, bei CSV-Exports als separate Zusatzdateien `_regeluebersicht.csv` und `_aenderungsprotokoll.csv`).
+
+### 🛡️ SHA-256 Fingerabdrücke & Revisions-Statistik (`Regelübersicht`)
+
+Die `Regelübersicht` enthält kryptografische SHA-256 Fingerabdrücke sowie eine detaillierte Revisions-Statistik:
+
+- **Quelldatei SHA-256**: Kryptografischer Fingerabdruck der geladenen Originaldatei.
+- **Zieldatei SHA-256**: Kryptografischer Fingerabdruck der exportierten Zieldatei.
+- **Statistischer Revisions-Kopf**:
+  - Gesamtzahl verarbeiteter Zeilen
+  - Protokollierte Ereignisse (Gesamt)
+  - Anzahl automatischer Regel-Korrekturen
+  - Anzahl manueller Dialog-Korrekturen
+  - Anzahl manuell beibehaltener Abweichungen (*Keep*)
+
+### 📝 Protokollierung aller Dialog-Entscheidungen (`Änderungskontrolle`)
+
+Jede Änderung sowie jede explizite Nutzerentscheidung in interaktiven Dialogen wird zeilengenau protokolliert:
+
+| Regelname im Protokoll | Auslösender Dialog | Beschreibung & Nachvollziehbarkeit |
+| :--- | :--- | :--- |
+| **`Dialog: Sonderzeichen bereinigt`** | Sonderzeichen-Bereinigung | Nach Ihrer Vorschau-Freigabe bereinigte Steuer- oder Sonderzeichen im Quelltext. |
+| **`Dialog: Ungültigen Wert geleert (NULL)`** | Validierungs-Korrektur | Von Ihnen autorisiertes Leeren ungültiger Felder (z. B. fehlerhafte IK, KVNR oder E-Mail). |
+| **`Dialog: Manuelle Korrektur eingegeben`** | Validierungs-Korrektur | Von Ihnen manuell im Korrektur-Dialog eingegebener Ersatzwert. |
+| **`Dialog: Wert trotz Validierungsfehler beibehalten`** | Validierungs-Korrektur | **Explizite Nutzerentscheidung**: Sie haben im Dialog veranlasst, den ungültigen Wert unverändert zu belassen (*keep*). |
+| **`Dialog: Zeichenkette auf Max-Länge gekürzt`** | Überlängen-Dialog | Von Ihnen im Dialog bestätigte Kürzung eines Feldes auf das `VARCHAR`-Limit. |
+| **`Dialog: Überlangen Wert trotz Limit beibehalten`** | Überlängen-Dialog | **Explizite Nutzerentscheidung**: Sie haben entschieden, das Zeichenlimit für diesen Wert zu übergehen. |
+
+---
+
 ## 📐 Eigene Schemata hinzufügen (`schemas.py`)
 
 In der Datei `schemas.py` können beliebige weitere Zielstrukturen und Beschränkungen definiert werden:

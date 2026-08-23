@@ -41,7 +41,8 @@ from db_util import (
     sanitize_data_string, 
     validate_ik_number, 
     validate_insurance_number, 
-    validate_email
+    validate_email,
+    compute_file_sha256
 )
 from schemas import SCHEMAS
 from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
@@ -863,6 +864,8 @@ class CSVMappingApp(ctk.CTk):
             self.process_and_export()
             return
 
+        cleanup_audit_entries: List[Dict[str, Any]] = []
+
         if hasattr(self, 'var_clean_strings') and self.var_clean_strings.get():
             preview_items: List[Dict[str, Any]] = []
             
@@ -900,11 +903,27 @@ class CSVMappingApp(ctk.CTk):
                 for change in accepted_changes:
                     r: Any = change['row_idx']
                     c: str = str(change['col_name'])
-                    self.source_df.at[r, c] = change['cleaned']
+                    orig_v = self.source_df.at[r, c]
+                    clean_v = change['cleaned']
+                    self.source_df.at[r, c] = clean_v
 
-        self.process_and_export()
+                    if bool(self.chk_audit_export.get()):
+                        entry: Dict[str, Any] = {
+                            'Original_Zeile': int(r) + 1,
+                            'Regelname': "Dialog: Sonderzeichen bereinigt",
+                            'Zielspalte': c,
+                            'Alter_Wert': "" if pd.isna(orig_v) else str(orig_v),
+                            'Neuer_Wert': "" if pd.isna(clean_v) else str(clean_v),
+                        }
+                        for orig_col in self.source_df.columns:
+                            orig_val_col = self.source_df.at[r, orig_col]
+                            key_name = orig_col if orig_col not in ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] else f"Quellspalte_{orig_col}"
+                            entry[key_name] = "" if pd.isna(orig_val_col) else str(orig_val_col)
+                        cleanup_audit_entries.append(entry)
 
-    def process_and_export(self) -> None:
+        self.process_and_export(cleanup_audit_entries=cleanup_audit_entries)
+
+    def process_and_export(self, cleanup_audit_entries: Optional[List[Dict[str, Any]]] = None) -> None:
         if self.source_df is None:
             messagebox.showerror("Fehler", "Keine Datei geladen!")
             return
@@ -929,6 +948,8 @@ class CSVMappingApp(ctk.CTk):
 
         applied_rules_summary: Dict[str, str] = {}
         audit_entries: List[Dict[str, Any]] = []
+        if cleanup_audit_entries:
+            audit_entries.extend(cleanup_audit_entries)
 
         def add_applied_rule(rule_key: str, custom_name: Optional[str] = None, custom_desc: Optional[str] = None) -> None:
             r_name = custom_name if custom_name else RULE_NAMES.get(rule_key, rule_key)
@@ -1335,11 +1356,53 @@ class CSVMappingApp(ctk.CTk):
                 r_idx: Any = item['row_idx']
                 col: str = str(item['target_col'])
                 action: str = str(item['action'])
+                orig_v: Any = item['original_val']
 
                 if action == 'clear':
                     out_df.at[r_idx, col] = default_empty_value
+                    if bool(self.chk_audit_export.get()):
+                        entry: Dict[str, Any] = {
+                            'Original_Zeile': int(r_idx) + 1,
+                            'Regelname': "Dialog: Ungültigen Wert geleert (NULL)",
+                            'Zielspalte': col,
+                            'Alter_Wert': "" if pd.isna(orig_v) else str(orig_v),
+                            'Neuer_Wert': default_empty_value,
+                        }
+                        for orig_col in raw_source_df.columns:
+                            orig_val_col = raw_source_df.at[r_idx, orig_col]
+                            key_name = orig_col if orig_col not in ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] else f"Quellspalte_{orig_col}"
+                            entry[key_name] = "" if pd.isna(orig_val_col) else str(orig_val_col)
+                        audit_entries.append(entry)
                 elif action == 'custom':
-                    out_df.at[r_idx, col] = item['custom_val'] if item['custom_val'] else default_empty_value
+                    new_v = item['custom_val'] if item['custom_val'] else default_empty_value
+                    out_df.at[r_idx, col] = new_v
+                    if bool(self.chk_audit_export.get()):
+                        entry: Dict[str, Any] = {
+                            'Original_Zeile': int(r_idx) + 1,
+                            'Regelname': "Dialog: Manuelle Korrektur eingegeben",
+                            'Zielspalte': col,
+                            'Alter_Wert': "" if pd.isna(orig_v) else str(orig_v),
+                            'Neuer_Wert': "" if pd.isna(new_v) else str(new_v),
+                        }
+                        for orig_col in raw_source_df.columns:
+                            orig_val_col = raw_source_df.at[r_idx, orig_col]
+                            key_name = orig_col if orig_col not in ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] else f"Quellspalte_{orig_col}"
+                            entry[key_name] = "" if pd.isna(orig_val_col) else str(orig_val_col)
+                        audit_entries.append(entry)
+                elif action == 'keep':
+                    if bool(self.chk_audit_export.get()):
+                        entry: Dict[str, Any] = {
+                            'Original_Zeile': int(r_idx) + 1,
+                            'Regelname': "Dialog: Wert trotz Validierungsfehler beibehalten",
+                            'Zielspalte': col,
+                            'Alter_Wert': "" if pd.isna(orig_v) else str(orig_v),
+                            'Neuer_Wert': "" if pd.isna(orig_v) else str(orig_v),
+                        }
+                        for orig_col in raw_source_df.columns:
+                            orig_val_col = raw_source_df.at[r_idx, orig_col]
+                            key_name = orig_col if orig_col not in ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] else f"Quellspalte_{orig_col}"
+                            entry[key_name] = "" if pd.isna(orig_val_col) else str(orig_val_col)
+                        audit_entries.append(entry)
 
         for target_col, source_target_col in copy_rules.items():
             if source_target_col in out_df.columns:
@@ -1380,7 +1443,26 @@ class CSVMappingApp(ctk.CTk):
 
             resolved_items: List[Dict[str, Any]] = val_dialog.get_resolved_values()
             for res in resolved_items:
-                out_df.at[res['row_idx'], res['col_name']] = res['new_val']
+                r_idx: Any = res['row_idx']
+                col: str = res['col_name']
+                orig_v: Any = res['orig_val']
+                new_v: Any = res['new_val']
+                out_df.at[r_idx, col] = new_v
+
+                if bool(self.chk_audit_export.get()):
+                    rule_label = "Dialog: Zeichenkette auf Max-Länge gekürzt" if str(orig_v) != str(new_v) else "Dialog: Überlangen Wert trotz Limit beibehalten"
+                    entry: Dict[str, Any] = {
+                        'Original_Zeile': int(r_idx) + 1,
+                        'Regelname': rule_label,
+                        'Zielspalte': col,
+                        'Alter_Wert': "" if pd.isna(orig_v) else str(orig_v),
+                        'Neuer_Wert': "" if pd.isna(new_v) else str(new_v),
+                    }
+                    for orig_col in raw_source_df.columns:
+                        orig_val_col = raw_source_df.at[r_idx, orig_col]
+                        key_name = orig_col if orig_col not in ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] else f"Quellspalte_{orig_col}"
+                        entry[key_name] = "" if pd.isna(orig_val_col) else str(orig_val_col)
+                    audit_entries.append(entry)
 
         used_source_cols: Set[str] = set()
         for target_col, dropdown in self.mapping_dropdowns.items():
@@ -1457,16 +1539,8 @@ class CSVMappingApp(ctk.CTk):
             df_pat_property.to_csv(path_property, index=False, sep=";", encoding="utf-8-sig")
             df_pat_property_map.to_csv(path_property_map, index=False, sep=";", encoding="utf-8-sig")
 
-        # Protokolle für Export aufbereiten
-        df_rules_summary = pd.DataFrame([
-            {"Regelname": k, "Erklärung": v} for k, v in applied_rules_summary.items()
-        ])
-        if audit_entries:
-            df_changes_log = pd.DataFrame(audit_entries)
-            df_changes_log.sort_values(by=['Original_Zeile'], inplace=True)
-        else:
-            base_cols = ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] + list(raw_source_df.columns)
-            df_changes_log = pd.DataFrame(columns=base_cols)
+        # SHA-256 Fingerabdrücke und Revisions-Statistiken aufbereiten
+        source_sha256 = compute_file_sha256(self.source_file_path) if hasattr(self, 'source_file_path') and self.source_file_path else "N/A"
 
         _, ext = os.path.splitext(export_path)
         enc_choice = self.combo_encoding.get().split()[0] if hasattr(self, 'combo_encoding') else "utf-8-sig"
@@ -1476,12 +1550,47 @@ class CSVMappingApp(ctk.CTk):
             writer: pd.ExcelWriter[Workbook | Any] = pd.ExcelWriter(export_path) # type: ignore
             with writer:
                 out_df.to_excel(writer, sheet_name=schema_sheet_name, index=False) # type: ignore
-                if bool(self.chk_audit_export.get()):
-                    df_rules_summary.to_excel(writer, sheet_name="Regelübersicht", index=False) # type: ignore
-                    df_changes_log.to_excel(writer, sheet_name="Änderungskontrolle", index=False) # type: ignore
         else:
             out_df.to_csv(export_path, index=False, sep=";", encoding=enc_choice)
-            if bool(self.chk_audit_export.get()):
+
+        export_sha256 = compute_file_sha256(export_path)
+
+        total_rows_cnt = len(self.source_df)
+        total_audit_cnt = len(audit_entries)
+        auto_changes_cnt = sum(1 for e in audit_entries if not str(e.get('Regelname', '')).startswith("Dialog:") and str(e.get('Alter_Wert', '')) != str(e.get('Neuer_Wert', '')))
+        manual_changes_cnt = sum(1 for e in audit_entries if str(e.get('Regelname', '')).startswith("Dialog:") and str(e.get('Alter_Wert', '')) != str(e.get('Neuer_Wert', '')))
+        manual_kept_cnt = sum(1 for e in audit_entries if str(e.get('Regelname', '')).startswith("Dialog:") and str(e.get('Alter_Wert', '')) == str(e.get('Neuer_Wert', '')))
+
+        summary_rows: List[Dict[str, str]] = [
+            {"Regelname": "=== SHA-256 FINGERABDRÜCKE ===", "Erklärung": ""},
+            {"Regelname": "Quelldatei SHA-256", "Erklärung": source_sha256},
+            {"Regelname": "Zieldatei SHA-256", "Erklärung": export_sha256},
+            {"Regelname": "=== REVISIONS-STATISTIK ===", "Erklärung": ""},
+            {"Regelname": "Gesamtzahl verarbeiteter Zeilen", "Erklärung": str(total_rows_cnt)},
+            {"Regelname": "Protokollierte Ereignisse (Gesamt)", "Erklärung": str(total_audit_cnt)},
+            {"Regelname": "Automatische Regel-Korrekturen", "Erklärung": str(auto_changes_cnt)},
+            {"Regelname": "Manuelle Dialog-Korrekturen", "Erklärung": str(manual_changes_cnt)},
+            {"Regelname": "Manuell beibehaltene Abweichungen (Keep)", "Erklärung": str(manual_kept_cnt)},
+            {"Regelname": "=== ANGEWENDETE TRANSFORMATIONSREGELN ===", "Erklärung": ""},
+        ]
+        for k, v in applied_rules_summary.items():
+            summary_rows.append({"Regelname": k, "Erklärung": v})
+        
+        df_rules_summary = pd.DataFrame(summary_rows)
+
+        if audit_entries:
+            df_changes_log = pd.DataFrame(audit_entries)
+            df_changes_log.sort_values(by=['Original_Zeile'], inplace=True)
+        else:
+            base_cols = ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] + list(raw_source_df.columns)
+            df_changes_log = pd.DataFrame(columns=base_cols)
+
+        if bool(self.chk_audit_export.get()):
+            if ext.lower() == ".xlsx":
+                with pd.ExcelWriter(export_path, engine='openpyxl', mode='a') as writer_append: # type: ignore
+                    df_rules_summary.to_excel(writer_append, sheet_name="Regelübersicht", index=False) # type: ignore
+                    df_changes_log.to_excel(writer_append, sheet_name="Änderungskontrolle", index=False) # type: ignore
+            else:
                 base_path, _ = os.path.splitext(export_path)
                 rules_path = f"{base_path}_regeluebersicht.csv"
                 changes_path = f"{base_path}_aenderungsprotokoll.csv"

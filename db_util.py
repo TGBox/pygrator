@@ -1,5 +1,7 @@
 from auto_complete import try_to_fix_insurance_number
 from collections.abc import Hashable
+import hashlib
+import os
 import re
 import time
 import random
@@ -300,3 +302,16 @@ def apply_id_and_lanr_rules(
         )
 
     return target_df
+
+def compute_file_sha256(file_path: str) -> str:
+    """Berechnet den SHA-256 Fingerabdruck einer Datei."""
+    if not file_path or not os.path.exists(file_path):
+        return "N/A"
+    sha256_hash = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(65536), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+    except Exception:
+        return "N/A"
