@@ -78,7 +78,7 @@ class CSVMappingApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
 
-        self.title("CSV Data Mapper & Schema Validator")
+        self.title(TITLE_MAIN_APP)
         center_window(cast(ctk.CTkToplevel, cast(Any, self)), APP_WIDTH, APP_HEIGHT)
         
         # 1. Globale Autocomplete-Einstellungen initialisieren
@@ -111,11 +111,11 @@ class CSVMappingApp(ctk.CTk):
         action_row = ctk.CTkFrame(top_frame, fg_color="transparent")
         action_row.pack(fill="x", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
 
-        ctk.CTkButton(action_row, text="Quelldatei laden (CSV)", command=self.load_csv).pack(side="left")
+        ctk.CTkButton(action_row, text=TXT_LOAD_CSV, command=self.load_csv).pack(side="left")
 
         self.btn_auto_settings = ctk.CTkButton(
             action_row,
-            text="⚙️ Auto-Vervollständigung",
+            text=TXT_AUTO_COMPLETE_SETTINGS,
             command=self.open_autocomplete_settings_dialog
         )
         self.btn_auto_settings.pack(side="right", padx=(PADDING_M, 0))
@@ -128,16 +128,16 @@ class CSVMappingApp(ctk.CTk):
         )
         self.combo_schema.pack(side="right", padx=PADDING_XS)
 
-        ctk.CTkLabel(action_row, text="Zielschema:").pack(side="right", padx=(PADDING_M, PADDING_XS))
+        ctk.CTkLabel(action_row, text=LBL_TARGET_SCHEMA).pack(side="right", padx=(PADDING_M, PADDING_XS))
 
         # Zeile 2: Datei-Informationen (vollständiger Dateiname & Details)
         info_row = ctk.CTkFrame(top_frame, fg_color="transparent")
         info_row.pack(fill="x", padx=PADDING_M, pady=(PADDING_XXS, PADDING_S))
 
-        self.lbl_file = ctk.CTkLabel(info_row, text="Keine Datei ausgewählt", text_color="gray", anchor="w")
+        self.lbl_file = ctk.CTkLabel(info_row, text=LBL_NO_FILE_SELECTED, text_color="gray", anchor="w")
         self.lbl_file.pack(side="left", fill="x", expand=True)
 
-        self.scroll_frame = ctk.CTkScrollableFrame(self, label_text="Spalten-Zuordnung & Schema-Limits")
+        self.scroll_frame = ctk.CTkScrollableFrame(self, label_text=LBL_COLUMN_MAPPING_FRAME)
         self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_L, pady=PADDING_M)
 
         # UNTERE BEDIENLEISTE (EXPORT-OPTIONS)
@@ -150,14 +150,14 @@ class CSVMappingApp(ctk.CTk):
 
         self.chk_fill_null = ctk.CTkCheckBox(
             chk_frame, 
-            text="Unbelegte Felder mit 'NULL' auffüllen (statt leerem Text)"
+            text=CHK_FILL_NULL
         )
         self.chk_fill_null.pack(anchor="w", pady=PADDING_XXS)
         self.chk_fill_null.select()
         
         chk_clean_strings = ctk.CTkCheckBox(
             chk_frame, 
-            text="String-Werte bereinigen (Trim & Steuerzeichen entfernen)",
+            text=CHK_CLEAN_STRINGS,
             variable=self.var_clean_strings
         )
         chk_clean_strings.pack(side="left", pady=PADDING_XS)
@@ -167,20 +167,20 @@ class CSVMappingApp(ctk.CTk):
         export_opts_frame.pack(side="left", padx=PADDING_XL, pady=PADDING_XS)
 
         # Format-Auswahl
-        ctk.CTkLabel(export_opts_frame, text="Export-Format:", font=LABEL_FONT_BOLD).grid(row=0, column=0, sticky="w", padx=PADDING_XS)
+        ctk.CTkLabel(export_opts_frame, text=LBL_EXPORT_FORMAT, font=LABEL_FONT_BOLD).grid(row=0, column=0, sticky="w", padx=PADDING_XS)
         self.combo_export_format = ctk.CTkOptionMenu(
             export_opts_frame, 
-            values=["CSV (Semikolon ';')", "CSV (Komma ',')", "Excel (.xlsx)"],
+            values=EXPORT_FORMAT_OPTIONS,
             width=OPTIONS_MENU_WIDTH,
             command=self.on_format_change
         )
         self.combo_export_format.grid(row=0, column=1, padx=PADDING_XS, pady=2)
 
         # Encoding-Auswahl
-        ctk.CTkLabel(export_opts_frame, text="Encoding:", font=LABEL_FONT_BOLD).grid(row=1, column=0, sticky="w", padx=PADDING_XS)
+        ctk.CTkLabel(export_opts_frame, text=LBL_ENCODING, font=LABEL_FONT_BOLD).grid(row=1, column=0, sticky="w", padx=PADDING_XS)
         self.combo_encoding = ctk.CTkOptionMenu(
             export_opts_frame, 
-            values=["utf-8-sig (Excel CSV)", "utf-8", "cp1252 (Windows)", "iso-8859-1"],
+            values=EXPORT_ENCODING_OPTIONS,
             width=OPTIONS_MENU_WIDTH
         )
         self.combo_encoding.grid(row=1, column=1, padx=PADDING_XS, pady=2)
@@ -191,7 +191,7 @@ class CSVMappingApp(ctk.CTk):
 
         self.chk_audit_export = ctk.CTkCheckBox(
             btn_frame,
-            text="📋 Regelübersicht & Änderungskontroll-Protokoll generieren",
+            text=CHK_AUDIT_EXPORT,
             font=LABEL_FONT_BOLD
         )
         self.chk_audit_export.select()
@@ -199,7 +199,7 @@ class CSVMappingApp(ctk.CTk):
 
         ctk.CTkButton(
             btn_frame, 
-            text="Prüfen & Exportieren", 
+            text=BTN_PROCESS_EXPORT, 
             text_color=COL_WHITE,
             fg_color=COL_GREEN, 
             hover_color=COL_DARK_GREEN,
@@ -211,37 +211,28 @@ class CSVMappingApp(ctk.CTk):
     def open_autocomplete_settings_dialog(self):
         """Öffnet das Einstellungsfenster für die automatische Vervollständigung"""
         dialog = ctk.CTkToplevel(self)
-        dialog.title("Einstellungen: Automatische Vervollständigung")
+        dialog.title(TITLE_AUTOCOMPLETE_SETTINGS_DIALOG)
 
         ctk.CTkLabel(
             dialog, 
-            text="Welche Regeln sollen beim Import angewendet werden?", 
+            text=LBL_AUTOCOMPLETE_DIALOG_SUB, 
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=20, pady=(20, 10))
 
         vars_dict: dict[str, ctk.BooleanVar] = {}
-        options = [
-            ("split_title", "🎓 Titel von Namen trennen (z. B. Dr. med.)"),
-            ("infer_gender", "⚥ Geschlecht anhand des Vornamens ermitteln"),
-            ("infer_salutation", "✉️ Anrede (Herr/Frau) automatisch ergänzen"),
-            ("clean_kvnr", "🆔 KVNR-Ablesefehler automatisch korrigieren ('O' -> '0', Modulo-10 Auto-Fix)"),
-            ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren"),
-            ("convert_googlemail", "📧 @googlemail.com zu @gmail.com vereinheitlichen"),
-            ("clean_umlaute", "🔤 Umlaute & Eszett in E-Mails ersetzen (ä->ae, ö->oe, ü->ue, ß->ss)")
-        ]
-
-        for key, label_text in options:
-            var = ctk.BooleanVar(value=self.autocomplete_settings[key])
-            chk = ctk.CTkCheckBox(dialog, text=label_text, variable=var)
-            chk.pack(anchor="w", padx=25, pady=8)
-            vars_dict[key] = var
+        for key, label_text in AUTOCOMPLETE_OPTIONS_LIST:
+            if key in self.autocomplete_settings:
+                var = ctk.BooleanVar(value=self.autocomplete_settings[key])
+                chk = ctk.CTkCheckBox(dialog, text=label_text, variable=var)
+                chk.pack(anchor="w", padx=25, pady=8)
+                vars_dict[key] = var
 
         def save_and_close():
             for key in vars_dict:
                 self.autocomplete_settings[key] = vars_dict[key].get()
             dialog.destroy()
 
-        btn_save = ctk.CTkButton(dialog, text="Übernehmen", command=save_and_close)
+        btn_save = ctk.CTkButton(dialog, text=TXT_SAVE, command=save_and_close)
         btn_save.pack(pady=(20, 0))
 
         center_window(dialog, AUTO_COMPLETE_DIALOG_WIDTH, AUTO_COMPLETE_DIALOG_HEIGHT)
@@ -269,7 +260,7 @@ class CSVMappingApp(ctk.CTk):
                 raw_excel: pd.DataFrame = pd.read_excel(file_path, dtype=str) # type: ignore
                 loaded_df = pd.DataFrame(raw_excel)
             except Exception as e:
-                messagebox.showerror("Fehler beim Laden", f"Konnte Excel-Datei nicht lesen:\n{str(e)}")
+                messagebox.showerror(MSG_ERR_LOAD_EXCEL_TITLE, f"Konnte Excel-Datei nicht lesen:\n{str(e)}")
                 return
         else:
             detected_sep = ';'
@@ -306,7 +297,7 @@ class CSVMappingApp(ctk.CTk):
             )
             self.render_mapping_rows()
         else:
-            messagebox.showerror("Fehler beim Laden", "Konnte die Datei nicht lesen.")
+            messagebox.showerror(MSG_ERR_LOAD_EXCEL_TITLE, MSG_ERR_LOAD_FILE)
 
     def on_schema_change(self, choice: str) -> None:
         if self.source_df is not None:
@@ -319,12 +310,12 @@ class CSVMappingApp(ctk.CTk):
         if self.source_df is None:
             return
 
-        source_cols: List[str] = ["-- Nicht zuordnen / Spezielle Regel --"] + list(self.source_df.columns)
+        source_cols: List[str] = [TXT_SPECIAL_RULE_OPTION] + list(self.source_df.columns)
         target_schema: Dict[str, str] = SCHEMAS[self.combo_schema.get()]
 
-        ctk.CTkLabel(self.scroll_frame, text="Zielspalte (Datentyp)", font=BUTTON_FONT).grid(row=0, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
-        ctk.CTkLabel(self.scroll_frame, text="Quellspalte (CSV)", font=BUTTON_FONT).grid(row=0, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
-        ctk.CTkLabel(self.scroll_frame, text="Spezielle Transformation", font=BUTTON_FONT).grid(row=0, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_TARGET_COL, font=BUTTON_FONT).grid(row=0, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_SOURCE_COL, font=BUTTON_FONT).grid(row=0, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+        ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_TRANSFORMATION, font=BUTTON_FONT).grid(row=0, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
 
         self.mapping_dropdowns = {}
         self.trans_buttons = {}
@@ -449,7 +440,7 @@ class CSVMappingApp(ctk.CTk):
                                 'param': src_col
                             }
                             break
-                is_mapped: bool = bool(combo.get() and combo.get() != "-- Nicht zuordnen / Spezielle Regel --")
+                is_mapped: bool = bool(combo.get() and combo.get() != TXT_SPECIAL_RULE_OPTION)
                 if (target_col in ("p_ik", "ik") or "ik_nummer" in target_col) and is_mapped:
                     self.transformations[target_col] = {'type': 'validate_ik'}
                 elif (target_col in ("p_vnr", "vnr", "kvnr") or "versichertennummer" in target_col) and is_mapped:
@@ -459,7 +450,7 @@ class CSVMappingApp(ctk.CTk):
 
             btn_trans: ctk.CTkButton = ctk.CTkButton(
                 self.scroll_frame, 
-                text="Regel hinzufügen...", 
+                text=BTN_RULE_SELECT, 
                 width=RULE_BUTTON_WIDTH,
                 fg_color=COL_GRAY_30,
                 command=lambda t=target_col: self.open_transformation_dialog(t)
@@ -564,7 +555,7 @@ class CSVMappingApp(ctk.CTk):
             )
         else:
             cast(Any, btn).configure(
-                text="Regel hinzufügen...",
+                text=BTN_RULE_SELECT,
                 fg_color=COL_GRAY_30,
                 hover_color=COL_GRAY_40
             )
@@ -614,26 +605,26 @@ class CSVMappingApp(ctk.CTk):
         current_type: str = str(existing_rule.get('type', default_rule))
         rule_type: ctk.StringVar = ctk.StringVar(value=current_type)
 
-        r0 = ctk.CTkRadioButton(scroll_frame, text="🔑 Neue UID generieren (Kompakt)", variable=rule_type, value="generate_uid")
+        r0 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_GENERATE_UID, variable=rule_type, value="generate_uid")
         r0.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
-        r_copy = ctk.CTkRadioButton(scroll_frame, text="🔗 Wert aus anderer Zielspalte übernehmen", variable=rule_type, value="copy_target")
+        r_copy = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_COPY_TARGET, variable=rule_type, value="copy_target")
         r_copy.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         copy_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         copy_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(copy_frame, text="Kopieren aus:").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(copy_frame, text=LBL_COPY_FROM).pack(side="left", padx=PADDING_XS)
         combo_copy_target = ctk.CTkOptionMenu(copy_frame, values=other_target_cols if other_target_cols else ["Keine"])
         combo_copy_target.pack(side="left")
         if existing_rule.get('type') == 'copy_target' and str(existing_rule.get('param')) in other_target_cols:
             combo_copy_target.set(str(existing_rule.get('param')))
 
-        r_date = ctk.CTkRadioButton(scroll_frame, text="📅 Datumsformat anpassen -> YYYY-MM-DD", variable=rule_type, value="format_date")
+        r_date = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_FORMAT_DATE, variable=rule_type, value="format_date")
         r_date.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         date_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         date_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(date_frame, text="Standardwert bei leeren Feldern (optional):", font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(date_frame, text=LBL_DEFAULT_DATE_HINT, font=SMALL_LABEL_FONT, text_color=COL_GRAY_70).pack(side="left", padx=PADDING_XS)
         entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
         entry_date_default.pack(side="left")
         if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
@@ -642,23 +633,23 @@ class CSVMappingApp(ctk.CTk):
         separator = ctk.CTkFrame(scroll_frame, height=2, fg_color=COL_GRAY_30)
         separator.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
-        r_default = ctk.CTkRadioButton(scroll_frame, text="✨ Standardwert nur für LEERE Felder setzen", variable=rule_type, value="default_value")
+        r_default = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_DEFAULT_VAL, variable=rule_type, value="default_value")
         r_default.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         default_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         default_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(default_frame, text="Ersatzwert:").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(default_frame, text=LBL_REPLACEMENT_VAL).pack(side="left", padx=PADDING_XS)
         entry_default_val = ctk.CTkEntry(default_frame, width=VALUE_FIELD_WIDTH, placeholder_text="z. B. Unbekannt")
         entry_default_val.pack(side="left")
         if existing_rule.get('type') == 'default_value':
             entry_default_val.insert(0, str(existing_rule.get('param', '')))
 
-        r_static = ctk.CTkRadioButton(scroll_frame, text="📌 Statischen Festwert für ALLE Zeilen setzen", variable=rule_type, value="static_value")
+        r_static = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_STATIC_VAL, variable=rule_type, value="static_value")
         r_static.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         static_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         static_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(static_frame, text="Wert:").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(static_frame, text=LBL_VALUE).pack(side="left", padx=PADDING_XS)
         entry_static_val = ctk.CTkEntry(static_frame, width=VALUE_FIELD_WIDTH)
         entry_static_val.pack(side="left")
         if existing_rule.get('type') == 'static_value':
@@ -669,7 +660,7 @@ class CSVMappingApp(ctk.CTk):
         
         r_ik_lookup = ctk.CTkRadioButton(
             scroll_frame, 
-            text="🏢 Krankenkassenname aus IK-Quellspalte ermitteln", 
+            text=TXT_RULE_LOOKUP_IK, 
             variable=rule_type, 
             value="lookup_ik_provider"
         )
@@ -677,7 +668,7 @@ class CSVMappingApp(ctk.CTk):
 
         ik_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         ik_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(ik_frame, text="IK-Quellspalte:").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(ik_frame, text=LBL_IK_SOURCE_COL).pack(side="left", padx=PADDING_XS)
 
         source_cols_list: List[str] = [c for c in self.source_df.columns] if self.source_df is not None else []
         combo_ik_source = ctk.CTkOptionMenu(ik_frame, values=source_cols_list if source_cols_list else ["Keine"])
@@ -693,7 +684,7 @@ class CSVMappingApp(ctk.CTk):
                 
         r_val_ik = ctk.CTkRadioButton(
             scroll_frame, 
-            text="✔️ IK-Nummer auf Gültigkeit prüfen (Prüfziffer)", 
+            text=TXT_RULE_VALIDATE_IK, 
             variable=rule_type, 
             value="validate_ik"
         )
@@ -701,7 +692,7 @@ class CSVMappingApp(ctk.CTk):
 
         r_val_kvnr = ctk.CTkRadioButton(
             scroll_frame, 
-            text="✔️ Krankenversichertennummer (KVNR) auf Gültigkeit prüfen", 
+            text=TXT_RULE_VALIDATE_KVNR, 
             variable=rule_type, 
             value="validate_kvnr"
         )
@@ -709,18 +700,18 @@ class CSVMappingApp(ctk.CTk):
         
         r_val_mail = ctk.CTkRadioButton(
             scroll_frame, 
-            text="✔️ E-Mailadresse auf Gültigkeit prüfen", 
+            text=TXT_RULE_VALIDATE_EMAIL, 
             variable=rule_type, 
             value="validate_email"
         )
         r_val_mail.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        r_plz = ctk.CTkRadioButton(scroll_frame, text="📮 PLZ bereinigen (.0 entfernen & 5 Stellen)", variable=rule_type, value="clean_plz")
+        r_plz = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_CLEAN_PLZ, variable=rule_type, value="clean_plz")
         r_plz.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         r_seq = ctk.CTkRadioButton(
             scroll_frame, 
-            text="🔢 Lineare Nummerierung (6-stellig, z. B. 000001)", 
+            text=TXT_RULE_AUTO_SEQ6, 
             variable=rule_type, 
             value="auto_sequence_6"
         )
@@ -728,7 +719,7 @@ class CSVMappingApp(ctk.CTk):
         
         r_plz_lookup = ctk.CTkRadioButton(
             scroll_frame, 
-            text="📮 PLZ basierend auf Ortsname-Quellspalte ergänzen", 
+            text=TXT_RULE_LOOKUP_PLZ, 
             variable=rule_type, 
             value="lookup_plz_by_city"
         )
@@ -736,7 +727,7 @@ class CSVMappingApp(ctk.CTk):
 
         plz_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         plz_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(plz_frame, text="Ortsname-Quellspalte:").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(plz_frame, text=LBL_CITY_SOURCE_COL).pack(side="left", padx=PADDING_XS)
         combo_city_source = ctk.CTkOptionMenu(plz_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_city_source.pack(side="left")
 
@@ -750,7 +741,7 @@ class CSVMappingApp(ctk.CTk):
 
         r_city_lookup = ctk.CTkRadioButton(
             scroll_frame, 
-            text="🏙️ Ort basierend auf PLZ-Quellspalte ergänzen", 
+            text=TXT_RULE_LOOKUP_CITY, 
             variable=rule_type, 
             value="lookup_city_by_plz"
         )
@@ -758,7 +749,7 @@ class CSVMappingApp(ctk.CTk):
 
         city_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         city_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(city_frame, text="PLZ-Quellspalte:").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(city_frame, text=LBL_PLZ_SOURCE_COL).pack(side="left", padx=PADDING_XS)
         combo_plz_source = ctk.CTkOptionMenu(city_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_plz_source.pack(side="left")
 
@@ -770,30 +761,30 @@ class CSVMappingApp(ctk.CTk):
                     combo_plz_source.set(c)
                     break
 
-        r1 = ctk.CTkRadioButton(scroll_frame, text="👫 Geschlecht mappen (M->Herr, W->Frau)", variable=rule_type, value="gender")
+        r1 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_GENDER, variable=rule_type, value="gender")
         r1.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
         separator3 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COL_GRAY_30)
         separator3.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
-        r2 = ctk.CTkRadioButton(scroll_frame, text="🏠 Straße/(Hausnr.) trennen -> Nur Straßenname", variable=rule_type, value="split_street")
+        r2 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_STREET, variable=rule_type, value="split_street")
         r2.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        r3 = ctk.CTkRadioButton(scroll_frame, text="🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer", variable=rule_type, value="split_number")
+        r3 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_NUMBER, variable=rule_type, value="split_number")
         r3.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        r_title = ctk.CTkRadioButton(scroll_frame, text="🎓 Titel/Name trennen -> Nur Titel (z. B. Dr. med.)", variable=rule_type, value="split_title")
+        r_title = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_TITLE, variable=rule_type, value="split_title")
         r_title.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        r_name_no_title = ctk.CTkRadioButton(scroll_frame, text="🎓 Titel/Name trennen -> Name ohne Titel", variable=rule_type, value="split_name_without_title")
+        r_name_no_title = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_NAME_NO_TITLE, variable=rule_type, value="split_name_without_title")
         r_name_no_title.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
         
-        r_merge = ctk.CTkRadioButton(scroll_frame, text="🔗 Zwei Quellspalten zusammenführen (mit Leerzeichen)", variable=rule_type, value="merge_columns")
+        r_merge = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_MERGE_COLUMNS, variable=rule_type, value="merge_columns")
         r_merge.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
         merge_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         merge_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(merge_frame, text="Zweite Quellspalte:").pack(side="left", padx=PADDING_XS)
+        ctk.CTkLabel(merge_frame, text=LBL_SECOND_SOURCE_COL).pack(side="left", padx=PADDING_XS)
 
         combo_merge_source = ctk.CTkOptionMenu(merge_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_merge_source.pack(side="left")
@@ -836,13 +827,13 @@ class CSVMappingApp(ctk.CTk):
             self.show_toast(f"Keine Regel mehr für '{target_col}' aktiv.", icon="🗑️")
             dialog.destroy()
 
-        ctk.CTkButton(btn_frame, text="Speichern", command=save_rule).pack(side="left", expand=True, padx=PADDING_S)
-        ctk.CTkButton(btn_frame, text="Regel löschen", fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", expand=True, padx=PADDING_S)
+        ctk.CTkButton(btn_frame, text=TXT_SAVE_RULE, command=save_rule).pack(side="left", expand=True, padx=PADDING_S)
+        ctk.CTkButton(btn_frame, text=TXT_DELETE_RULE, fg_color="red3", hover_color="red4", command=remove_rule).pack(side="left", expand=True, padx=PADDING_S)
 
     def start_processing(self) -> None:
         """Startet den Gesamtablauf: Prüft Vorschaudialog und führt danach den Export aus."""
         if self.source_df is None:
-            messagebox.showerror("Fehler", "Keine Datei geladen!")
+            messagebox.showerror(MSG_ERR_NO_FILE_TITLE, MSG_ERR_NO_FILE)
             return
 
         assert self.source_df is not None
@@ -986,30 +977,6 @@ class CSVMappingApp(ctk.CTk):
                 audit_entries.append(entry)
 
         if hasattr(self, 'autocomplete_settings'):
-            if self.autocomplete_settings.get("split_title"):
-                for target_col, dropdown in self.mapping_dropdowns.items():
-                    if 'nachname' in target_col.lower() or 'name' in target_col.lower():
-                        src_c = dropdown.get()
-                        if src_c and src_c in self.source_df.columns:
-                            res = self.source_df[src_c].astype(str).apply(extract_title_and_clean_name)
-                            has_titel_col = 'titel' in self.mapping_dropdowns
-                            titel_list = [t[0] for t in res]
-                            clean_name_list = [t[1] for t in res]
-
-                            for r_i in range(row_count):
-                                orig_n = raw_source_df.at[r_i, src_c]
-                                clean_n = clean_name_list[r_i]
-                                ext_t = titel_list[r_i]
-                                if ext_t:
-                                    track_rule_execution("split_title")
-                                    record_change(r_i, target_col, orig_n, clean_n, RULE_NAMES.get("split_title", "Titel trennen"))
-                                    if has_titel_col:
-                                        record_change(r_i, 'titel', "", ext_t, RULE_NAMES.get("split_title", "Titel trennen"))
-
-                            if has_titel_col:
-                                out_df['titel'] = titel_list
-                            self.source_df[src_c] = clean_name_list
-
             if self.autocomplete_settings.get("clean_kvnr"):
                 for target_col, dropdown in self.mapping_dropdowns.items():
                     if 'kvnr' in target_col.lower() or 'versichertennummer' in target_col.lower():
@@ -1672,11 +1639,11 @@ class CSVMappingApp(ctk.CTk):
                 df_changes_log.to_csv(changes_path, index=False, sep=";", encoding=enc_choice)
             
         if bool(self.chk_audit_export.get()):
-            self.show_toast("Export erfolgreich abgeschlossen inkl. Regelübersicht & Änderungskontroll-Protokoll.", icon="✅")
+            self.show_toast(TOAST_EXPORT_SUCCESS_AUDIT, icon="✅")
         elif self.combo_schema.get() == "patienten":
-            self.show_toast("Die Patientendaten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert.", icon="✅")
+            self.show_toast(TOAST_EXPORT_SUCCESS_PATIENTEN, icon="✅")
         elif self.combo_schema.get() == "adressen":
-            self.show_toast("Die Adressen wurden erfolgreich exportiert.", icon="✅")
+            self.show_toast(TOAST_EXPORT_SUCCESS_ADRESSEN, icon="✅")
 
 def main():
     app = CSVMappingApp()

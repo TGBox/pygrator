@@ -154,7 +154,6 @@ AC_EMAIL_DOMAIN_FIXES: Dict[str, str] = {
 
 # Default Auto-Complete UI Einstellungen (CSVMappingApp)
 DEFAULT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
-    "split_title": False,        # Titel aus Name trennen
     "infer_gender": False,       # Geschlecht aus Vorname ableiten
     "infer_salutation": False,   # Anrede generieren
     "clean_kvnr": False,         # KVNR bereinigen (O -> 0)
@@ -165,7 +164,6 @@ DEFAULT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
 
 # Default Auto-Complete UI Einstellungen (ImportApp)
 DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
-    "split_title": True,            # Titel aus Namen abspalten.
     "infer_gender": True,           # Geschlecht aus Vornamen erkennen.
     "infer_salutation": True,       # Anrede (Herr/Frau) automatisch ergänzen.
     "clean_kvnr": True,             # KVNR auto-korrigieren (O zu 0 etc.).
@@ -181,7 +179,6 @@ DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
 
 # Optionen für das Auto-Complete Einstellungsfenster
 AUTOCOMPLETE_OPTIONS_LIST: List[Tuple[str, str]] = [
-    ("split_title", "🎓 Titel automatisch von Namen trennen"),
     ("infer_gender", "⚥ Geschlecht anhand des Vornamens erraten"),
     ("infer_salutation", "✉️ Anrede (Herr/Frau) aus Geschlecht/Name abstatten"),
     ("clean_kvnr", "🆔 KVNR-Ablesefehler automatisch korrigieren ('O' -> '0', Modulo-10 Auto-Fix)"),
@@ -199,15 +196,45 @@ AUTOCOMPLETE_OPTIONS_LIST: List[Tuple[str, str]] = [
 EXTRA_FIELDS_PROPTYPES: List[str] = ["TXT", "NUM", "DATE", "BOOL"]
 
 # =============================================================================
-# Dialog Titles & Button Labels
+# GUI App & Dialog Titles
 # =============================================================================
 
+TITLE_MAIN_APP = "CSV Data Mapper & Schema Validator"
 TITLE_ROW_VALIDATION_DIALOG = "⚠️ Individuelle Feldlängen-Konflikte lösen (Zellgenau)"
 TITLE_EXTRA_FIELDS_DIALOG = "⚙️ Zusatzfelder für ungemappte Spalten definieren"
 TITLE_VALIDATION_FIX_DIALOG = "⚠️ Validierungsfehler korrigieren"
 TITLE_STRING_CLEANUP_DIALOG = "🔍 Vorschau: String-Bereinigung"
 TITLE_AUTOCOMPLETE_SETTINGS_DIALOG = "⚙️ Einstellungen: Automatische Vervollständigung"
+TITLE_TRANS_DIALOG = "Spezielle Regel & Transformation wählen"
 
+# =============================================================================
+# GUI Labels & Option Values
+# =============================================================================
+
+TXT_LOAD_CSV = "Quelldatei laden (CSV)"
+TXT_AUTO_COMPLETE_SETTINGS = "⚙️ Auto-Vervollständigung"
+LBL_TARGET_SCHEMA = "Zielschema:"
+LBL_NO_FILE_SELECTED = "Keine Datei ausgewählt"
+LBL_COLUMN_MAPPING_FRAME = "Spalten-Zuordnung & Schema-Limits"
+CHK_FILL_NULL = "Unbelegte Felder mit 'NULL' auffüllen (statt leerem Text)"
+CHK_CLEAN_STRINGS = "String-Werte bereinigen (Trim & Steuerzeichen entfernen)"
+LBL_EXPORT_FORMAT = "Export-Format:"
+LBL_ENCODING = "Encoding:"
+CHK_AUDIT_EXPORT = "📋 Regelübersicht & Änderungskontroll-Protokoll generieren"
+BTN_PROCESS_EXPORT = "Prüfen & Exportieren"
+LBL_AUTOCOMPLETE_DIALOG_SUB = "Welche Regeln sollen beim Import angewendet werden?"
+
+EXPORT_FORMAT_OPTIONS: List[str] = ["CSV (Semikolon ';')", "CSV (Komma ',')", "Excel (.xlsx)"]
+EXPORT_ENCODING_OPTIONS: List[str] = ["utf-8-sig (Excel CSV)", "utf-8", "cp1252 (Windows)", "iso-8859-1"]
+TXT_SPECIAL_RULE_OPTION = "-- Nicht zuordnen / Spezielle Regel --"
+
+LBL_HEADER_TARGET_COL = "Zielspalte (Datentyp)"
+LBL_HEADER_SOURCE_COL = "Quellspalte (CSV)"
+LBL_HEADER_TRANSFORMATION = "Spezielle Transformation"
+BTN_RULE_SELECT = "Regel hinzufügen..."
+BTN_RULE_ACTIVE_PREFIX = "✓ "
+
+# Buttons & Actions
 TXT_BULK_TRUNCATE = "Alle automatisch kürzen"
 TXT_BULK_IGNORE = "Alle unverändert lassen"
 TXT_BULK_KEEP = "Alle beibehalten (Ignorieren)"
@@ -222,6 +249,48 @@ TXT_APPLY_CONFIRM = "Änderungen übernehmen"
 TXT_CANCEL = "Abbrechen"
 TXT_SKIP = "Überspringen"
 TXT_SAVE = "Übernehmen"
+TXT_SAVE_RULE = "Speichern"
+TXT_DELETE_RULE = "Regel löschen"
+
+# Toast & Message Box Texts
+MSG_ERR_NO_FILE_TITLE = "Fehler"
+MSG_ERR_NO_FILE = "Keine Datei geladen!"
+MSG_ERR_LOAD_EXCEL_TITLE = "Fehler beim Laden"
+MSG_ERR_LOAD_FILE = "Konnte die Datei nicht lesen."
+
+TOAST_EXPORT_SUCCESS_AUDIT = "Export erfolgreich abgeschlossen inkl. Regelübersicht & Änderungskontroll-Protokoll."
+TOAST_EXPORT_SUCCESS_PATIENTEN = "Die Patientendaten sowie die Zusatzfelder-Tabellen wurden erfolgreich exportiert."
+TOAST_EXPORT_SUCCESS_ADRESSEN = "Die Adressen wurden erfolgreich exportiert."
+
+# Transformation Dialog RadioButton Labels & Field Labels
+TXT_RULE_GENERATE_UID = "🔑 Neue UID generieren (Kompakt)"
+TXT_RULE_COPY_TARGET = "🔗 Wert aus anderer Zielspalte übernehmen"
+TXT_RULE_FORMAT_DATE = "📅 Datumsformat anpassen -> YYYY-MM-DD"
+TXT_RULE_DEFAULT_VAL = "✨ Standardwert nur für LEERE Felder setzen"
+TXT_RULE_STATIC_VAL = "📌 Statischen Festwert für ALLE Zeilen setzen"
+TXT_RULE_LOOKUP_IK = "🏢 Krankenkassenname aus IK-Quellspalte ermitteln"
+TXT_RULE_VALIDATE_IK = "✔️ IK-Nummer auf Gültigkeit prüfen (Prüfziffer)"
+TXT_RULE_VALIDATE_KVNR = "✔️ Krankenversichertennummer (KVNR) auf Gültigkeit prüfen"
+TXT_RULE_VALIDATE_EMAIL = "✔️ E-Mailadresse auf Gültigkeit prüfen"
+TXT_RULE_CLEAN_PLZ = "📮 PLZ bereinigen (.0 entfernen & 5 Stellen)"
+TXT_RULE_AUTO_SEQ6 = "🔢 Lineare Nummerierung (6-stellig, z. B. 000001)"
+TXT_RULE_LOOKUP_PLZ = "📮 PLZ basierend auf Ortsname-Quellspalte ergänzen"
+TXT_RULE_LOOKUP_CITY = "🏙️ Ort basierend auf PLZ-Quellspalte ergänzen"
+TXT_RULE_GENDER = "👫 Geschlecht mappen (M->Herr, W->Frau)"
+TXT_RULE_SPLIT_STREET = "🏠 Straße/(Hausnr.) trennen -> Nur Straßenname"
+TXT_RULE_SPLIT_NUMBER = "🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer"
+TXT_RULE_SPLIT_TITLE = "🎓 Titel/Name trennen -> Nur Titel (z. B. Dr. med.)"
+TXT_RULE_SPLIT_NAME_NO_TITLE = "🎓 Titel/Name trennen -> Name ohne Titel"
+TXT_RULE_MERGE_COLUMNS = "🔗 Zwei Quellspalten zusammenführen (mit Leerzeichen)"
+
+LBL_COPY_FROM = "Kopieren aus:"
+LBL_DEFAULT_DATE_HINT = "Standardwert bei leeren Feldern (optional):"
+LBL_REPLACEMENT_VAL = "Ersatzwert:"
+LBL_VALUE = "Wert:"
+LBL_IK_SOURCE_COL = "IK-Quellspalte:"
+LBL_CITY_SOURCE_COL = "Ortsname-Quellspalte:"
+LBL_PLZ_SOURCE_COL = "PLZ-Quellspalte:"
+LBL_SECOND_SOURCE_COL = "Zweite Quellspalte:"
 
 # =============================================================================
 # Validation & Database Utilities Definitions
