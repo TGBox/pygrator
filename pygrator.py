@@ -87,6 +87,7 @@ class CSVMappingApp(ctk.CTk):
             "clean_kvnr": False,        # KVNR bereinigen (O -> 0)
             "clean_email": True,        # E-Mail-Adressen automatisch korrigieren
             "convert_googlemail": False,# @googlemail.com/de zu @gmail.com vereinheitlichen
+            "clean_umlaute": False,     # Umlaute & Eszett in E-Mails ersetzen (ä->ae, ö->oe, ü->ue, ß->ss)
         }
 
         self.source_df = None
@@ -231,7 +232,8 @@ class CSVMappingApp(ctk.CTk):
             ("infer_salutation", "✉️ Anrede (Herr/Frau) automatisch ergänzen"),
             ("clean_kvnr", "🆔 KVNR bereinigen ('O' -> '0')"),
             ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren"),
-            ("convert_googlemail", "📧 @googlemail.com zu @gmail.com vereinheitlichen")
+            ("convert_googlemail", "📧 @googlemail.com zu @gmail.com vereinheitlichen"),
+            ("clean_umlaute", "🔤 Umlaute & Eszett in E-Mails ersetzen (ä->ae, ö->oe, ü->ue, ß->ss)")
         ]
 
         for key, label_text in options:
@@ -1061,7 +1063,8 @@ class CSVMappingApp(ctk.CTk):
                             cleaned_email: str = email_val
                             if self.autocomplete_settings.get("clean_email", True):
                                 convert_g = self.autocomplete_settings.get("convert_googlemail", False)
-                                is_fixed, fixed_email = try_to_fix_email(email_val, convert_googlemail=convert_g)
+                                clean_u = self.autocomplete_settings.get("clean_umlaute", False)
+                                is_fixed, fixed_email = try_to_fix_email(email_val, convert_googlemail=convert_g, clean_umlaute=clean_u)
                                 if is_fixed:
                                     self.source_df.at[row_idx, source_col] = fixed_email
                                     cleaned_email = fixed_email

@@ -189,7 +189,7 @@ Pygrator enthält intelligente Auto-Korrektur-Algorithmen, um fehlerhafte Eingab
 
 | Fehlerart / Musterschema | Beispiel Quelldaten | Automatisch korrigiertes Ergebnis | angewendete Korrekturregel |
 | :--- | :--- | :--- | :--- |
-| **Umlaute & Eszett** | `jörgen.müller@gmx.de` | `joergen.mueller@gmx.de` | Wandelt `ä`/`ö`/`ü`/`ß` kodierungssicher um (`ae`, `oe`, `ue`, `ss`). |
+| **Umlaute & Eszett** | `jörgen.müller@gmx.de` | `jörgen.müller@gmx.de` | Bleibt standardmäßig unverändert. Kann optional per Auto-Vervollständigungs-Option (`clean_umlaute`) kodierungssicher umgewandelt werden (`ae`, `oe`, `ue`, `ss`). |
 | **Tastaturfehler `Q`/`q` statt `@`** | `m.handelqt-online.de` | `m.handel@t-online.de` | Korrigiert `q`/`Q` (AltGr+Q Tippfehler) vor Domains zu `@`. |
 | **T-Online Tastaturfehler** | `rudipT-online.de` | `rudip@t-online.de` | Ergänzt fehlendes `@` vor `T-online.de`. |
 | **Fehlendes `t` bei T-Online** | `dehner@-online.de` | `dehner@t-online.de` | Repariert `@-online.de` zu `@t-online.de`. |

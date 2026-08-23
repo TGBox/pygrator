@@ -90,7 +90,7 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
                 return True, tmp_fix
             
     return False, vnr
-def try_to_fix_email(email: str, convert_googlemail: bool = False) -> tuple[bool, str]:
+def try_to_fix_email(email: str, convert_googlemail: bool = False, clean_umlaute: bool = False) -> tuple[bool, str]:
     """Sucht nach häufigen Tippfehlern in E-Mail-Adressen und korrigiert diese."""
     from db_util import validate_email
     
@@ -110,13 +110,14 @@ def try_to_fix_insurance_number(vnr: str) -> tuple[bool, str]:
     # 1. Führende und nachfolgende Satzzeichen / Klammern entfernen (z. B. "user@domain.de.")
     cleaned = cleaned.strip(" .,;:!?<>(){}[]\"'")
 
-    # 2. Deutsche Umlaute und Eszett ersetzen (Unicode-Escapes für Kodierungssicherheit)
-    umlaute_map = {
-        '\u00e4': 'ae', '\u00f6': 'oe', '\u00fc': 'ue', '\u00df': 'ss',
-        '\u00c4': 'Ae', '\u00d6': 'Oe', '\u00dc': 'Ue'
-    }
-    for char, repl in umlaute_map.items():
-        cleaned = cleaned.replace(char, repl)
+    # 2. Deutsche Umlaute und Eszett optional ersetzen
+    if clean_umlaute:
+        umlaute_map = {
+            '\u00e4': 'ae', '\u00f6': 'oe', '\u00fc': 'ue', '\u00df': 'ss',
+            '\u00c4': 'Ae', '\u00d6': 'Oe', '\u00dc': 'Ue'
+        }
+        for char, repl in umlaute_map.items():
+            cleaned = cleaned.replace(char, repl)
 
     # 3. Leerzeichen entfernen (z. B. "max mueller @ gmail.com" -> "maxmueller@gmail.com")
     cleaned = re.sub(r'\s+', '', cleaned)
