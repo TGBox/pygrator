@@ -82,15 +82,7 @@ class CSVMappingApp(ctk.CTk):
         center_window(cast(ctk.CTkToplevel, cast(Any, self)), APP_WIDTH, APP_HEIGHT)
         
         # 1. Globale Autocomplete-Einstellungen initialisieren
-        self.autocomplete_settings = {
-            "split_title": False,       # Titel aus Name trennen
-            "infer_gender": False,      # Geschlecht aus Vorname ableiten
-            "infer_salutation": False,  # Anrede generieren
-            "clean_kvnr": False,        # KVNR bereinigen (O -> 0)
-            "clean_email": True,        # E-Mail-Adressen automatisch korrigieren
-            "convert_googlemail": False,# @googlemail.com/de zu @gmail.com vereinheitlichen
-            "clean_umlaute": False,     # Umlaute & Eszett in E-Mails ersetzen (ä->ae, ö->oe, ü->ue, ß->ss)
-        }
+        self.autocomplete_settings = DEFAULT_AUTOCOMPLETE_SETTINGS.copy()
 
         self.source_df = None
         self.source_file_path = ""
@@ -1074,7 +1066,7 @@ class CSVMappingApp(ctk.CTk):
             elif rule_type == "validate_kvnr":
                 if source_col and source_col in self.source_df.columns:
                     out_df[target_col] = self.source_df[source_col].copy()
-                    should_clean_kvnr: bool = bool(self.autocomplete_settings.get("clean_kvnr", True)) if hasattr(self, 'autocomplete_settings') else True
+                    should_clean_kvnr: bool = self.autocomplete_settings.get("clean_kvnr", True) if hasattr(self, 'autocomplete_settings') else True
 
                     for row_idx, val in enumerate(self.source_df[source_col]):
                         if pd.notna(val) and str(val).strip():

@@ -1,6 +1,7 @@
 x 2026-08-23 Die Methoden des Projekts müssen alle ausgiebig getestet werden! Es handelt sich um wichtige Datensätze und Fehler müssen unbedingt vermieden werden! +Refactoring @code
 x 2026-08-23 Die Trennung von Titeln wie Dr. u.Ä. sollte als Regel implementiert werden. Es sollte wie bei der Straße und Hausnummer hier so sein, dass man den abgespaltenen Titel zur Befüllung einer bestimmten Spalte nutzen kann, oder den anderen Wert, der zusammen mit dem Titel in einer Spalte der Quelltabelle enthalten sein könnte. +Refactoring @code
 x 2026-08-23 Trennung der Versichertennummer Validierung und dem automatischen Vervollständigen. +Validation @code
+x 2026-08-23 Alle Code-Dateien nach Dictionaries, Listen und Hardcoded Strings durchsuchen, um diese in eine eigene Datei auslagern zu können und zentral anpassen zu können. Die jeweiligen Stellen sollten dann mit den importierten Werten aus der Datei ersetzt werden. +Refactoring @code
 (A) 2026-07-31 Bestehende IDs beim Export übertragen und LANR für Ärzte nutzen (mit verschiedenen Quelltabellen verifizieren) +DataImport @code
 (A) 2026-07-31 Support für bestehende Datenbanken & Delta-Updates mit Benutzerauswahl hinzufügen +Database @gui
 (A) 2026-07-31 Auto Vervollständigung für weitere Feldtypen implementieren. (Anrede aus Name erkennen, Titel vom Namen trennen, Geschlecht aus Namen erkennen, etc.) +Validation @code

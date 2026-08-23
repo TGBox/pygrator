@@ -1,6 +1,10 @@
-from typing import Tuple
+from typing import Tuple, Dict, List, Set, Any
 
-RULE_NAMES = {
+# =============================================================================
+# Rule Names & Descriptions Metadata
+# =============================================================================
+
+RULE_NAMES: Dict[str, str] = {
     "generate_uid": "UID generieren",
     "copy_target": "Kopieren aus",
     "format_date": "Datum (YYYY-MM-DD)",
@@ -22,7 +26,7 @@ RULE_NAMES = {
     "auto_sequence_6": "Lineare Nummerierung (6-stellig)"
 }
 
-RULE_DESCRIPTIONS = {
+RULE_DESCRIPTIONS: Dict[str, str] = {
     "generate_uid": "Erzeugt eine eindeutige, 12-stellige alphanumerische Kennung (UID) für jeden Datensatz.",
     "copy_target": "Übernimmt den bereinigten Wert aus einer anderen bereits verarbeiteten Zielspalte.",
     "format_date": "Konvertiert verschiedene Datumsformate einheitlich in den ISO-Standard YYYY-MM-DD.",
@@ -42,7 +46,6 @@ RULE_DESCRIPTIONS = {
     "validate_kvnr": "Prüft Krankenversichertennummern auf Korrektheit und behebt bekannte Formatfehler (z. B. Ersetzen des Buchstaben 'O' durch '0').",
     "validate_email": "Bereinigt E-Mail-Adressen von Typografie-/Tippfehlern sowie Leerzeichen und verifiziert das E-Mail-Format.",
     "auto_sequence_6": "Erzeugt eine fortlaufende 6-stellige Nummerierung (z. B. 000001, 000002) für alle Datensätze.",
-    "split_title": "Trennt akademische Titel (z. B. Dr. med.) vom Vornamen/Nachnamen und ordnet sie dem Titelfeld zu.",
     "infer_gender": "Ermittelt automatisch das biologische Geschlecht anhand des Vornamens aus einer Datenbank.",
     "infer_salutation": "Leitet automatisch die passende Anrede (Herr/Frau) basierend auf dem Vornamen oder Geschlecht ab.",
     "clean_kvnr": "Korrigiert typische Eingabefehler in Krankenversichertennummern automatisch.",
@@ -50,20 +53,205 @@ RULE_DESCRIPTIONS = {
     "varchar_limit": "Kürzt Werte, die das maximale Zeichenlimit des Zielfelds in der Ziel-Datenbank überschreiten.",
     "string_cleanup": "Bereinigt Steuerzeichen, doppelte Leerzeichen und unerwünschte Sonderzeichen aus Freitextfeldern."
 }
+
+# =============================================================================
+# Auto-Complete & Data Cleaning Definitions
+# =============================================================================
+
+# Bekannte akademische und medizinische Titel
+AC_TITLES: List[str] = [
+    "Prof. Dr. med. dent.", "Prof. Dr. med.", "PD Dr. med. dent.", "PD Dr. med.", 
+    "Dr. med. dent.", "Dr. med.", "Dr. rer. nat.", "Prof. Dr.",
+    "Dr.", "Prof.", "PD"
+]
+
+# Grundlegende Zuordnungstabelle für Vornamen -> Geschlecht
+AC_GENDER_FIRSTNAMES: Dict[str, Set[str]] = {
+    "m": {"hans", "peter", "christian", "thomas", "sebastian", "stefan", "alexander", "michael"},
+    "w": {"sabine", "amira", "sarah", "elena", "maria", "lisa", "monika", "julia"}
+}
+
+# Ersetzungstabelle für deutsche Umlaute und Eszett in E-Mails
+AC_EMAIL_UMLAUTE_MAP: Dict[str, str] = {
+    '\u00e4': 'ae', '\u00f6': 'oe', '\u00fc': 'ue', '\u00df': 'ss',
+    '\u00c4': 'Ae', '\u00d6': 'Oe', '\u00dc': 'Ue'
+}
+
+# Bekannte E-Mail-Domain-Tippfehler und deren Korrekturen
+AC_EMAIL_DOMAIN_FIXES: Dict[str, str] = {
+    # T-Online spezifische Muster
+    '-online.de': 't-online.de',
+    '-online': 't-online.de',
+    '-onlin.de': 't-online.de',
+    '-online.d': 't-online.de',
+    't.-online.de': 't-online.de',
+    't.-online': 't-online.de',
+    't.online.de': 't-online.de',
+    't.online': 't-online.de',
+    't.-online.d': 't-online.de',
+    't-online': 't-online.de',
+    't-onlin.de': 't-online.de',
+    't-online.d': 't-online.de',
+    'tonline.de': 't-online.de',
+    't-online-de': 't-online.de',
+    't-onlinede': 't-online.de',
+    # Gmail
+    'gamil.com': 'gmail.com',
+    'gmaill.com': 'gmail.com',
+    'gmei.com': 'gmail.com',
+    'gmai.com': 'gmail.com',
+    'gmail.de': 'gmail.com',
+    'gmailcom': 'gmail.com',
+    'gamilcom': 'gmail.com',
+    # GMX
+    'gmxde': 'gmx.de',
+    'gmxnet': 'gmx.net',
+    'gmx.d': 'gmx.de',
+    'gmz.de': 'gmx.de',
+    'gmz.net': 'gmx.net',
+    'gmx-de': 'gmx.de',
+    'gmx-net': 'gmx.net',
+    # Web.de
+    'webde': 'web.de',
+    'web.d': 'web.de',
+    'webe.de': 'web.de',
+    'wb.de': 'web.de',
+    'web-de': 'web.de',
+    # Freenet
+    'freenetde': 'freenet.de',
+    'frenet.de': 'freenet.de',
+    'freenet.d': 'freenet.de',
+    'freenet-de': 'freenet.de',
+    # Hotmail
+    'hotmial.com': 'hotmail.com',
+    'hotmai.com': 'hotmail.com',
+    'hotmailde': 'hotmail.de',
+    'hotmial.de': 'hotmail.de',
+    'hotmailcom': 'hotmail.com',
+    'hotmialcom': 'hotmail.com',
+    # Outlook
+    'outlok.com': 'outlook.com',
+    'outlok.de': 'outlook.de',
+    'outlookde': 'outlook.de',
+    'outlookcom': 'outlook.com',
+    # Yahoo
+    'yaho.de': 'yahoo.de',
+    'yaho.com': 'yahoo.com',
+    'yahoode': 'yahoo.de',
+    'yahoocom': 'yahoo.com',
+    # iCloud
+    'icould.com': 'icloud.com',
+    'icloud.de': 'icloud.com',
+    'icloudcom': 'icloud.com',
+    # 1&1
+    '1&1.de': '1und1.de',
+    '1und1de': '1und1.de',
+    # Vodafone / Arcor
+    'vodafon.de': 'vodafone.de',
+    'vodafonede': 'vodafone.de',
+    'arcorde': 'arcor.de',
+}
+
+# Default Auto-Complete UI Einstellungen (CSVMappingApp)
+DEFAULT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
+    "split_title": False,        # Titel aus Name trennen
+    "infer_gender": False,       # Geschlecht aus Vorname ableiten
+    "infer_salutation": False,   # Anrede generieren
+    "clean_kvnr": False,         # KVNR bereinigen (O -> 0)
+    "clean_email": True,         # E-Mail-Adressen automatisch korrigieren
+    "convert_googlemail": False, # @googlemail.com/de zu @gmail.com vereinheitlichen
+    "clean_umlaute": False,      # Umlaute & Eszett in E-Mails ersetzen
+}
+
+# Default Auto-Complete UI Einstellungen (ImportApp)
+DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
+    "split_title": True,            # Titel aus Namen abspalten.
+    "infer_gender": True,           # Geschlecht aus Vornamen erkennen.
+    "infer_salutation": True,       # Anrede (Herr/Frau) automatisch ergänzen.
+    "clean_kvnr": True,             # KVNR auto-korrigieren (O zu 0 etc.).
+    "clean_date_formats": True,     # Datumsangaben auf ihr Format prüfen und anpassen.
+    "infer_insurance_name": True,   # Krankenkassenname aus IK ableiten.
+    "infer_city_name": True,        # Ortsnamen aus PLZ ableiten.
+    "infer_plz": True,              # PLZ aus dem Ortsnamen ableiten.
+    "validate_email": True,         # E-Mailadresse prüfen.
+    "clean_email": True,            # E-Mailadresse automatisch korrigieren.
+    "convert_googlemail": False,    # @googlemail.com zu @gmail.com vereinheitlichen.
+    "clean_umlaute": False,         # Umlaute & Eszett in E-Mails ersetzen.
+}
+
+# Optionen für das Auto-Complete Einstellungsfenster
+AUTOCOMPLETE_OPTIONS_LIST: List[Tuple[str, str]] = [
+    ("split_title", "🎓 Titel automatisch von Namen trennen"),
+    ("infer_gender", "⚥ Geschlecht anhand des Vornamens erraten"),
+    ("infer_salutation", "✉️ Anrede (Herr/Frau) aus Geschlecht/Name abstatten"),
+    ("clean_kvnr", "🆔 KVNR-Ablesefehler automatisch korrigieren ('O' -> '0', Modulo-10 Auto-Fix)"),
+    ("clean_date_formats", "Datumsformat automatisch korrigieren"),
+    ("infer_insurance_name", "Krankenkassenname automatisch ergänzen"),
+    ("infer_city_name", "Ortsnamen aus PLZ ableiten"),
+    ("infer_plz", "PLZ aus Ortsnamen ableiten"),
+    ("validate_email", "E-Mail Adresse validieren"),
+    ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren"),
+    ("convert_googlemail", "📧 @googlemail.com zu @gmail.com vereinheitlichen"),
+    ("clean_umlaute", "🔤 Umlaute & Eszett in E-Mails ersetzen (ä->ae, ö->oe, ü->ue, ß->ss)")
+]
+
+# Zusatzfeld-Datentypen
+EXTRA_FIELDS_PROPTYPES: List[str] = ["TXT", "NUM", "DATE", "BOOL"]
+
+# =============================================================================
+# Dialog Titles & Button Labels
+# =============================================================================
+
+TITLE_ROW_VALIDATION_DIALOG = "⚠️ Individuelle Feldlängen-Konflikte lösen (Zellgenau)"
+TITLE_EXTRA_FIELDS_DIALOG = "⚙️ Zusatzfelder für ungemappte Spalten definieren"
+TITLE_VALIDATION_FIX_DIALOG = "⚠️ Validierungsfehler korrigieren"
+TITLE_STRING_CLEANUP_DIALOG = "🔍 Vorschau: String-Bereinigung"
+TITLE_AUTOCOMPLETE_SETTINGS_DIALOG = "⚙️ Einstellungen: Automatische Vervollständigung"
+
+TXT_BULK_TRUNCATE = "Alle automatisch kürzen"
+TXT_BULK_IGNORE = "Alle unverändert lassen"
+TXT_BULK_KEEP = "Alle beibehalten (Ignorieren)"
+TXT_BULK_CLEAR = "Alle leeren (NULL)"
+TXT_BULK_CLEAN = "✅ Alle bereinigen"
+TXT_BULK_KEEP_CLEANUP = "❌ Alle beibehalten"
+
+TXT_APPLY_EXPORT = "Entscheidungen anwenden & Exportieren"
+TXT_APPLY_EXTRA_FIELDS = "Zusatzfelder übernehmen & Exportieren"
+TXT_APPLY_VALIDATION_FIX = "Änderungen übernehmen & Exportieren"
+TXT_APPLY_CONFIRM = "Änderungen übernehmen"
+TXT_CANCEL = "Abbrechen"
+TXT_SKIP = "Überspringen"
+TXT_SAVE = "Übernehmen"
+
+# =============================================================================
+# Validation & Database Utilities Definitions
+# =============================================================================
+
+BASE36_ALPHABET: str = "0123456789abcdefghijklmnopqrstuvwxyz"
+IK_CHECK_WEIGHTS: List[int] = [2, 1, 2, 1, 2, 1]
+KVNR_CHECK_WEIGHTS: List[int] = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
+NULL_STRING_VALUES: Set[str] = {"nan", "none", "null", "<na>", ""}
+
+# =============================================================================
+# GUI Styling & Layout Constants
+# =============================================================================
+
 APP_WIDTH = 1040
 APP_HEIGHT = 880
 FONT_TYPE = "Roboto"
-LABEL_FONT_BOLD: tuple[str, int, str] = (FONT_TYPE, 11, "bold")
-LABEL_FONT: tuple[str, int] = (FONT_TYPE, 11)
-LARGER_LABEL_FONT_BOLD: tuple[str, int, str] = (FONT_TYPE, 14, "bold")
-SMALL_LABEL_FONT: tuple[str, int] = (FONT_TYPE, 10)
-SMALL_LABEL_FONT_BOLD: tuple[str, int, str] = (FONT_TYPE, 10, "bold")
-BUTTON_FONT: tuple[str, int, str] = (FONT_TYPE, 12, "bold")
-TITLE_FONT: tuple[str, int, str] = (FONT_TYPE, 18, "bold")
-BOLD_FONT: tuple[str, str] = (FONT_TYPE, "bold")
+LABEL_FONT_BOLD: Tuple[str, int, str] = (FONT_TYPE, 11, "bold")
+LABEL_FONT: Tuple[str, int] = (FONT_TYPE, 11)
+LARGER_LABEL_FONT_BOLD: Tuple[str, int, str] = (FONT_TYPE, 14, "bold")
+SMALL_LABEL_FONT: Tuple[str, int] = (FONT_TYPE, 10)
+SMALL_LABEL_FONT_BOLD: Tuple[str, int, str] = (FONT_TYPE, 10, "bold")
+BUTTON_FONT: Tuple[str, int, str] = (FONT_TYPE, 12, "bold")
+TITLE_FONT: Tuple[str, int, str] = (FONT_TYPE, 18, "bold")
+BOLD_FONT: Tuple[str, str] = (FONT_TYPE, "bold")
+
 OPTIONS_MENU_WIDTH = 160
 MAX_CHAR_READ = 4096
 RULE_BUTTON_WIDTH = 240
+
 COL_ORANGE = "#CF8700"
 COL_DARK_ORANGE = "#855600"
 COL_LIGHT_GREEN = "#2FA572"
@@ -80,6 +268,7 @@ COL_GRAY_35 = "#595959"
 COL_GRAY_40 = "#666666"
 COL_GRAY_45 = "#737373"
 COL_GRAY_70 = "#B3B3B3"
+
 TRANSFORMATION_DIALOG_WIDTH = 580
 TRANSFORMATION_DIALOG_HEIGHT = 640
 VALUE_FIELD_WIDTH = 200
@@ -105,10 +294,11 @@ SMALL_HEADER_WIDTH = 70
 LARGE_HEADER_WIDTH = 220
 CHECKBOX_LABEL_WIDTH = 50
 PROCESS_BUTTON_WIDTH = 200
-APP_APPEARANCE_MODE = "system" # Can be one of "light", "dark", "system".
+APP_APPEARANCE_MODE = "system"  # Can be one of "light", "dark", "system".
 APP_COLOR_THEME = "blue"
 CHECKBOX_WIDTH = 30
 HEADER_LABEL_WIDTH = 90
+
 PADDING_XXS = 3
 PADDING_XS = 5
 PADDING_S = 8
@@ -117,5 +307,6 @@ PADDING_L = 15
 PADDING_XL = 20
 PADDING_XXL = 25
 PADDING_XXXL = 45
+
 AUTO_COMPLETE_DIALOG_WIDTH = 470
 AUTO_COMPLETE_DIALOG_HEIGHT = 400

@@ -1,6 +1,75 @@
 import customtkinter as ctk
-from typing import List, Dict, Any
-from constants import *
+from typing import List, Dict, Any, Optional
+from constants import (
+    ROW_VALIDATION_DIALOG_WIDTH,
+    ROW_VALIDATION_DIALOG_HEIGHT,
+    EXTRA_FIELDS_DIALOG_WIDTH,
+    EXTRA_FIELDS_DIALOG_HEIGHT,
+    VALIDATION_DIALOG_WIDTH,
+    VALIDATION_DIALOG_HEIGHT,
+    STRING_CLEANUP_DIALOG_WIDTH,
+    STRING_CLEANUP_DIALOG_HEIGHT,
+    AUTO_COMPLETE_DIALOG_WIDTH,
+    AUTO_COMPLETE_DIALOG_HEIGHT,
+    PADDING_XXS,
+    PADDING_XS,
+    PADDING_S,
+    PADDING_M,
+    PADDING_L,
+    PADDING_XL,
+    PADDING_XXL,
+    LARGER_LABEL_FONT_BOLD,
+    LABEL_FONT,
+    LABEL_FONT_BOLD,
+    SMALL_LABEL_FONT,
+    SMALL_LABEL_FONT_BOLD,
+    BUTTON_FONT,
+    TITLE_FONT,
+    COL_GRAY_20,
+    COL_GRAY_30,
+    COL_GRAY_35,
+    COL_GRAY_40,
+    COL_GRAY_45,
+    COL_GRAY_70,
+    COL_LIGHT_RED,
+    COL_GREEN,
+    COL_DARK_GREEN,
+    COL_DARKER_GREEN,
+    COL_LIGHT_GREEN,
+    BATCH_PROCESS_BUTTON_WIDTH,
+    REPLACEMENT_INPUT_WIDTH,
+    HEADER_LABEL_WIDTH,
+    VALUE_FIELD_WIDTH,
+    BUTTON_WIDTH,
+    BUTTON_HEIGHT,
+    CHECKBOX_WIDTH,
+    DB_FIELD_NAMES_WIDTH,
+    DROPDOWN_WIDTH,
+    MANUAL_CHANGE_FIELD_WIDTH,
+    RADIO_BUTTON_LABEL_WIDTH,
+    REPLACEMENT_WRAP_LENGTH,
+    EXTRA_FIELDS_PROPTYPES,
+    AUTOCOMPLETE_OPTIONS_LIST,
+    DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS,
+    TITLE_ROW_VALIDATION_DIALOG,
+    TITLE_EXTRA_FIELDS_DIALOG,
+    TITLE_VALIDATION_FIX_DIALOG,
+    TITLE_STRING_CLEANUP_DIALOG,
+    TITLE_AUTOCOMPLETE_SETTINGS_DIALOG,
+    TXT_BULK_TRUNCATE,
+    TXT_BULK_IGNORE,
+    TXT_BULK_KEEP,
+    TXT_BULK_CLEAR,
+    TXT_BULK_CLEAN,
+    TXT_BULK_KEEP_CLEANUP,
+    TXT_APPLY_EXPORT,
+    TXT_APPLY_EXTRA_FIELDS,
+    TXT_APPLY_VALIDATION_FIX,
+    TXT_APPLY_CONFIRM,
+    TXT_CANCEL,
+    TXT_SKIP,
+    TXT_SAVE,
+)
 
 def center_window(window: Any, width: int, height: int) -> None:
     """Zentriert ein Fenster exakt in der Mitte des Hauptbildschirms."""
@@ -18,10 +87,11 @@ def center_window(window: Any, width: int, height: int) -> None:
     y = max(0, int((screen_height - effective_height) // 2))
     window.geometry(f"{effective_width}x{effective_height}+{x}+{y}")
 
+
 class RowValidationDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, conflicts: List[Dict[str, Any]]):
         super().__init__(parent)
-        self.title("⚠️ Individuelle Feldlängen-Konflikte lösen (Zellgenau)")
+        self.title(TITLE_ROW_VALIDATION_DIALOG)
         self.conflicts = conflicts
         self.rows_data: List[Dict[str, Any]] = []
         self.resolved_results: List[Dict[str, Any]] = []
@@ -52,7 +122,7 @@ class RowValidationDialog(ctk.CTkToplevel):
         
         ctk.CTkButton(
             global_bar, 
-            text="Alle automatisch kürzen", 
+            text=TXT_BULK_TRUNCATE, 
             width=BATCH_PROCESS_BUTTON_WIDTH, 
             fg_color=COL_GRAY_35, 
             hover_color=COL_GRAY_45,
@@ -61,7 +131,7 @@ class RowValidationDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             global_bar, 
-            text="Alle unverändert lassen", 
+            text=TXT_BULK_IGNORE, 
             width=BATCH_PROCESS_BUTTON_WIDTH, 
             fg_color=COL_GRAY_35, 
             hover_color=COL_GRAY_45,
@@ -157,7 +227,7 @@ class RowValidationDialog(ctk.CTkToplevel):
 
         btn_apply = ctk.CTkButton(
             bottom_bar, 
-            text="Entscheidungen anwenden & Exportieren", 
+            text=TXT_APPLY_EXPORT, 
             fg_color=COL_GREEN, 
             hover_color=COL_DARK_GREEN,
             font=BUTTON_FONT,
@@ -167,7 +237,7 @@ class RowValidationDialog(ctk.CTkToplevel):
 
         btn_cancel = ctk.CTkButton(
             bottom_bar, 
-            text="Abbrechen", 
+            text=TXT_CANCEL, 
             fg_color=COL_GRAY_30, 
             hover_color=COL_GRAY_40,
             command=self.destroy
@@ -209,6 +279,7 @@ class RowValidationDialog(ctk.CTkToplevel):
     def get_resolved_values(self) -> List[Dict[str, Any]]:
         return self.resolved_results
 
+
 class ExtraFieldsDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, unmapped_columns: List[str]):
         super().__init__(parent)
@@ -217,7 +288,7 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         self.result_mappings: List[Dict[str, str]] = []
         self.is_accepted = False
 
-        self.title("⚙️ Zusatzfelder für ungemappte Spalten definieren")
+        self.title(TITLE_EXTRA_FIELDS_DIALOG)
         center_window(self, EXTRA_FIELDS_DIALOG_WIDTH, EXTRA_FIELDS_DIALOG_HEIGHT)
         self.attributes("-topmost", True)  # pyright: ignore[reportUnknownMemberType]
         self.grab_set()
@@ -258,13 +329,13 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         footer_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_L)
 
         btn_cancel = ctk.CTkButton(
-            footer_frame, text="Überspringen", fg_color=COL_GRAY_40, 
+            footer_frame, text=TXT_SKIP, fg_color=COL_GRAY_40, 
             command=self.destroy
         )
         btn_cancel.pack(side="left")
 
         btn_apply = ctk.CTkButton(
-            footer_frame, text="Zusatzfelder übernehmen & Exportieren", 
+            footer_frame, text=TXT_APPLY_EXTRA_FIELDS, 
             fg_color=COL_DARK_GREEN, hover_color=COL_DARKER_GREEN, font=BUTTON_FONT,
             height=BUTTON_HEIGHT, command=self._on_apply
         )
@@ -290,7 +361,7 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
 
         combo_proptyp = ctk.CTkOptionMenu(
             row_frame, 
-            values=["TXT", "NUM", "DATE", "BOOL"],
+            values=EXTRA_FIELDS_PROPTYPES,
             width=DROPDOWN_WIDTH
         )
         combo_proptyp.set("TXT")
@@ -328,6 +399,7 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         self.is_accepted = True
         self.destroy()
 
+
 class ValidationFixDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, invalid_items: List[Dict[str, Any]]):
         super().__init__(parent)
@@ -335,7 +407,7 @@ class ValidationFixDialog(ctk.CTkToplevel):
         self.invalid_items = invalid_items
         self.is_accepted = False
 
-        self.title("⚠️ Validierungsfehler korrigieren")
+        self.title(TITLE_VALIDATION_FIX_DIALOG)
         center_window(self, VALIDATION_DIALOG_WIDTH, VALIDATION_DIALOG_HEIGHT)
         self.attributes("-topmost", True)  # pyright: ignore[reportUnknownMemberType]
         self.grab_set()
@@ -364,13 +436,13 @@ class ValidationFixDialog(ctk.CTkToplevel):
         ctk.CTkLabel(batch_frame, text="Alle Eintrags-Aktionen:", font=LABEL_FONT_BOLD).pack(side="left", padx=PADDING_M, pady=PADDING_M)
         
         btn_batch_keep = ctk.CTkButton(
-            batch_frame, text="Alle beibehalten (Ignorieren)", fg_color=COL_GRAY_40, 
+            batch_frame, text=TXT_BULK_KEEP, fg_color=COL_GRAY_40, 
             command=lambda: self._apply_batch_action("keep")
         )
         btn_batch_keep.pack(side="left", padx=PADDING_XS, pady=PADDING_M)
 
         btn_batch_clear = ctk.CTkButton(
-            batch_frame, text="Alle leeren (NULL)", fg_color=COL_LIGHT_RED, 
+            batch_frame, text=TXT_BULK_CLEAR, fg_color=COL_LIGHT_RED, 
             command=lambda: self._apply_batch_action("clear")
         )
         btn_batch_clear.pack(side="left", padx=PADDING_XS, pady=PADDING_M)
@@ -386,7 +458,7 @@ class ValidationFixDialog(ctk.CTkToplevel):
         footer_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_L)
 
         btn_apply = ctk.CTkButton(
-            footer_frame, text="Änderungen übernehmen & Exportieren", 
+            footer_frame, text=TXT_APPLY_VALIDATION_FIX, 
             fg_color=COL_DARK_GREEN, hover_color=COL_DARKER_GREEN, font=BUTTON_FONT,
             height=BUTTON_HEIGHT, command=self._on_apply
         )
@@ -466,10 +538,11 @@ class ValidationFixDialog(ctk.CTkToplevel):
         self.is_accepted = True
         self.destroy()
 
+
 class StringCleanupPreviewDialog(ctk.CTkToplevel):
     def __init__(self, parent: ctk.CTk, preview_items: List[Dict[str, Any]]):
         super().__init__(parent)
-        self.title("🔍 Vorschau: String-Bereinigung")
+        self.title(TITLE_STRING_CLEANUP_DIALOG)
         center_window(self, STRING_CLEANUP_DIALOG_WIDTH, STRING_CLEANUP_DIALOG_HEIGHT)
         self.grab_set()
         
@@ -500,7 +573,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         
         ctk.CTkButton(
             global_btn_frame, 
-            text="✅ Alle bereinigen", 
+            text=TXT_BULK_CLEAN, 
             width=BUTTON_WIDTH, 
             fg_color=COL_GRAY_30,
             command=lambda: self._set_all_action("clean")
@@ -508,7 +581,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         
         ctk.CTkButton(
             global_btn_frame, 
-            text="❌ Alle beibehalten", 
+            text=TXT_BULK_KEEP_CLEANUP, 
             width=BUTTON_WIDTH, 
             fg_color=COL_GRAY_30,
             command=lambda: self._set_all_action("keep")
@@ -533,14 +606,14 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             bottom_frame, 
-            text="Abbrechen", 
+            text=TXT_CANCEL, 
             fg_color=COL_GRAY_40, 
             command=self._on_cancel
         ).pack(side="right", padx=(PADDING_M, 0))
         
         ctk.CTkButton(
             bottom_frame, 
-            text="Änderungen übernehmen", 
+            text=TXT_APPLY_CONFIRM, 
             fg_color=COL_LIGHT_GREEN, 
             hover_color=COL_DARK_GREEN, 
             command=self._on_confirm
@@ -606,6 +679,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         entry_custom.bind("<FocusIn>", on_entry_click)
         entry_custom.bind("<Key>", on_entry_click)
 
+        self.row_widgets: List[Dict[str, Any]]
         self.row_widgets.append({
             'item': item,
             'action_var': action_var,
@@ -643,30 +717,17 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         self.result = None
         self.destroy()
 
-class ImportApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        # 1. Standard-Einstellungen für Auto-Vervollständigung
-        self.autocomplete_settings = {
-            "split_title": True,            # Titel aus Namen abspalten.
-            "infer_gender": True,           # Geschlecht aus Vornamen erkennen.
-            "infer_salutation": True,       # Anrede (Herr/Frau) automatisch ergänzen.
-            "clean_kvnr": True,             # KVNR auto-korrigieren (O zu 0 etc.).
-            "clean_date_formats": True,     # Datumsangaben auf ihr Format prüfen und anpassen.
-            "infer_insurance_name": True,   # Krankenkassenname aus IK ableiten.
-            "infer_city_name": True,        # Ortsnamen aus PLZ ableiten.
-            "infer_plz": True,              # PLZ aus dem Ortsnamen ableiten.
-            "validate_email": True,         # E-Mailadresse prüfen.
-            "clean_email": True,            # E-Mailadresse automatisch korrigieren.
-            "convert_googlemail": False,    # @googlemail.com zu @gmail.com vereinheitlichen.
-            "clean_umlaute": False,         # Umlaute & Eszett in E-Mails ersetzen.
-        }
-        # ... dein restlicher Init-Code ...
 
-    def open_autocomplete_settings_dialog(self):
+class ImportApp(ctk.CTk):
+    def __init__(self) -> None:
+        super().__init__()
+        # 1. Standard-Einstellungen für Auto-Vervollständigung aus constants übernehmen
+        self.autocomplete_settings = DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS.copy()
+
+    def open_autocomplete_settings_dialog(self) -> None:
         """Dialogfenster zur An- und Abwahl der Auto-Vervollständigungen"""
         dialog = ctk.CTkToplevel(self)
-        dialog.title("⚙️ Einstellungen: Automatische Vervollständigung")
+        dialog.title(TITLE_AUTOCOMPLETE_SETTINGS_DIALOG)
         center_window(dialog, AUTO_COMPLETE_DIALOG_WIDTH, AUTO_COMPLETE_DIALOG_HEIGHT)
         dialog.grab_set()  # Blockiert Eingaben im Hauptfenster
 
@@ -677,37 +738,24 @@ class ImportApp(ctk.CTk):
         ).pack(anchor="w", padx=PADDING_XL, pady=(PADDING_XL, PADDING_M))
 
         # Checkboxen an die aktuellen Einstellungen binden
-        vars = {}
-        options = [
-            ("split_title", "🎓 Titel automatisch von Namen trennen"),
-            ("infer_gender", "⚥ Geschlecht anhand des Vornamens erraten"),
-            ("infer_salutation", "✉️ Anrede (Herr/Frau) aus Geschlecht/Name abstatten"),
-            ("clean_kvnr", "🆔 KVNR-Ablesefehler automatisch korrigieren ('O' -> '0', Modulo-10 Auto-Fix)"),
-            ("clean_date_formats", "Datumsformat automatisch korrigieren"),
-            ("infer_insurance_name", "Krankenkassenname automatisch ergänzen"),
-            ("infer_city_name", "Ortsnamen aus PLZ ableiten"),
-            ("infer_plz", "PLZ aus Ortsnamen ableiten"),
-            ("validate_email", "E-Mail Adresse validieren"),
-            ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren"),
-            ("convert_googlemail", "📧 @googlemail.com zu @gmail.com vereinheitlichen"),
-            ("clean_umlaute", "🔤 Umlaute & Eszett in E-Mails ersetzen (ä->ae, ö->oe, ü->ue, ß->ss)")
-        ]
+        vars_dict: Dict[str, ctk.BooleanVar] = {}
+        options = AUTOCOMPLETE_OPTIONS_LIST
 
         for key, label_text in options:
-            var = ctk.BooleanVar(value=self.autocomplete_settings[key])
+            var = ctk.BooleanVar(value=self.autocomplete_settings.get(key, True))
             chk = ctk.CTkCheckBox(dialog, text=label_text, variable=var)
             chk.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
-            vars[key] = var
+            vars_dict[key] = var
 
-        def save_and_close():
-            for key in vars:
-                self.autocomplete_settings[key] = vars[key].get()
+        def save_and_close() -> None:
+            for key in vars_dict:
+                self.autocomplete_settings[key] = vars_dict[key].get()
             dialog.destroy()
 
         # Speichern-Button
         btn_save = ctk.CTkButton(
             dialog, 
-            text="Übernehmen", 
+            text=TXT_SAVE, 
             command=save_and_close
         )
         btn_save.pack(pady=(PADDING_XL, 0))

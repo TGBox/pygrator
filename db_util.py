@@ -10,25 +10,29 @@ from typing import Any, Dict, List, cast
 import pandas as pd
 
 import email_validator as eval
+from constants import (
+    BASE36_ALPHABET,
+    IK_CHECK_WEIGHTS,
+    KVNR_CHECK_WEIGHTS,
+    NULL_STRING_VALUES,
+)
 
 def encode_base36(num: int) -> str:
     """Function to generate a base 36 string from an int."""
-    alphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
     if num == 0:
         return "0"
     arr = []
-    base = len(alphabet)
+    base = len(BASE36_ALPHABET)
     while num:
         num, rem = divmod(num, base)
-        arr.append(alphabet[rem])
+        arr.append(BASE36_ALPHABET[rem])
     arr.reverse()
     return "".join(arr)
 
 def generate_rolf_id() -> str:
     """Generiert eine eindeutige 10-stellige ROLF-ID (z.B. 'O9F1L-00A2B')."""
     part1 = f"O{encode_base36(int(time.time() * 1000))[-4:]}"
-    base36_chars = "0123456789abcdefghijklmnopqrstuvwxyz"
-    part2 = "".join(random.choices(base36_chars, k=5))
+    part2 = "".join(random.choices(BASE36_ALPHABET, k=5))
     
     return f"{part1}-{part2}".upper()
 
@@ -46,7 +50,7 @@ def format_date_iso(val: Any) -> str:
     if pd.isna(val):
         return ""
     val_str = str(val).strip()
-    if not val_str or val_str.lower() in ['nan', 'null', 'none', '']:
+    if not val_str or val_str.lower() in NULL_STRING_VALUES:
         return ""
 
     # Falls bereits YYYY-MM-DD
@@ -88,17 +92,14 @@ def validate_ik_number(ik: Any) -> bool:
     if not ik:
         return False
     ik_str = str(ik).strip()
-    if not ik_str or ik_str.lower() in ["nan", "none", "null"]:
+    if not ik_str or ik_str.lower() in NULL_STRING_VALUES:
         return False
     ik = ik_str.split('.')[0]
     if not ik.isdigit() or len(ik) != 9:
         return False
 
-    # Ziffern 3 bis 8 mit Gewichtung 2, 1, 2, 1, 2, 1
-    weights = [2, 1, 2, 1, 2, 1]
     total_sum = 0
-
-    for digit_char, weight in zip(ik[2:8], weights):
+    for digit_char, weight in zip(ik[2:8], IK_CHECK_WEIGHTS):
         prod = int(digit_char) * weight
         total_sum += prod if prod < 10 else (prod - 9)
 
@@ -118,10 +119,9 @@ def validate_insurance_number(kvnr: Any) -> bool:
     
     # 10 Prüfziffern bilden (2 Ziffern Buchstabe + 8 Folgeziffern)
     digits_to_check = letter_code + kvnr[1:9]
-    weights = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
 
     total_sum = 0
-    for char, weight in zip(digits_to_check, weights):
+    for char, weight in zip(digits_to_check, KVNR_CHECK_WEIGHTS):
         prod = int(char) * weight
         total_sum += prod if prod < 10 else (prod - 9)
 
@@ -214,7 +214,7 @@ def extract_flagged_records(
                 continue
             
             val_str = str(val).strip()
-            if not val_str or val_str.lower() in ["nan", "none", "null", "<na>"]:
+            if not val_str or val_str.lower() in NULL_STRING_VALUES:
                 continue
 
             # --- ZUERST: Extraktion durchführen! ---
