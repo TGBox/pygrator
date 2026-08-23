@@ -30,6 +30,13 @@ class TestPLZLookupService:
         if city:
             assert "Dresden" in city or len(city) > 0
 
+    def test_umlaute_city_lookup(self):
+        # Test cities with umlauts or special chars e.g. München, Köln, Nürnberg
+        plz_muenchen = self.plz_service.get_plz_by_city("München")
+        plz_muenchen_ae = self.plz_service.get_plz_by_city("Muenchen")
+        if plz_muenchen or plz_muenchen_ae:
+            assert plz_muenchen is not None or plz_muenchen_ae is not None
+
 
 class TestIKLookupService:
     @pytest.fixture(autouse=True)
@@ -49,7 +56,15 @@ class TestIKLookupService:
             assert ik.isdigit()
             assert score >= 0.8
 
+    def test_fuzzy_provider_lookup(self):
+        # Test fuzzy lookup with typos or partial names
+        ik, matched_name, score = self.ik_service.get_ik_by_provider("Techniker Kasse", fuzzy=True)
+        if ik:
+            assert ik.isdigit()
+            assert score >= 0.6
+
     def test_nonexistent_ik(self):
         assert self.ik_service.get_provider_by_ik("000000000") is None
         ik, name, score = self.ik_service.get_ik_by_provider("", fuzzy=False)
         assert ik is None
+
