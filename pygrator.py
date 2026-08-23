@@ -232,7 +232,7 @@ class CSVMappingApp(ctk.CTk):
             ("split_title", "🎓 Titel von Namen trennen (z. B. Dr. med.)"),
             ("infer_gender", "⚥ Geschlecht anhand des Vornamens ermitteln"),
             ("infer_salutation", "✉️ Anrede (Herr/Frau) automatisch ergänzen"),
-            ("clean_kvnr", "🆔 KVNR bereinigen ('O' -> '0')"),
+            ("clean_kvnr", "🆔 KVNR-Ablesefehler automatisch korrigieren ('O' -> '0', Modulo-10 Auto-Fix)"),
             ("clean_email", "📧 Fehlerhafte E-Mail-Adressen automatisch korrigieren"),
             ("convert_googlemail", "📧 @googlemail.com zu @gmail.com vereinheitlichen"),
             ("clean_umlaute", "🔤 Umlaute & Eszett in E-Mails ersetzen (ä->ae, ö->oe, ü->ue, ß->ss)")
@@ -1074,14 +1074,21 @@ class CSVMappingApp(ctk.CTk):
             elif rule_type == "validate_kvnr":
                 if source_col and source_col in self.source_df.columns:
                     out_df[target_col] = self.source_df[source_col].copy()
+                    should_clean_kvnr: bool = bool(self.autocomplete_settings.get("clean_kvnr", True)) if hasattr(self, 'autocomplete_settings') else True
+
                     for row_idx, val in enumerate(self.source_df[source_col]):
                         if pd.notna(val) and str(val).strip():
-                            cleaned_kvnr: str = str(val).strip().upper()
-                            is_fixed, fixed_kvnr = try_to_fix_insurance_number(cleaned_kvnr)
-                            if is_fixed:
-                                out_df.at[row_idx, target_col] = fixed_kvnr
-                                record_change(row_idx, target_col, val, fixed_kvnr, RULE_NAMES.get("validate_kvnr", "Versichertennr. prüfen"))
-                            if not validate_insurance_number(fixed_kvnr):
+                            kvnr_to_check: str = str(val).strip().upper()
+                            if should_clean_kvnr:
+                                is_fixed, fixed_kvnr = try_to_fix_insurance_number(kvnr_to_check)
+                                if is_fixed:
+                                    out_df.at[row_idx, target_col] = fixed_kvnr
+                                    kvnr_to_check = fixed_kvnr
+                                    track_rule_execution("clean_kvnr")
+                                    record_change(row_idx, target_col, val, fixed_kvnr, RULE_NAMES.get("clean_kvnr", "KVNR-Format bereinigen"))
+                            
+                            track_rule_execution("validate_kvnr")
+                            if not validate_insurance_number(kvnr_to_check):
                                 invalid_records.append({
                                     'row_idx': row_idx,
                                     'target_col': target_col,

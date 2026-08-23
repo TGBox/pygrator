@@ -682,7 +682,7 @@ class ImportApp(ctk.CTk):
             ("split_title", "🎓 Titel automatisch von Namen trennen"),
             ("infer_gender", "⚥ Geschlecht anhand des Vornamens erraten"),
             ("infer_salutation", "✉️ Anrede (Herr/Frau) aus Geschlecht/Name abstatten"),
-            ("clean_kvnr", "🆔 KVNR automatisch bereinigen (z.B. 'O' -> '0')"),
+            ("clean_kvnr", "🆔 KVNR-Ablesefehler automatisch korrigieren ('O' -> '0', Modulo-10 Auto-Fix)"),
             ("clean_date_formats", "Datumsformat automatisch korrigieren"),
             ("infer_insurance_name", "Krankenkassenname automatisch ergänzen"),
             ("infer_city_name", "Ortsnamen aus PLZ ableiten"),
