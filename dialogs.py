@@ -36,6 +36,8 @@ from constants import (
     COLOR_BTN_SUCCESS_HOVER,
     COLOR_BTN_SUCCESS_ACTIVE,
     COLOR_ACCENT_SUCCESS,
+    COLOR_BTN_TEXT,
+    COLOR_BTN_SECONDARY_TEXT,
     BATCH_PROCESS_BUTTON_WIDTH,
     REPLACEMENT_INPUT_WIDTH,
     HEADER_LABEL_WIDTH,
@@ -113,6 +115,7 @@ class RowValidationDialog(ctk.CTkToplevel):
             global_bar, 
             text=TXT_BULK_TRUNCATE, 
             width=BATCH_PROCESS_BUTTON_WIDTH, 
+            text_color=COLOR_BTN_SECONDARY_TEXT,
             fg_color=COLOR_BTN_NEUTRAL_BG, 
             hover_color=COLOR_BTN_NEUTRAL_HOVER,
             font=BUTTON_FONT,
@@ -123,6 +126,7 @@ class RowValidationDialog(ctk.CTkToplevel):
             global_bar, 
             text=TXT_BULK_IGNORE, 
             width=BATCH_PROCESS_BUTTON_WIDTH, 
+            text_color=COLOR_BTN_SECONDARY_TEXT,
             fg_color=COLOR_BTN_NEUTRAL_BG, 
             hover_color=COLOR_BTN_NEUTRAL_HOVER,
             font=BUTTON_FONT,
@@ -156,7 +160,7 @@ class RowValidationDialog(ctk.CTkToplevel):
             entry_orig.pack(side="left", padx=(0, PADDING_XS))
 
             btn_copy = ctk.CTkButton(
-                val_frame, text="📋", width=30, height=24, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
+                val_frame, text="📋", width=30, height=24, text_color=COLOR_BTN_SECONDARY_TEXT, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
                 command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
             )
             btn_copy.pack(side="left")
@@ -218,6 +222,7 @@ class RowValidationDialog(ctk.CTkToplevel):
         btn_confirm = ctk.CTkButton(
             bottom_bar, 
             text=TXT_APPLY_EXPORT, 
+            text_color=COLOR_BTN_TEXT,
             fg_color=COLOR_BTN_SUCCESS_BG, 
             hover_color=COLOR_BTN_SUCCESS_HOVER,
             font=BUTTON_FONT,
@@ -228,6 +233,7 @@ class RowValidationDialog(ctk.CTkToplevel):
         btn_cancel = ctk.CTkButton(
             bottom_bar, 
             text=TXT_CANCEL, 
+            text_color=COLOR_BTN_SECONDARY_TEXT,
             fg_color=COLOR_BTN_SECONDARY_BG, 
             hover_color=COLOR_BTN_SECONDARY_HOVER,
             font=BUTTON_FONT,
@@ -322,14 +328,14 @@ class ExtraFieldsDialog(ctk.CTkToplevel):
         footer_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_L)
 
         btn_skip = ctk.CTkButton(
-            footer_frame, text=TXT_SKIP, fg_color=COLOR_BTN_SECONDARY_HOVER, 
+            footer_frame, text=TXT_SKIP, text_color=COLOR_BTN_SECONDARY_TEXT, fg_color=COLOR_BTN_SECONDARY_HOVER, 
             hover_color=COLOR_BTN_NEUTRAL_HOVER, font=BUTTON_FONT,
             command=self.destroy
         )
         btn_skip.pack(side="right", padx=PADDING_S)
 
         btn_confirm = ctk.CTkButton(
-            footer_frame, text=TXT_APPLY_EXTRA_FIELDS, 
+            footer_frame, text=TXT_APPLY_EXTRA_FIELDS, text_color=COLOR_BTN_TEXT,
             fg_color=COLOR_BTN_SUCCESS_HOVER, hover_color=COLOR_BTN_SUCCESS_ACTIVE, font=BUTTON_FONT,
             command=self._on_apply
         )
@@ -430,13 +436,13 @@ class ValidationFixDialog(ctk.CTkToplevel):
         ctk.CTkLabel(batch_frame, text="Alle Eintrags-Aktionen:", font=LABEL_FONT_BOLD).pack(side="left", padx=PADDING_M, pady=PADDING_M)
         
         btn_batch_keep = ctk.CTkButton(
-            batch_frame, text=TXT_BULK_KEEP, fg_color=COLOR_BTN_SECONDARY_HOVER, 
+            batch_frame, text=TXT_BULK_KEEP, text_color=COLOR_BTN_SECONDARY_TEXT, fg_color=COLOR_BTN_SECONDARY_BG, hover_color=COLOR_BTN_SECONDARY_HOVER,
             command=lambda: self._apply_batch_action("keep")
         )
         btn_batch_keep.pack(side="left", padx=PADDING_XS, pady=PADDING_M)
 
         btn_batch_clear = ctk.CTkButton(
-            batch_frame, text=TXT_BULK_CLEAR, fg_color=COLOR_TEXT_DANGER, 
+            batch_frame, text=TXT_BULK_CLEAR, text_color=COLOR_BTN_TEXT, fg_color=COLOR_TEXT_DANGER, 
             command=lambda: self._apply_batch_action("clear")
         )
         btn_batch_clear.pack(side="left", padx=PADDING_XS, pady=PADDING_M)
@@ -452,7 +458,7 @@ class ValidationFixDialog(ctk.CTkToplevel):
         footer_frame.pack(fill="x", padx=PADDING_L, pady=PADDING_L)
 
         btn_apply = ctk.CTkButton(
-            footer_frame, text=TXT_APPLY_VALIDATION_FIX, 
+            footer_frame, text=TXT_APPLY_VALIDATION_FIX, text_color=COLOR_BTN_TEXT,
             fg_color=COLOR_BTN_SUCCESS_HOVER, hover_color=COLOR_BTN_SUCCESS_ACTIVE, font=BUTTON_FONT,
             height=BUTTON_HEIGHT, command=self._on_apply
         )
@@ -483,7 +489,7 @@ class ValidationFixDialog(ctk.CTkToplevel):
         entry_orig.pack(side="left", padx=(0, PADDING_XS))
 
         btn_copy = ctk.CTkButton(
-            row_frame, text="📋", width=30, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
+            row_frame, text="📋", width=30, text_color=COLOR_BTN_SECONDARY_TEXT, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
             command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
         )
         btn_copy.pack(side="left", padx=(0, PADDING_S))
@@ -569,7 +575,9 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             global_btn_frame, 
             text=TXT_BULK_CLEAN, 
             width=BUTTON_WIDTH, 
+            text_color=COLOR_BTN_SECONDARY_TEXT,
             fg_color=COLOR_BTN_SECONDARY_BG,
+            hover_color=COLOR_BTN_SECONDARY_HOVER,
             command=lambda: self._set_all_action("clean")
         ).pack(side="left", padx=(0, PADDING_M))
         
@@ -577,7 +585,9 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
             global_btn_frame, 
             text=TXT_BULK_KEEP_CLEANUP, 
             width=BUTTON_WIDTH, 
+            text_color=COLOR_BTN_SECONDARY_TEXT,
             fg_color=COLOR_BTN_SECONDARY_BG,
+            hover_color=COLOR_BTN_SECONDARY_HOVER,
             command=lambda: self._set_all_action("keep")
         ).pack(side="left")
 
@@ -601,14 +611,17 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         ctk.CTkButton(
             bottom_frame, 
             text=TXT_CANCEL, 
-            fg_color=COLOR_BTN_SECONDARY_HOVER, 
+            text_color=COLOR_BTN_SECONDARY_TEXT,
+            fg_color=COLOR_BTN_SECONDARY_BG, 
+            hover_color=COLOR_BTN_SECONDARY_HOVER,
             command=self._on_cancel
         ).pack(side="right", padx=(PADDING_M, 0))
         
         ctk.CTkButton(
             bottom_frame, 
             text=TXT_APPLY_CONFIRM, 
-            fg_color=COLOR_ACCENT_SUCCESS, 
+            text_color=COLOR_BTN_TEXT,
+            fg_color=COLOR_BTN_SUCCESS_BG, 
             hover_color=COLOR_BTN_SUCCESS_HOVER, 
             command=self._on_confirm
         ).pack(side="right")
@@ -629,7 +642,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         entry_orig.pack(side="left", padx=PADDING_XS)
 
         btn_copy_orig = ctk.CTkButton(
-            row, text="📋", width=30, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
+            row, text="📋", width=30, text_color=COLOR_BTN_SECONDARY_TEXT, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
             command=lambda v=orig_val: (self.clipboard_clear(), self.clipboard_append(v))
         )
         btn_copy_orig.pack(side="left", padx=(0, PADDING_XS))
@@ -647,7 +660,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
         entry_cleaned.pack(side="left", padx=PADDING_XS)
 
         btn_copy_clean = ctk.CTkButton(
-            row, text="📋", width=30, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
+            row, text="📋", width=30, text_color=COLOR_BTN_SECONDARY_TEXT, fg_color=COLOR_BTN_NEUTRAL_BG, hover_color=COLOR_BTN_NEUTRAL_HOVER,
             command=lambda v=cleaned_val: (self.clipboard_clear(), self.clipboard_append(v))
         )
         btn_copy_clean.pack(side="left", padx=(0, PADDING_XS))

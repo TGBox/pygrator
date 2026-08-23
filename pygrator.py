@@ -200,7 +200,7 @@ class CSVMappingApp(ctk.CTk):
         ctk.CTkButton(
             btn_frame, 
             text=BTN_PROCESS_EXPORT, 
-            text_color=COLOR_TEXT_PRIMARY,
+            text_color=COLOR_BTN_TEXT,
             fg_color=COLOR_BTN_SUCCESS_BG, 
             hover_color=COLOR_BTN_SUCCESS_HOVER,
             font=BUTTON_FONT,
@@ -452,7 +452,9 @@ class CSVMappingApp(ctk.CTk):
                 self.scroll_frame, 
                 text=BTN_RULE_SELECT, 
                 width=RULE_BUTTON_WIDTH,
+                text_color=COLOR_BTN_SECONDARY_TEXT,
                 fg_color=COLOR_BTN_SECONDARY_BG,
+                hover_color=COLOR_BTN_SECONDARY_HOVER,
                 command=lambda t=target_col: self.open_transformation_dialog(t)
             )
             btn_trans.grid(row=idx, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
@@ -490,19 +492,19 @@ class CSVMappingApp(ctk.CTk):
         toast_frame = ctk.CTkFrame(
             self,
             fg_color=COLOR_TOAST_BG,
-            border_color=COLOR_BTN_SUCCESS_HOVER,
-            border_width=1,
-            corner_radius=12
+            border_color=COLOR_TOAST_BORDER,
+            border_width=1.5,
+            corner_radius=20
         )
-        toast_frame.place(relx=0.5, rely=0.92, anchor="center")
+        toast_frame.place(relx=0.5, rely=0.93, anchor="center")
 
         label = ctk.CTkLabel(
             toast_frame,
             text=f"{icon}  {message}",
             font=BUTTON_FONT,
-            text_color=COLOR_TEXT_PRIMARY,
-            padx=PADDING_L,
-            pady=PADDING_S
+            text_color=COLOR_TOAST_TEXT,
+            padx=PADDING_XL,
+            pady=PADDING_M
         )
         label.pack()
 
@@ -550,12 +552,14 @@ class CSVMappingApp(ctk.CTk):
 
             cast(Any, btn).configure(
                 text=button_text,
+                text_color=COLOR_BTN_TEXT,
                 fg_color=COLOR_BTN_SUCCESS_HOVER,
                 hover_color=COLOR_BTN_SUCCESS_ACTIVE
             )
         else:
             cast(Any, btn).configure(
                 text=BTN_RULE_SELECT,
+                text_color=COLOR_BTN_SECONDARY_TEXT,
                 fg_color=COLOR_BTN_SECONDARY_BG,
                 hover_color=COLOR_BTN_SECONDARY_HOVER
             )

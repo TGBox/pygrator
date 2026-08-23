@@ -311,34 +311,38 @@ MAX_CHAR_READ = 4096
 RULE_BUTTON_WIDTH = 240
 
 # =============================================================================
-# GUI Functional & Semantic Color Palette
+# GUI Functional & Semantic Color Palette (Light Mode, Dark Mode)
 # =============================================================================
 
-COLOR_TEXT_PRIMARY: str = "#FFFFFF"         # Primary text color on dark backgrounds
-COLOR_TEXT_DARK: str = "#000000"            # Dark text color
-COLOR_TEXT_MUTED: str = "#B3B3B3"           # Muted / hint text color
-COLOR_TEXT_DANGER: str = "#E57373"          # Danger / error text color
+COLOR_TEXT_PRIMARY: Tuple[str, str] = ("#0F172A", "#FFFFFF")       # Primary text color
+COLOR_TEXT_DARK: Tuple[str, str] = ("#0F172A", "#0F172A")          # Dark text color
+COLOR_TEXT_MUTED: Tuple[str, str] = ("#334155", "#94A3B8")         # High contrast muted / hint text color (Slate 700 / 400)
+COLOR_TEXT_DANGER: Tuple[str, str] = ("#DC2626", "#F87171")        # Danger / error text color
+COLOR_TEXT_WARNING: Tuple[str, str] = ("#D97706", "#FBBF24")       # Warning text color
 
-COLOR_BTN_SUCCESS_BG: str = "#00B800"       # Primary success button background
-COLOR_BTN_SUCCESS_HOVER: str = "#1E7E34"    # Primary success button hover state
-COLOR_BTN_SUCCESS_ACTIVE: str = "#145A24"   # Active success button hover state
+COLOR_BTN_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")            # White text for colored action buttons
+COLOR_BTN_SECONDARY_TEXT: Tuple[str, str] = ("#0F172A", "#FFFFFF")  # Text for secondary buttons
 
-COLOR_BTN_SECONDARY_BG: str = "#4D4D4D"     # Secondary button background
-COLOR_BTN_SECONDARY_HOVER: str = "#666666"  # Secondary button hover state
+COLOR_BTN_SUCCESS_BG: Tuple[str, str] = ("#059669", "#10B981")     # Success button background (Emerald)
+COLOR_BTN_SUCCESS_HOVER: Tuple[str, str] = ("#047857", "#059669")  # Success button hover
+COLOR_BTN_SUCCESS_ACTIVE: Tuple[str, str] = ("#065F46", "#047857") # Active success button hover
 
-COLOR_BTN_NEUTRAL_BG: str = "#595959"       # Neutral action button background
-COLOR_BTN_NEUTRAL_HOVER: str = "#737373"    # Neutral action button hover state
+COLOR_BTN_SECONDARY_BG: Tuple[str, str] = ("#E2E8F0", "#334155")   # Secondary button background (Slate)
+COLOR_BTN_SECONDARY_HOVER: Tuple[str, str] = ("#CBD5E1", "#475569")# Secondary button hover
 
-COLOR_CONTAINER_BG_DARK: str = "#333333"    # Dark header / container bar background
-COLOR_CARD_BG: str = "#4D4D4D"              # Card / frame background
-COLOR_SEPARATOR: str = "#4D4D4D"            # Divider lines & frame borders
+COLOR_BTN_NEUTRAL_BG: Tuple[str, str] = ("#F1F5F9", "#1E293B")     # Neutral action button background
+COLOR_BTN_NEUTRAL_HOVER: Tuple[str, str] = ("#E2E8F0", "#334155")  # Neutral action button hover
 
-COLOR_TOAST_BG: str = "#800080"             # Toast notification background
-COLOR_TOAST_BORDER: str = "#1E7E34"         # Toast notification border
+COLOR_CONTAINER_BG_DARK: Tuple[str, str] = ("#F8FAFC", "#0F172A")  # Bar / header container background
+COLOR_CARD_BG: Tuple[str, str] = ("#F1F5F9", "#1E293B")            # Card / frame background
+COLOR_SEPARATOR: Tuple[str, str] = ("#CBD5E1", "#334155")          # Divider lines & frame borders
 
-COLOR_ACCENT_WARNING: str = "#CF8700"       # Warning badge / accent color
-COLOR_TEXT_WARNING: str = "#855600"         # Warning text color
-COLOR_ACCENT_SUCCESS: str = "#2FA572"       # Success accent color
+COLOR_TOAST_BG: Tuple[str, str] = ("#0F172A", "#1E293B")           # Floating Toast Card (Dark Slate)
+COLOR_TOAST_BORDER: Tuple[str, str] = ("#059669", "#10B981")       # Subtle Emerald accent border
+COLOR_TOAST_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")         # High contrast white text
+
+COLOR_ACCENT_WARNING: Tuple[str, str] = ("#F59E0B", "#D97706")     # Warning badge / accent color
+COLOR_ACCENT_SUCCESS: Tuple[str, str] = ("#10B981", "#34D399")     # Success accent color
 
 # Backward-compatibility aliases for legacy color names
 COL_WHITE = COLOR_TEXT_PRIMARY
@@ -398,4 +402,4 @@ PADDING_XXL = 25
 PADDING_XXXL = 45
 
 AUTO_COMPLETE_DIALOG_WIDTH = 470
-AUTO_COMPLETE_DIALOG_HEIGHT = 400
+AUTO_COMPLETE_DIALOG_HEIGHT = 370
