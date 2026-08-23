@@ -318,16 +318,16 @@ COLOR_TEXT_PRIMARY: Tuple[str, str] = ("#0F172A", "#FFFFFF")       # Primary tex
 COLOR_TEXT_DARK: Tuple[str, str] = ("#0F172A", "#0F172A")          # Dark text color
 COLOR_TEXT_MUTED: Tuple[str, str] = ("#334155", "#94A3B8")         # High contrast muted / hint text color (Slate 700 / 400)
 COLOR_TEXT_DANGER: Tuple[str, str] = ("#DC2626", "#F87171")        # Danger / error text color
-COLOR_TEXT_WARNING: Tuple[str, str] = ("#D97706", "#FBBF24")       # Warning text color
+COLOR_TEXT_WARNING: Tuple[str, str] = ("#92400E", "#FCD34D")       # High contrast warning text color
 
-COLOR_BTN_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")            # White text for colored action buttons
-COLOR_BTN_SECONDARY_TEXT: Tuple[str, str] = ("#0F172A", "#FFFFFF")  # Text for secondary buttons
+COLOR_BTN_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")            # White text for dark action buttons
+COLOR_BTN_SECONDARY_TEXT: Tuple[str, str] = ("#0F172A", "#FFFFFF")  # High contrast text for secondary buttons
 
-COLOR_BTN_SUCCESS_BG: Tuple[str, str] = ("#059669", "#10B981")     # Success button background (Emerald)
-COLOR_BTN_SUCCESS_HOVER: Tuple[str, str] = ("#047857", "#059669")  # Success button hover
-COLOR_BTN_SUCCESS_ACTIVE: Tuple[str, str] = ("#065F46", "#047857") # Active success button hover
+COLOR_BTN_SUCCESS_BG: Tuple[str, str] = ("#046C4E", "#047857")     # WCAG compliant Success button background (Emerald 700)
+COLOR_BTN_SUCCESS_HOVER: Tuple[str, str] = ("#03543F", "#065F46")  # Success button hover
+COLOR_BTN_SUCCESS_ACTIVE: Tuple[str, str] = ("#014737", "#046C4E") # Active success button hover
 
-COLOR_BTN_SECONDARY_BG: Tuple[str, str] = ("#E2E8F0", "#334155")   # Secondary button background (Slate)
+COLOR_BTN_SECONDARY_BG: Tuple[str, str] = ("#E2E8F0", "#334155")   # Secondary button background (Slate 200 / 700)
 COLOR_BTN_SECONDARY_HOVER: Tuple[str, str] = ("#CBD5E1", "#475569")# Secondary button hover
 
 COLOR_BTN_NEUTRAL_BG: Tuple[str, str] = ("#F1F5F9", "#1E293B")     # Neutral action button background
@@ -342,7 +342,7 @@ COLOR_TOAST_BORDER: Tuple[str, str] = ("#059669", "#10B981")       # Subtle Emer
 COLOR_TOAST_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")         # High contrast white text
 
 COLOR_ACCENT_WARNING: Tuple[str, str] = ("#F59E0B", "#D97706")     # Warning badge / accent color
-COLOR_ACCENT_SUCCESS: Tuple[str, str] = ("#10B981", "#34D399")     # Success accent color
+COLOR_ACCENT_SUCCESS: Tuple[str, str] = ("#047857", "#34D399")     # WCAG compliant success accent color
 
 # Backward-compatibility aliases for legacy color names
 COL_WHITE = COLOR_TEXT_PRIMARY
