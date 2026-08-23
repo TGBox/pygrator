@@ -67,7 +67,7 @@ class IKLookupService:
         """
         Gibt den Namen der Krankenkasse zu einer gegebenen IK zurück.
         """
-        cleaned_ik = str(ik).strip()
+        cleaned_ik = ik.strip()
         return self.ik_to_provider.get(cleaned_ik, None)
 
     def get_ik_by_provider(self, name: str, cutoff: float = 0.6, fuzzy: bool = True) -> Tuple[Optional[str], Optional[str], float]:
@@ -79,7 +79,7 @@ class IKLookupService:
         :param cutoff: Schwellenwert für die Ähnlichkeit (0.0 bis 1.0)
         :return: Tuple (gefundene_IK, gefundener_Name, similarity_score)
         """
-        cleaned_name = str(name).strip()
+        cleaned_name = name.strip()
         if not cleaned_name:
             return None, None, 0.0
 
