@@ -24,7 +24,8 @@ SCHEMAS = {
         "p_vnr": "VARCHAR(40)",
         "p_vs": "VARCHAR(10)",
         "p_zuzahlungsbefreit_bis": "DATE",
-        "rechnungsempfaenger": "TEXT"
+        "rechnungsempfaenger": "TEXT",
+        "symbole": "VARCHAR(255)"
     },
     "adressen": {
         "id": "VARCHAR(40)",
