@@ -425,7 +425,12 @@ class CSVMappingApp(ctk.CTk):
                 elif "birth" in target_col:
                     self.transformations[target_col] = {'type': 'format_date', 'param': '1900-01-01'}
                 elif "anrede" in target_col:
-                    self.transformations[target_col] = {'type': 'gender'}
+                    has_gender_src = hasattr(self, 'source_df') and self.source_df is not None and any(c.lower() in ["geschlecht", "sex", "gender"] for c in self.source_df.columns)
+                    src_mapped = combo.get().lower() if combo.get() else ""
+                    if has_gender_src and "anrede" not in src_mapped and "salutation" not in src_mapped:
+                        self.transformations[target_col] = {'type': 'gender'}
+                    else:
+                        self.transformations[target_col] = {'type': 'none'}
                 elif "plz" in target_col:
                     city_col: Optional[str] = next((c for c in self.source_df.columns if c.lower() in ["ort", "wohnort", "stadt"]), None)
                     if city_col:
@@ -607,7 +612,16 @@ class CSVMappingApp(ctk.CTk):
         elif 'birth' in target_col.lower() or 'datum' in target_col.lower() or target_col.endswith('_bis'):
             default_rule = 'format_date'
         elif 'anrede' in target_col.lower():
-            default_rule = 'gender'
+            has_gender_src = hasattr(self, 'source_df') and self.source_df is not None and any(c.lower() in ["geschlecht", "sex", "gender"] for c in self.source_df.columns)
+            src_mapped = (
+                self.mapping_dropdowns[target_col].get().lower()
+                if (hasattr(self, 'mapping_dropdowns') and target_col in self.mapping_dropdowns and self.mapping_dropdowns[target_col].get())
+                else ""
+            )
+            if has_gender_src and "anrede" not in src_mapped and "salutation" not in src_mapped:
+                default_rule = 'gender'
+            else:
+                default_rule = 'none'
         elif 'hausnummer' in target_col.lower():
             default_rule = 'split_number'
         elif 'street' in target_col.lower():
@@ -1063,7 +1077,16 @@ class CSVMappingApp(ctk.CTk):
                 elif 'plz' in target_col.lower():
                     rule_type = 'clean_plz'
                 elif 'anrede' in target_col.lower():
-                    rule_type = 'gender'
+                    has_gender_src = hasattr(self, 'source_df') and self.source_df is not None and any(c.lower() in ["geschlecht", "sex", "gender"] for c in self.source_df.columns)
+                    src_mapped = (
+                        self.mapping_dropdowns[target_col].get().lower()
+                        if (hasattr(self, 'mapping_dropdowns') and target_col in self.mapping_dropdowns and self.mapping_dropdowns[target_col].get())
+                        else ""
+                    )
+                    if has_gender_src and "anrede" not in src_mapped and "salutation" not in src_mapped:
+                        rule_type = 'gender'
+                    else:
+                        rule_type = 'none'
                 elif 'hausnummer' in target_col.lower():
                     rule_type = 'split_number'
                 elif 'street' in target_col.lower():
@@ -1161,7 +1184,16 @@ class CSVMappingApp(ctk.CTk):
                 elif 'plz' in target_col.lower():
                     rule_type = 'clean_plz'
                 elif 'anrede' in target_col.lower():
-                    rule_type = 'gender'
+                    has_gender_src = hasattr(self, 'source_df') and self.source_df is not None and any(c.lower() in ["geschlecht", "sex", "gender"] for c in self.source_df.columns)
+                    src_mapped = (
+                        self.mapping_dropdowns[target_col].get().lower()
+                        if (hasattr(self, 'mapping_dropdowns') and target_col in self.mapping_dropdowns and self.mapping_dropdowns[target_col].get())
+                        else ""
+                    )
+                    if has_gender_src and "anrede" not in src_mapped and "salutation" not in src_mapped:
+                        rule_type = 'gender'
+                    else:
+                        rule_type = 'none'
                 elif 'hausnummer' in target_col.lower():
                     rule_type = 'split_number'
                 elif 'street' in target_col.lower():

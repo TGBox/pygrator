@@ -79,4 +79,20 @@ class TestPygratorEngineLogic:
         land_match = next((c for c in source_cols if c.lower() in ["land", "p_wlc", "wlc"]), None)
         assert land_match == "Land"
 
+    def test_anrede_default_rule_without_gender_column(self):
+        # Scenario 1: Source has "Anrede", but no "Geschlecht" column -> default rule must be 'none'
+        source_cols = ["Vorname", "Nachname", "Anrede"]
+        has_gender_src = any(c.lower() in ["geschlecht", "sex", "gender"] for c in source_cols)
+        src_mapped = "anrede"
+        rule = 'gender' if (has_gender_src and "anrede" not in src_mapped and "salutation" not in src_mapped) else 'none'
+        assert rule == 'none'
+
+        # Scenario 2: Source has "Geschlecht", mapped column is "Geschlecht" -> default rule must be 'gender'
+        source_cols_2 = ["Vorname", "Nachname", "Geschlecht"]
+        has_gender_src_2 = any(c.lower() in ["geschlecht", "sex", "gender"] for c in source_cols_2)
+        src_mapped_2 = "geschlecht"
+        rule_2 = 'gender' if (has_gender_src_2 and "anrede" not in src_mapped_2 and "salutation" not in src_mapped_2) else 'none'
+        assert rule_2 == 'gender'
+
+
 
