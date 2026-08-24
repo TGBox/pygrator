@@ -409,11 +409,7 @@ class CSVMappingApp(ctk.CTk):
                 if target_col == "id":
                     self.transformations[target_col] = {'type': 'generate_uid'}
                 elif target_col == "p_nr":
-                    if source_id_col:
-                        combo.set(source_id_col)
-                        self.transformations[target_col] = {'type': 'none'}
-                    else:
-                        self.transformations[target_col] = {'type': 'auto_sequence_6'}
+                    self.transformations[target_col] = {'type': 'copy_target', 'param': 'id'}
                 elif target_col == "ext_id":
                     if source_id_col:
                         combo.set(source_id_col)
@@ -559,7 +555,7 @@ class CSVMappingApp(ctk.CTk):
 
         if rule_type and rule_type != "none":
             rule_title: str = RULE_NAMES.get(rule_type, rule_type)
-            log_suffix: str = " 📋" if rule.get('log_affected') else ""
+            log_suffix: str = " 📋" if rule.get('log_affected', False) else ""
             button_text: str = f"✓ {rule_title} (\"{param}\"){log_suffix}" if param else f"✓ {rule_title}{log_suffix}"
 
             cast(Any, btn).configure(
@@ -600,7 +596,7 @@ class CSVMappingApp(ctk.CTk):
         
         default_rule: str = 'none'
         if target_col == 'p_nr':
-            default_rule = 'auto_sequence_6'
+            default_rule = 'copy_target'
         elif 'plz' in target_col.lower():
             default_rule = 'clean_plz'
         elif target_col == 'id':
@@ -634,6 +630,8 @@ class CSVMappingApp(ctk.CTk):
         combo_copy_target.pack(side="left")
         if existing_rule.get('type') == 'copy_target' and str(existing_rule.get('param')) in other_target_cols:
             combo_copy_target.set(str(existing_rule.get('param')))
+        elif target_col == 'p_nr' and 'id' in other_target_cols:
+            combo_copy_target.set('id')
 
         r_date = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_FORMAT_DATE, variable=rule_type, value="format_date")
         r_date.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
@@ -811,7 +809,7 @@ class CSVMappingApp(ctk.CTk):
         separator_bottom = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
         separator_bottom.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
 
-        var_log_affected = ctk.BooleanVar(value=bool(existing_rule.get('log_affected', False)))
+        var_log_affected = ctk.BooleanVar(value=bool(existing_rule.get('log_affected', True)))
         chk_log_affected = ctk.CTkCheckBox(
             scroll_frame, 
             text=CHK_LOG_AFFECTED_ROWS, 
@@ -965,7 +963,8 @@ class CSVMappingApp(ctk.CTk):
 
         target_schema: Dict[str, str] = SCHEMAS[self.combo_schema.get()]
         should_fill_null: bool = bool(self.chk_fill_null.get())
-        bool_empty_choice: str = self.combo_bool_empty.get().split()[0].upper() if hasattr(self, 'combo_bool_empty') else "FALSE"
+        raw_bool_choice: str = self.combo_bool_empty.get() if hasattr(self, 'combo_bool_empty') else "NULL"
+        bool_empty_choice: str = raw_bool_choice.strip().upper()
 
         def get_default_empty_value(t_col: str) -> str:
             t_type = target_schema.get(t_col, "").upper()
@@ -1109,7 +1108,7 @@ class CSVMappingApp(ctk.CTk):
                         if pd.notna(val) and str(val).strip():
                             email_val: str = str(val).strip()
                             cleaned_email: str = email_val
-                            if self.autocomplete_settings.get("clean_email", True):
+                            if self.autocomplete_settings.get("clean_email", False):
                                 convert_g = self.autocomplete_settings.get("convert_googlemail", False)
                                 clean_u = self.autocomplete_settings.get("clean_umlaute", False)
                                 is_fixed, fixed_email = try_to_fix_email(email_val, convert_googlemail=convert_g, clean_umlaute=clean_u)
@@ -1678,8 +1677,20 @@ class CSVMappingApp(ctk.CTk):
 
         # Erfassung der betroffenen Quellzeilen für Regeln mit aktivierter log_affected-Option
         affected_rows_exports: Dict[str, pd.DataFrame] = {}
+        ignored_default_vals = {"NULL", "FALSE", "0", ""}
         for t_col, rule in self.transformations.items():
-            if rule.get('log_affected'):
+            if rule.get('log_affected', False):
+                r_type = rule.get('type')
+                r_param = str(rule.get('param', '')).strip().upper() if rule.get('param') is not None else ""
+                col_fill_val = get_default_empty_value(t_col).strip().upper()
+
+                if r_type in ("default_value", "static_value") and r_param in ignored_default_vals:
+                    continue
+                if (r_type in (None, "none") or not r_type) and col_fill_val in ignored_default_vals:
+                    continue
+                if r_type == "format_date" and r_param in ignored_default_vals:
+                    continue
+
                 source_col_name: Optional[str] = self.mapping_dropdowns[t_col].get() if t_col in self.mapping_dropdowns else None
                 if source_col_name and source_col_name in self.source_df.columns:
                     series_src = self.source_df[source_col_name]

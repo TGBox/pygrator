@@ -146,7 +146,7 @@ DEFAULT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
     "infer_gender": False,
     "infer_salutation": False,
     "clean_kvnr": False,
-    "clean_email": True,
+    "clean_email": False,
     "convert_googlemail": False,
     "clean_umlaute": False,
 }
@@ -161,7 +161,7 @@ DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
     "infer_city_name": True,
     "infer_plz": True,
     "validate_email": True,
-    "clean_email": True,
+    "clean_email": False,
     "convert_googlemail": False,
     "clean_umlaute": False,
 }
@@ -216,7 +216,7 @@ LBL_AUTOCOMPLETE_DIALOG_SUB = "Welche Regeln sollen beim Import angewendet werde
 
 EXPORT_FORMAT_OPTIONS: List[str] = ["CSV (Semikolon ';')", "CSV (Komma ',')", "Excel (.xlsx)"]
 EXPORT_ENCODING_OPTIONS: List[str] = ["utf-8", "utf-8-sig (Excel CSV)", "cp1252 (Windows)", "iso-8859-1"]
-EXPORT_BOOL_OPTIONS: List[str] = ["FALSE", "NULL"]
+EXPORT_BOOL_OPTIONS: List[str] = ["NULL", "FALSE", "0", ""]
 TXT_SPECIAL_RULE_OPTION = "-- Nicht zuordnen / Spezielle Regel --"
 
 LBL_HEADER_TARGET_COL = "Zielspalte (Datentyp)"

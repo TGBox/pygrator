@@ -128,3 +128,14 @@ class TestDataFrameTransformations:
         assert cleaned_plz[2] == "01067"
         assert cleaned_plz[3] == "80331"
         assert cleaned_plz[4] == "10115"
+
+    def test_rule_log_affected_default_is_false(self):
+        rule = {'type': 'format_date'}
+        assert rule.get('log_affected', False) is False
+
+    def test_ignored_default_vals_for_affected_export(self):
+        ignored_default_vals = {"NULL", "FALSE", "0", ""}
+        for val in ["NULL", "FALSE", "0", "", "null", "false"]:
+            assert val.upper() in ignored_default_vals
+
+

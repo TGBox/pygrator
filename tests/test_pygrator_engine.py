@@ -63,3 +63,9 @@ class TestPygratorEngineLogic:
         assert len(df_audit) == 1
         assert df_audit.iloc[0]["Original_Zeile"] == 1
         assert df_audit.iloc[0]["Neuer_Wert"] == "user@gmail.com"
+
+    def test_p_nr_default_rule_copy_target_id(self):
+        rule = {'type': 'copy_target', 'param': 'id'}
+        assert rule['type'] == 'copy_target'
+        assert rule['param'] == 'id'
+

@@ -109,12 +109,17 @@ class TestExportAndExtraFields:
         assert df_audit.iloc[1]['Original_Zeile'] == 2
 
     def test_boolean_column_default_fill_options(self):
+        from constants import EXPORT_BOOL_OPTIONS, DEFAULT_AUTOCOMPLETE_SETTINGS, DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS
         from schemas import SCHEMAS
+
+        assert EXPORT_BOOL_OPTIONS == ["NULL", "FALSE", "0", ""]
+        assert DEFAULT_AUTOCOMPLETE_SETTINGS["clean_email"] is False
+        assert DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS["clean_email"] is False
 
         target_schema = SCHEMAS["patienten"]
         should_fill_null = True
 
-        for bool_choice in ["FALSE", "NULL"]:
+        for bool_choice in ["NULL", "FALSE", "0", ""]:
             def get_default_empty_value(t_col: str) -> str:
                 t_type = target_schema.get(t_col, "").upper()
                 if t_type in ["BOOLEAN", "BOOL"]:
@@ -140,4 +145,5 @@ class TestExportAndExtraFields:
             assert df.iloc[1]["p_zuzahlungsbefreit"] == bool_choice
             assert df.iloc[0]["p_privatversichert"] == "1"
             assert df.iloc[1]["p_privatversichert"] == bool_choice
+
 
