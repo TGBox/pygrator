@@ -52,26 +52,32 @@ class PLZLookupService:
                     if plz not in self.city_to_plzs[city_key]:
                         self.city_to_plzs[city_key].append(plz)
 
-    def get_city_by_plz(self, plz: str) -> Optional[str]:
+    def get_city_by_plz(self, plz: Optional[str]) -> Optional[str]:
         """
         Gibt den ersten passenden Ortsnamen zu einer PLZ zurück.
         Wenn keine Übereinstimmung gefunden wird, wird None zurückgegeben.
         """
+        if not plz or not plz.strip():
+            return None
         cleaned_plz = plz.strip().zfill(5)
         cities = self.plz_to_cities.get(cleaned_plz)
         if cities:
             return cities[0]  # Ersten/Haupt-Ort zurückgeben
         return None
 
-    def get_all_cities_by_plz(self, plz: str) -> List[str]:
+    def get_all_cities_by_plz(self, plz: Optional[str]) -> List[str]:
         """Gibt ALLE zugeordneten Orte für eine PLZ zurück (z. B. bei Ortsteilen)."""
+        if not plz or not plz.strip():
+            return []
         cleaned_plz = plz.strip().zfill(5)
         return self.plz_to_cities.get(cleaned_plz, [])
 
-    def get_plz_by_city(self, city_name: str) -> Optional[str]:
+    def get_plz_by_city(self, city_name: Optional[str]) -> Optional[str]:
         """
         Gibt die erste passende PLZ zu einem Ortsnamen zurück (Groß-/Kleinschreibung egal).
         """
+        if not city_name or not city_name.strip():
+            return None
         cleaned_city = city_name.strip().lower()
         plzs = self.city_to_plzs.get(cleaned_city)
         if plzs:

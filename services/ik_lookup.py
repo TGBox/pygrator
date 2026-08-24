@@ -63,11 +63,13 @@ class IKLookupService:
                         if provider_name not in self.provider_names_list:
                             self.provider_names_list.append(provider_name)
 
-    def get_provider_by_ik(self, ik: str) -> Optional[str]:
+    def get_provider_by_ik(self, ik: Optional[str]) -> Optional[str]:
         """
         Gibt den Namen der Krankenkasse zu einer gegebenen IK zurück.
         """
-        cleaned_ik = ik.strip()
+        if not ik:
+            return None
+        cleaned_ik = str(ik).strip()
         return self.ik_to_provider.get(cleaned_ik, None)
 
     def get_ik_by_provider(self, name: str, cutoff: float = 0.6, fuzzy: bool = True) -> Tuple[Optional[str], Optional[str], float]:

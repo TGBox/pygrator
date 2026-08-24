@@ -37,6 +37,14 @@ class TestPLZLookupService:
         if plz_muenchen or plz_muenchen_ae:
             assert plz_muenchen is not None or plz_muenchen_ae is not None
 
+    def test_plz_lookup_edge_cases(self):
+        assert self.plz_service.get_city_by_plz("") is None
+        assert self.plz_service.get_city_by_plz(None) is None
+        assert self.plz_service.get_city_by_plz("  ") is None
+        assert self.plz_service.get_plz_by_city("") is None
+        assert self.plz_service.get_plz_by_city(None) is None
+        assert self.plz_service.get_plz_by_city("   ") is None
+
 
 class TestIKLookupService:
     @pytest.fixture(autouse=True)
@@ -65,6 +73,11 @@ class TestIKLookupService:
 
     def test_nonexistent_ik(self):
         assert self.ik_service.get_provider_by_ik("000000000") is None
+        assert self.ik_service.get_provider_by_ik(None) is None
+        assert self.ik_service.get_provider_by_ik("   ") is None
+        assert self.ik_service.get_provider_by_ik("invalid_ik") is None
         ik, name, score = self.ik_service.get_ik_by_provider("", fuzzy=False)
         assert ik is None
+
+
 

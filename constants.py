@@ -61,14 +61,14 @@ RULE_DESCRIPTIONS: Dict[str, str] = {
 # Bekannte akademische und medizinische Titel
 AC_TITLES: List[str] = [
     "Prof. Dr. med. dent.", "Prof. Dr. med.", "PD Dr. med. dent.", "PD Dr. med.", 
-    "Dr. med. dent.", "Dr. med.", "Dr. rer. nat.", "Prof. Dr.",
-    "Dr.", "Prof.", "PD"
+    "Dr. med. dent.", "Dr. med.", "Dr. rer. nat.", "Dr. h.c.", "Prof. Dr.",
+    "Dipl.-Ing.", "Dipl.-Kfm.", "Dr.", "Prof.", "PD"
 ]
 
 # Grundlegende Zuordnungstabelle für Vornamen -> Geschlecht
 AC_GENDER_FIRSTNAMES: Dict[str, Set[str]] = {
-    "m": {"hans", "peter", "christian", "thomas", "sebastian", "stefan", "alexander", "michael"},
-    "w": {"sabine", "amira", "sarah", "elena", "maria", "lisa", "monika", "julia"}
+    "m": {"hans", "peter", "christian", "thomas", "sebastian", "stefan", "alexander", "michael", "max", "jan", "paul", "karl", "jean"},
+    "w": {"sabine", "amira", "sarah", "elena", "maria", "lisa", "monika", "julia", "katharina", "eva", "anna", "erika"}
 }
 
 # Ersetzungstabelle für deutsche Umlaute und Eszett in E-Mails
