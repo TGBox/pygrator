@@ -398,6 +398,9 @@ class CSVMappingApp(ctk.CTk):
                 if src_lower == "versichertennummer" and "p_vnr" in target_lower:
                     combo.set(src_col)
                     break
+                if src_lower in ["land", "p_wlc", "wlc", "länderkürzel", "landcode"] and target_col == "p_wlc":
+                    combo.set(src_col)
+                    break
 
                 if (src_lower in target_lower or target_lower in src_lower) and len(src_lower) > 3:
                     combo.set(src_col)
@@ -420,7 +423,7 @@ class CSVMappingApp(ctk.CTk):
                     else:
                         self.transformations[target_col] = {'type': 'auto_sequence_6'}
                 elif "birth" in target_col:
-                    self.transformations[target_col] = {'type': 'format_date'}
+                    self.transformations[target_col] = {'type': 'format_date', 'param': '1900-01-01'}
                 elif "anrede" in target_col:
                     self.transformations[target_col] = {'type': 'gender'}
                 elif "plz" in target_col:
@@ -643,6 +646,8 @@ class CSVMappingApp(ctk.CTk):
         entry_date_default.pack(side="left")
         if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
             entry_date_default.insert(0, str(existing_rule.get('param')))
+        elif 'birth' in target_col.lower() or 'geb' in target_col.lower():
+            entry_date_default.insert(0, "1900-01-01")
         
         separator = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
         separator.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)

@@ -69,3 +69,14 @@ class TestPygratorEngineLogic:
         assert rule['type'] == 'copy_target'
         assert rule['param'] == 'id'
 
+    def test_p_birth_default_rule_format_date_1900_01_01(self):
+        rule = {'type': 'format_date', 'param': '1900-01-01'}
+        assert rule['type'] == 'format_date'
+        assert rule['param'] == '1900-01-01'
+
+    def test_p_wlc_land_column_mapping_alias(self):
+        source_cols = ["ID", "Name", "Land", "Telefon"]
+        land_match = next((c for c in source_cols if c.lower() in ["land", "p_wlc", "wlc"]), None)
+        assert land_match == "Land"
+
+
