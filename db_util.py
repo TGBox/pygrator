@@ -320,3 +320,29 @@ def compute_file_sha256(file_path: str) -> str:
         return sha256_hash.hexdigest()
     except Exception:
         return "N/A"
+
+def filter_near_empty_rows(df: pd.DataFrame, min_alnum: int = 3) -> pd.DataFrame:
+    """
+    Entfernt Zeilen aus dem DataFrame, die insgesamt weniger als min_alnum alphanumerische Zeichen
+    (Buchstaben, Zahlen) enthalten. Leerzeichen, Tabs, Sonderzeichen und NULL-artige Strings
+    ('null', 'nan', 'none', '<na>') zählen dabei nicht.
+    """
+    if df is None or df.empty:
+        return df
+
+    def keep_row(row: pd.Series) -> bool:
+        count = 0
+        for cell in row:
+            if pd.notna(cell):
+                val_str = str(cell).strip()
+                if val_str.lower() not in NULL_STRING_VALUES:
+                    for char in val_str:
+                        if char.isalnum():
+                            count += 1
+                            if count >= min_alnum:
+                                return True
+        return count >= min_alnum
+
+    mask = df.apply(keep_row, axis=1)
+    filtered_df = cast(pd.DataFrame, df[mask].reset_index(drop=True))
+    return filtered_df

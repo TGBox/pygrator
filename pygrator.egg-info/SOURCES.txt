@@ -8,3 +8,13 @@ pygrator.egg-info/requires.txt
 pygrator.egg-info/top_level.txt
 services/ik_lookup.py
 services/plz_lookup.py
+tests/__init__.py
+tests/test_affected_rows_export.py
+tests/test_auto_complete.py
+tests/test_color_contrast.py
+tests/test_db_util.py
+tests/test_edge_cases.py
+tests/test_export_and_audit.py
+tests/test_pygrator_engine.py
+tests/test_services.py
+tests/test_transformations.py

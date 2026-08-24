@@ -99,3 +99,28 @@ class TestComputeFileSha256:
 
     def test_nonexistent_file(self):
         assert compute_file_sha256("nonexistent_path_file.xyz") == "N/A"
+
+
+class TestFilterNearEmptyRows:
+    def test_filter_empty_and_special_char_rows(self):
+        import pandas as pd
+        from db_util import filter_near_empty_rows
+
+        df = pd.DataFrame({
+            "A": ["Max", "", "  ;  ", "12", "NULL", "äöü"],
+            "B": ["Mustermann", "", "\t", "", "none", ""],
+            "C": ["123", "   ", "---!", " ", "nan", "  "]
+        })
+
+        # Row 0: "Max", "Mustermann", "123" -> 3+ alnum chars (KEPT)
+        # Row 1: "", "", "   " -> 0 alnum chars (DROPPED)
+        # Row 2: "  ;  ", "\t", "---!" -> 0 alnum chars (DROPPED)
+        # Row 3: "12", "", " " -> 2 alnum chars (DROPPED)
+        # Row 4: "NULL", "none", "nan" -> NULL-like strings (DROPPED)
+        # Row 5: "äöü", "", "  " -> 3 German umlaut alnum chars (KEPT)
+
+        filtered = filter_near_empty_rows(df, min_alnum=3)
+        assert len(filtered) == 2
+        assert filtered.iloc[0]["A"] == "Max"
+        assert filtered.iloc[1]["A"] == "äöü"
+

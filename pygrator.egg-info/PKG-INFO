@@ -14,7 +14,7 @@ Requires-Dist: mypy
 
 # Pygrator — CSV Data Mapper & Schema Validator
 
-**Pygrator** ist eine intuitive Desktop-Anwendung mit einer modernen Grafischen Benutzeroberfläche (GUI) auf Basis von Python und `customtkinter`.<br\>
+**Pygrator** ist eine intuitive Desktop-Anwendung mit einer modernen Grafischen Benutzeroberfläche (GUI) auf Basis von Python und `customtkinter`.<br>
 Sie dient der Transformation, Bereinigung, Validierung und Konvertierung von CSV-Datenbeständen in vordefinierte Datenbank-Zielschemata (z. B. für Patienten- oder Adressdatenbanken).
 
 ---
@@ -54,19 +54,19 @@ Sie dient der Transformation, Bereinigung, Validierung und Konvertierung von CSV
   * Erstellt eine detaillierte Kontroll-CSV inkl. Quell-Zeilennummer und exakter Fehlerbeschreibung (`__gefundene_fehler`).
 
 * 🛠️ **Mächtige Transformations- & Validierungsregeln**:
-* **KVNR Auto-Korrektur (`validate_kvnr`)**: Erkennt typische OCR-/Eingabefehler bei Krankenversichertennummern (z. B. Verwechslung von `0` und `O` am Anfang) und stellt gültige KVNRs automatisch wieder her.
+* **KVNR Auto-Korrektur (`validate_kvnr`)**: Erkennt typische OCR-/Eingabefehler bei Krankenversichertennummern (z. B. Verwechslung von `0` und `O` am Anfang) und stellt gültige KVNRs automatisch wieder her, wenn die Korrektur am Ende eine gültige Prüfziffer enthält.
 * **IK-Nummern-Validierung (`validate_ik`)**: Prüft Institutionskennzeichen nach der Prüfziffern-Logik der Gesetzlichen Krankenversicherung.
 * **E-Mail-Validierung (`validate_email`)**: Identifiziert syntaktisch fehlerhafte E-Mail-Adressen.
 * **Straße & Hausnummer trennen**: Extrahiert Straßenname oder Hausnummer zuverlässig – inklusive intelligenter Fallback-Logik für Straßen ohne Hausnummer (z. B. *"Auf den Hüllen"*).
 * **UID-Generierung**: Erzeugt eindeutige, kompakte Base36-IDs basierend auf Zeitstempeln.
-* **Datumsformatierung**: Konvertiert uneinheitliche Datumsformate (`DD.MM.YYYY`, `YYYY/MM/DD`, etc.) zuverlässig in das ISO-Format `YYYY-MM-DD`.
-* **PLZ-Bereinigung**: Entfernt Fließkomma-Reste (`.0`) und füllt Postleitzahlen automatisch auf 5 Stellen auf.
+* **Datumsformatierung**: Konvertiert uneinheitliche Datumsformate (`DD.MM.YYYY`, `YYYY/MM/DD`, etc.) zuverlässig in das ISO-Format `YYYY-MM-DD`. Erlaubt zusätzliches Befüllen von leeren Feldern mit einem einstellbaren Fallbackwert.
+* **PLZ-Bereinigung**: Entfernt Fließkomma-Reste (`.0`).
 * **Geschlechts-Normalisierung**: Konvertiert Kürzel (`M`/`W`/`F`) in Anreden (`Herr`/`Frau`).
-* **Zwei Spalten verknüpfen**: Verknüpft zwei Quellspalten mit Leerzeichen in einer Zielspalte.
+* **Zwei Spalten verknüpfen**: Verknüpft zwei Quellspalten mit Leerzeichen in einer Zielspalte. (z.B. "Straße" und "Hausnummer" => "Straße Hausnummer")
 * **Sonderzeichen-Bereinigung**: Säubert unerwünschte Zeichen in Namen und Freitexten.
 
 * ⚠️ **Zellgenaue VARCHAR-Längenprüfung**: Erkennt Überschreitungen von Datentyp-Begrenzungen im Zielschema und bietet einen Dialog zur Einzel- oder Massenbearbeitung.
-* 🛡️ **Ungemappte Spalten sichern**: Speichert alle nicht zugewiesenen Quellspalten automatisch in einer separaten Restdatei (`REST_UNMAPPED_...csv`), damit keine Daten verloren gehen.
+* 🛡️ **Ungemappte Spalten sichern**: Speichert alle nicht zugewiesenen Quellspalten automatisch in einer separaten Restdatei (`REST_UNMAPPED_...csv`), damit keine Daten verloren gehen.<br>Erlaubt auch die Erstellung für Zusatzdatentabellen für manche Datenbanksysteme.
 * 🎨 **Moderne Benutzeroberfläche**: Basiert auf CustomTkinter mit automatischer Hell-/Dunkelmodus-Anpassung.
 
 ---
@@ -86,7 +86,7 @@ Sie dient der Transformation, Bereinigung, Validierung und Konvertierung von CSV
 
 ### Voraussetzungen
 
-* Python **3.10** oder neuer
+* Python **3.14** oder neuer
 * Betriebssystem: Windows, macOS oder Linux
 
 ### Installation
@@ -134,11 +134,11 @@ Klicke oben links auf **„Quelldatei laden (CSV)“** und wähle deine CSV- ode
 
 ### 2. Zielschema wählen
 
-Wähle aus dem Dropdown-Menü **„Zielschema“** die Zielstruktur der Datenbank aus (z. B. `patienten` oder `adressen`).
+Wähle aus dem Dropdown-Menü **„Zielschema“** die Zielstruktur der Datenbank aus (z. B. `patienten` oder `adressen`).<br>Du kannst in der Datei `schemas.py` auch eigene Definitionen hinzufügen.
 
 ### 3. Spalten-Zuordnung (Mapping)
 
-Die App ordnet Quellspalten anhand Namensgleichheit und einiger weiterer vorab definierter Regeln automatisch zu. Du kannst die Dropdown-Menüs in der Spalte **„Quellspalte (CSV)“** manuell anpassen oder auf `-- Nicht zuordnen / Spezielle Regel --` stellen.
+Die App ordnet Quellspalten anhand Namensgleichheit und einiger weiterer vorab definierter Regeln automatisch zu. Du kannst die Dropdown-Menüs in der Spalte **„Quellspalte (CSV)“** manuell anpassen oder per Rechtsklick auf `-- Nicht zuordnen / Spezielle Regel --` stellen.
 
 ### 4. Transformations- und Validierungsregeln anwenden
 
@@ -168,22 +168,159 @@ Nach der Bestätigung wählst du den Speicherort der verarbeiteten CSV-Datei aus
 
 ---
 
-## 🛠️ Verfügbare Transformations- & Validierungsregeln
+## 🛠️ Spalten-Zuordnungen, Auto-Fix-Muster & Transformationsregeln
 
-| Regel | Kategorie | Beschreibung | Beispiel / Anwendungsfall |
-| --- | --- | --- | --- |
-| 🛡️ **`validate_kvnr`** | Validierung | Behebt O/0-Verwechslungen (`try_to_fix_insurance_number`) & prüft KVNR-Format. | `0123456789` ➔ `O123456789` |
-| 🛡️ **`validate_ik`** | Validierung | Prüft Institutionskennzeichen (9-stellig) nach Prüfziffern-Algorithmus. | `123456789` (Valide) |
-| ✉️ **`validate_email`** | Validierung | Identifiziert fehlerhafte Mail-Syntax. | `user@domain` ➔ Flagged |
-| 🏠 **Straße trennen** | Extraktion | Extrahiert nur den Straßennamen (fällt bei fehlender Hausnummer auf den Volltext zurück). | `Auf den Hüllen` ➔ `Auf den Hüllen` |
-| 🔢 **Hausnummer trennen** | Extraktion | Extrahiert nur die Hausnummer (gibt einen leeren String zurück, falls keine Nummer existiert). | `Im Tiergarten 19` ➔ `19` |
-| 🔗 **Spalten verknüpfen** | Transformation | Fügt zwei Quellspalten mit Leerzeichen zusammen. | `Musterstr.` + `4` ➔ `Musterstr. 4` |
-| 📮 **PLZ bereinigen** | Bereinigung | Entfernt `.0` und füllt auf 5 Stellen auf. | `8033.0` ➔ `08033` |
-| 👫 **Geschlecht mappen** | Mapping | Wandelt `M`/`W`/`F` um. | `M` ➔ `Herr`, `W` ➔ `Frau` |
-| 📅 **Datumsformat** | Konvertierung | Konvertiert Werte zuverlässig in das Format `YYYY-MM-DD`. | `15.08.1985` ➔ `1985-08-15` |
-| 🔑 **Neue UID generieren** | Generierung | Erzeugt eine eindeutige ID im Format `1K2J3X-A8F9B`. | Automatische Primärschlüssel |
-| ✨ **Standardwert** | Fallback | Setzt Ersatzwert bei leeren Feldern. | Leere Zelle ➔ `Unbekannt` |
-| 📌 **Statischer Festwert** | Konstante | Überschreibt alle Zeilen mit einem Festwert. | Statusspalte ➔ `AKTIV` |
+### 🤖 1. Automatische Spalten-Zuweisungen (Auto-Mapping)
+
+Beim Laden einer CSV-Quelldatei führt Pygrator einen automatischen Namensabgleich durch, um Quellspalten den vordefinierten Zielspalten des Zielschemas (z. B. `patienten` oder `adressen`) zuzuordnen:
+
+| Zielspalte(n) im Schema | Erkannte Quellspalten-Namen (Case-Insensitive) | Zuordnungs-Typ / Bedeutung |
+| :--- | :--- | :--- |
+| **`name1`** | `titel` | Akademischer / Medizinischer Titel |
+| **`name2`**, **`p_vname`** | `vorname` | Vorname des Patienten |
+| **`name3`**, **`p_name`** | `nachname` | Nachname des Patienten |
+| **`p_ort`**, **`ort`** | `ort`, `wohnort`, `stadt` | Wohnort / Stadt |
+| **`p_plz`**, **`plz`** | `plz`, `postleitzahl` | Postleitzahl |
+| **`p_birth`**, **`geburtsdatum`** | `geburtsdatum` | Geburtsdatum |
+| **`p_anrede`**, **`anrede`** | `geschlecht` | Anrede / Geschlecht |
+| **`telefonmobil`**, **`mobil`**, **`p_handy`** | `mobil`, `handy`, `mobile`, `telefonmobil` | Mobiltelefonnummer |
+| **`telefon`**, **`p_tel`**, **`tel`** | `telefon`, `p_tel`, `tel`, `telefon1` | Festnetz-Telefonnummer |
+| **`p_telge`** | `telefon2` | Geschäftliche Telefonnummer |
+| **`p_street`**, **`p_hausnummer`** | `strasse`, `straße` | Straßenadresse / Hausnummer |
+| **`p_ik`** | `kas_ik` | Krankenkassen-Institutionskennzeichen (IK) |
+| **`p_vs`** | `status` | Versichertenstatus |
+| **`p_vnr`** | `versichertennummer` | Krankenversichertennummer (KVNR) |
+| **`p_nr`**, **`ext_id`** | `id`, `patient_id`, `patienten_id`, `pat_id`, `lanr` | Eindeutige ID-Spalte aus der Quelldatei |
+| *Substrings (>3 Zeichen)* | Teilstrings aus Quell- & Zielspalten-Namen | Automatische Ähnlichkeitszuordnung |
+
+---
+
+### 2. Auto-Vervollständigungs- & Korrekturmuster (Auto-Fix)
+
+Pygrator enthält intelligente Auto-Korrektur-Algorithmen, um fehlerhafte Eingaben, Tippfehler oder Ablesefehler aus Scans/OCR beim Datenimport automatisch zu reparieren:
+
+#### ✉️ E-Mail-Adressen (`clean_email` / `try_to_fix_email`)
+
+| Fehlerart / Musterschema | Beispiel Quelldaten | Automatisch korrigiertes Ergebnis | angewendete Korrekturregel |
+| :--- | :--- | :--- | :--- |
+| **Umlaute & Eszett** | `jörgen.müller@gmx.de` | `jörgen.müller@gmx.de` | Bleibt standardmäßig unverändert. Kann optional per Auto-Vervollständigungs-Option (`clean_umlaute`) kodierungssicher umgewandelt werden (`ae`, `oe`, `ue`, `ss`). |
+| **Tastaturfehler `Q`/`q` statt `@`** | `m.handelqt-online.de` | `m.handel@t-online.de` | Korrigiert `q`/`Q` (AltGr+Q Tippfehler) vor Domains zu `@`. |
+| **T-Online Tastaturfehler** | `rudipT-online.de` | `rudip@t-online.de` | Ergänzt fehlendes `@` vor `T-online.de`. |
+| **Fehlendes `t` bei T-Online** | `dehner@-online.de` | `dehner@t-online.de` | Repariert `@-online.de` zu `@t-online.de`. |
+| **Fehlerhafter Punkt im Provider** | `max.lauren@t.-online.de` | `max.lauren@t-online.de` | Entfernt Punkte zwischen Provider-Bestandteilen (`t.-online` $\rightarrow$ `t-online`). |
+| **Standard Domain-Tippfehler** | `max.mustermann@gamil.com` | `max.mustermann@gmail.com` | Repariert Schreibfehler (`gamil`, `gmeil`, `gmai` $\rightarrow$ `gmail.com`). |
+| **Googlemail-Erhaltung** | `user@googlemail.com` | `user@googlemail.com` | Bleibt standardmäßig unverändert erhalten. Kann optional per Auto-Vervollständigungs-Option (`convert_googlemail`) zu `@gmail.com` vereinheitlicht werden. |
+| **GMX / Web.de Tippfehler** | `hans.mueller@gmxde` | `hans.mueller@gmx.de` | Führt fehlende TLD-Punkte wieder ein (`gmxde` $\rightarrow$ `gmx.de`, `webde` $\rightarrow$ `web.de`). |
+| **Fehlendes `@` bei Hauptdomains** | `usernamegmx.de` | `username@gmx.de` | Fügt `@` vor bekannten Provider-Domains (`gmx`, `web`, `gmail`, `hotmail`, `outlook`) ein. |
+| **Formatierung & Klammern** | `(user@domain.de.)` | `user@domain.de` | Entfernt umschließende Satzzeichen/Klammern und bereinigt `@@` zu `@`. |
+| **Mehrfach-E-Mails** | `a@b.de; c@d.de` | *Keine Auto-Korrektur* | Bleibt für die manuelle Prüfung im Validierungsdialog erhalten. |
+
+#### 🆔 Krankenversichertennummer / KVNR (`clean_kvnr` / `try_to_fix_insurance_number`)
+
+| Fehlerart / OCR-Muster | Beispiel Quelldaten | Korrigiertes Ergebnis | angewendete Korrekturregel |
+| :--- | :--- | :--- | :--- |
+| **Form `JO12345678`** | `JO12345678` | `J012345678` | Ersetzt `O` an 2. Stelle durch `0` (sofern Modulo-10-Prüfziffer valide). |
+| **Form `0123456789`** | `0123456789` | `O123456789` | Ersetzt führende `0` durch den passenden Buchstaben `O`. |
+| **Form `1200006986`** | `1200006986` | `I200006986` | Ersetzt führende `1` durch den Buchstaben `I`. |
+| **Sonderzeichen `)`** | `)823672510` | `O823672510` | Korrigiert führende Klammer `)` zu `O`. |
+| **Sonderzeichen `(`** | `(823672510` | `I823672510` | Korrigiert führende Klammer `(` zu `I`. |
+| **Sonderzeichen `=` / `/`** | `=823672510` | `P823672510` | Korrigiert `=` zu `P` bzw. `/` zu `U`. |
+
+#### 🏢 Institutionskennzeichen / IK (`validate_ik` / `validate_ik_number`)
+
+| Eingabewert | Korrigiertes Ergebnis | Korrekturregel |
+| :--- | :--- | :--- |
+| `26012345.0` | `260123456` | Entfernt `.0` und prüft Stelle 9 auf Modulo-10 Prüfziffer. |
+
+> **Hinweis zur automatischen Regel-Aktivierung:** Die Validierungsregeln `validate_ik`, `validate_kvnr` und `validate_email` werden beim Laden einer Datei nur dann automatisch aktiviert, wenn von Anfang an eine passende Quellspalte der jeweiligen Zielspalte zugeordnet wurde.
+
+#### 🎓 Titel & Namen (`split_title` / `extract_title_and_clean_name`)
+
+| Eingabewert | Extrahierter Titel | Bereinigter Name | Korrekturregel |
+| :--- | :--- | :--- | :--- |
+| `Prof. Dr. med. dent. Max Mustermann` | `Prof. Dr. med. dent.` | `Max Mustermann` | Trennt akademische & medizinische Titel ab. |
+
+#### ⚥ Geschlecht & Anrede (`infer_gender` / `infer_salutation`)
+
+| Vorname | Ermitteltes Geschlecht | Generierte Anrede | Korrekturregel |
+| :--- | :--- | :--- | :--- |
+| `Sebastian` | `männlich` | `Herr` | Gleicht den Vornamen ab und erzeugt die passende Anrede. |
+| `Elena` | `weiblich` | `Frau` | Gleicht den Vornamen ab und erzeugt die passende Anrede. |
+
+#### 📮 Postleitzahl (`clean_plz` / `format_plz`)
+
+| Eingabewert | Korrigiertes Ergebnis | Korrekturregel |
+| :--- | :--- | :--- |
+| `08033.0` | `08033` | Entfernt Fließkomma-Reste (`.0`). |
+
+#### 📅 Datum (`format_date` / `format_date_iso`)
+
+| Eingabewert | Korrigiertes Ergebnis | Korrekturregel |
+| :--- | :--- | :--- |
+| `15.08.1985` | `1985-08-15` | Wandelt deutsche und internationale Datumsformate in den ISO-Standard `YYYY-MM-DD` um. |
+
+---
+
+### ⚙️ 3. Alle anwendbaren Transformations- & Validierungsregeln
+
+Übersicht aller 17 in Pygrator konfigurierbaren Regeln:
+
+| Technischer Schlüssel | Name in der GUI | Kategorie | Beschreibung & Funktionsweise |
+| :--- | :--- | :--- | :--- |
+| **`generate_uid`** | **UID generieren** | Generierung | Erzeugt eine eindeutige, kompakte Base36-ID für Primärschlüssel. |
+| **`copy_target`** | **Kopieren aus** | Zuordnung | Kopiert den Wert direkt aus einer auswählbaren Quellspalte. |
+| **`format_date`** | **Datum (YYYY-MM-DD)** | Konvertierung | Formatiert Datumsangaben in das Standard-ISO-Format `YYYY-MM-DD`. |
+| **`default_value`** | **Standardwert** | Fallback | Ersetzt leere Zellen oder `NULL`-Werte durch einen definierten Ersatzwert. |
+| **`static_value`** | **Festwert** | Konstante | Belegt alle Zeilen der Zielspalte mit einem statischen Text oder Wert. |
+| **`clean_plz`** | **PLZ (5-stellig)** | Bereinigung | Säubert Fließkommazahlen (`.0`) und bringt PLZs auf genau 5 Ziffern. |
+| **`gender`** | **Geschlecht->Anrede** | Mapping | Wandelt Geschlechtskürzel oder Vornamen in Anreden (`Herr`/`Frau`) um. |
+| **`split_street`** | **Nur Straße** | Extraktion | Extrahiert nur den Straßennamen aus einem kombinierten Adressfeld. |
+| **`split_number`** | **Nur Hausnummer** | Extraktion | Extrahiert nur die Hausnummer aus einem kombinierten Adressfeld. |
+| **`split_title`** | **Nur Titel** | Extraktion | Extrahiert akademische & medizinische Titel (z. B. `Dr. med.`) aus einem Namensfeld. |
+| **`split_name_without_title`** | **Name ohne Titel** | Extraktion | Entfernt akademische Titel und übernimmt ausschließlich den Namen in das Zielfeld. |
+| **`merge_columns`** | **Spalten zusammenführen** | Transformation | Verknüpft zwei Quellspalten mit Leerzeichen in einer Zielspalte. |
+| **`lookup_ik_provider`** | **Krankenkasse aus IK** | Stimmigkeit | Ermittelt den Krankenkassennamen anhand des Institutionskennzeichens (IK). |
+| **`lookup_plz_by_city`** | **PLZ aus Ort ergänzen** | Stimmigkeit | Ermittelt und ergänzt die Postleitzahl basierend auf dem Ortsnamen. |
+| **`lookup_city_by_plz`** | **Ort aus PLZ ergänzen** | Stimmigkeit | Ermittelt und ergänzt den Ortsnamen basierend auf der 5-stelligen PLZ. |
+| **`validate_ik`** | **IK-Nummer prüfen** | Validierung | Validiert 9-stellige Institutionskennzeichen inkl. Prüfziffer (wird nur bei zugeordneter Quellspalte automatisch aktiviert). |
+| **`validate_kvnr`** | **Versichertennr. prüfen** | Validierung | Korrigiert O/0-Ablesefehler und prüft KVNR-Format inkl. Modulo-10 (wird nur bei zugeordneter Quellspalte automatisch aktiviert). |
+| **`validate_email`** | **E-Mail prüfen** | Validierung | Validiert Mail-Syntax und wendet umfassende Auto-Fix-Logik an. |
+| **`auto_sequence_6`** | **Lineare Nummerierung (6-stellig)** | Generierung | Erzeugt eine fortlaufende 6-stellige Nummer (z. B. `000001`, `000002`). |
+
+---
+
+## 🔍 4. Revisionskontrolle, Audit-Protokollierung & SHA-256 Fingerabdrücke
+
+Wenn die Option **"Prüfprotokoll beim Export erzeugen"** (`chk_audit_export`) aktiviert ist, generiert Pygrator bei jedem Export ein vollständiges, rechtssicheres Revisions- und Änderungsprotokoll (in Excel als zusätzliche Tabellenblätter `Regelübersicht` und `Änderungskontrolle`, bei CSV-Exports als separate Zusatzdateien `_regeluebersicht.csv` und `_aenderungsprotokoll.csv`).
+
+### 🛡️ SHA-256 Fingerabdrücke & Revisions-Statistik (`Regelübersicht`)
+
+Die `Regelübersicht` enthält kryptografische SHA-256 Fingerabdrücke sowie eine detaillierte Revisions-Statistik:
+
+- **Quelldatei SHA-256**: Kryptografischer Fingerabdruck der geladenen Originaldatei.
+- **Zieldatei SHA-256**: Kryptografischer Fingerabdruck der exportierten Zieldatei.
+- **Statistischer Revisions-Kopf**:
+  - Gesamtzahl verarbeiteter Zeilen
+  - Protokollierte Ereignisse (Gesamt)
+  - Anzahl automatischer Regel-Korrekturen
+  - Anzahl manueller Dialog-Korrekturen
+  - Anzahl manuell beibehaltener Abweichungen (*Keep*)
+- **Dynamischer Ausführungs-Zähler (`Anzahl Anwendungen`)**:
+  - Jede ausgeführte Regel und Dialog-Aktion enthält die Spalte `Anzahl Anwendungen`, die exakt dokumentiert, wie oft diese Regel in der gesamten Datei angewendet wurde.
+  - **Ausschluss ungenutzter Regeln**: Regeln, die vor dem Export abgewählt wurden oder kein einziges Mal zum Einsatz kamen (0 Treffer), werden **vollständig aus der Regelübersicht ausgeblendet**.
+
+### 📝 Protokollierung aller Dialog-Entscheidungen (`Änderungskontrolle`)
+
+Jede Änderung sowie jede explizite Nutzerentscheidung in interaktiven Dialogen wird zeilengenau protokolliert:
+
+| Regelname im Protokoll | Auslösender Dialog | Beschreibung & Nachvollziehbarkeit |
+| :--- | :--- | :--- |
+| **`Dialog: Sonderzeichen bereinigt`** | Sonderzeichen-Bereinigung | Nach Ihrer Vorschau-Freigabe bereinigte Steuer- oder Sonderzeichen im Quelltext. |
+| **`Dialog: Ungültigen Wert geleert (NULL)`** | Validierungs-Korrektur | Von Ihnen autorisiertes Leeren ungültiger Felder (z. B. fehlerhafte IK, KVNR oder E-Mail). |
+| **`Dialog: Manuelle Korrektur eingegeben`** | Validierungs-Korrektur | Von Ihnen manuell im Korrektur-Dialog eingegebener Ersatzwert. |
+| **`Dialog: Wert trotz Validierungsfehler beibehalten`** | Validierungs-Korrektur | **Explizite Nutzerentscheidung**: Sie haben im Dialog veranlasst, den ungültigen Wert unverändert zu belassen (*keep*). |
+| **`Dialog: Zeichenkette auf Max-Länge gekürzt`** | Überlängen-Dialog | Von Ihnen im Dialog bestätigte Kürzung eines Feldes auf das `VARCHAR`-Limit. |
+| **`Dialog: Überlangen Wert trotz Limit beibehalten`** | Überlängen-Dialog | **Explizite Nutzerentscheidung**: Sie haben entschieden, das Zeichenlimit für diesen Wert zu übergehen. |
 
 ---
 

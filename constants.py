@@ -209,12 +209,14 @@ CHK_FILL_NULL = "Unbelegte Felder mit 'NULL' auffüllen (statt leerem Text)"
 CHK_CLEAN_STRINGS = "String-Werte bereinigen (Trim & Steuerzeichen entfernen)"
 LBL_EXPORT_FORMAT = "Export-Format:"
 LBL_ENCODING = "Encoding:"
+LBL_BOOL_EMPTY = "Boolean-Leerwerte:"
 CHK_AUDIT_EXPORT = "📋 Regelübersicht & Änderungskontroll-Protokoll generieren"
 BTN_PROCESS_EXPORT = "Prüfen & Exportieren"
 LBL_AUTOCOMPLETE_DIALOG_SUB = "Welche Regeln sollen beim Import angewendet werden?"
 
 EXPORT_FORMAT_OPTIONS: List[str] = ["CSV (Semikolon ';')", "CSV (Komma ',')", "Excel (.xlsx)"]
-EXPORT_ENCODING_OPTIONS: List[str] = ["utf-8-sig (Excel CSV)", "utf-8", "cp1252 (Windows)", "iso-8859-1"]
+EXPORT_ENCODING_OPTIONS: List[str] = ["utf-8", "utf-8-sig (Excel CSV)", "cp1252 (Windows)", "iso-8859-1"]
+EXPORT_BOOL_OPTIONS: List[str] = ["FALSE", "NULL"]
 TXT_SPECIAL_RULE_OPTION = "-- Nicht zuordnen / Spezielle Regel --"
 
 LBL_HEADER_TARGET_COL = "Zielspalte (Datentyp)"

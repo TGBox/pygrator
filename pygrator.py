@@ -43,7 +43,8 @@ from db_util import (
     validate_ik_number, 
     validate_insurance_number, 
     validate_email,
-    compute_file_sha256
+    compute_file_sha256,
+    filter_near_empty_rows
 )
 from schemas import SCHEMAS
 from dialogs import center_window, ExtraFieldsDialog, RowValidationDialog, ValidationFixDialog, StringCleanupPreviewDialog
@@ -185,6 +186,15 @@ class CSVMappingApp(ctk.CTk):
         )
         self.combo_encoding.grid(row=1, column=1, padx=PADDING_XS, pady=2)
 
+        # Boolean Leerwerte-Auswahl
+        ctk.CTkLabel(export_opts_frame, text=LBL_BOOL_EMPTY, font=LABEL_FONT_BOLD).grid(row=2, column=0, sticky="w", padx=PADDING_XS)
+        self.combo_bool_empty = ctk.CTkOptionMenu(
+            export_opts_frame,
+            values=EXPORT_BOOL_OPTIONS,
+            width=OPTIONS_MENU_WIDTH
+        )
+        self.combo_bool_empty.grid(row=2, column=1, padx=PADDING_XS, pady=2)
+
         # Rechter Bereich: Buttons für Inspektion und Export
         btn_frame = ctk.CTkFrame(bottom_frame, fg_color="transparent")
         btn_frame.pack(side="right", padx=PADDING_M, pady=PADDING_M)
@@ -289,6 +299,7 @@ class CSVMappingApp(ctk.CTk):
                     continue
 
         if loaded_df is not None:
+            loaded_df = filter_near_empty_rows(loaded_df, min_alnum=3)
             self.source_df = loaded_df
             self.source_file_path = file_path
             cast(Any, self.lbl_file).configure(
@@ -946,6 +957,7 @@ class CSVMappingApp(ctk.CTk):
 
         assert self.source_df is not None
 
+        self.source_df = filter_near_empty_rows(self.source_df, min_alnum=3)
         raw_source_df: pd.DataFrame = self.source_df.copy()
         out_df: pd.DataFrame = pd.DataFrame()
         mapped_source_cols: Set[str] = set()
@@ -953,6 +965,14 @@ class CSVMappingApp(ctk.CTk):
 
         target_schema: Dict[str, str] = SCHEMAS[self.combo_schema.get()]
         should_fill_null: bool = bool(self.chk_fill_null.get())
+        bool_empty_choice: str = self.combo_bool_empty.get().split()[0].upper() if hasattr(self, 'combo_bool_empty') else "FALSE"
+
+        def get_default_empty_value(t_col: str) -> str:
+            t_type = target_schema.get(t_col, "").upper()
+            if t_type in ["BOOLEAN", "BOOL"]:
+                return bool_empty_choice if should_fill_null else ""
+            return "NULL" if should_fill_null else ""
+
         default_empty_value: str = "NULL" if should_fill_null else ""
 
         copy_rules: Dict[str, str] = {}
@@ -1366,7 +1386,8 @@ class CSVMappingApp(ctk.CTk):
                         series = (series + " " + s2).str.strip()
 
                 if should_fill_null and rule_type != "default_value" and not (rule_type == "format_date" and rule.get('param')):
-                    series = series.replace(r'^\s*$', "NULL", regex=True).fillna("NULL")
+                    target_empty = get_default_empty_value(target_col)
+                    series = series.replace(r'^\s*$', target_empty, regex=True).fillna(target_empty)
                 elif not should_fill_null:
                     series = series.replace(r'^\s*$', "", regex=True).fillna("")
 
@@ -1378,7 +1399,7 @@ class CSVMappingApp(ctk.CTk):
                 elif rule_type == "format_date" and rule.get('param'):
                     out_df[target_col] = str(rule.get('param'))
                 else:
-                    out_df[target_col] = default_empty_value
+                    out_df[target_col] = get_default_empty_value(target_col)
         
         if invalid_records:
             dialog: ValidationFixDialog = ValidationFixDialog(self, invalid_records)
@@ -1465,11 +1486,11 @@ class CSVMappingApp(ctk.CTk):
 
         out_df = cast(pd.DataFrame, out_df[list(target_schema.keys())])
 
-        fill_val: str = "NULL" if should_fill_null else ""
         for col in out_df.columns:
-            out_df[col] = out_df[col].fillna(fill_val)
+            col_fill_val: str = get_default_empty_value(col)
+            out_df[col] = out_df[col].fillna(col_fill_val)
             out_df[col] = out_df[col].astype(str).apply(
-                lambda x: fill_val if x.strip().lower() in ["nan", "none", "null", "<na>", ""] or (not should_fill_null and x.strip() == "NULL") else x.strip()
+                lambda x, fv=col_fill_val: fv if x.strip().lower() in ["nan", "none", "null", "<na>", ""] or (not should_fill_null and x.strip() == "NULL") else x.strip()
             )
 
         # PASS 3: Überlängen-Erfassung
@@ -1555,6 +1576,8 @@ class CSVMappingApp(ctk.CTk):
         if not export_path:
             return
         
+        enc_choice: str = self.combo_encoding.get().split()[0] if hasattr(self, 'combo_encoding') else "utf-8"
+
         if extra_fields_mappings:
             property_rows: List[Dict[str, Any]] = []
             for item in extra_fields_mappings:
@@ -1599,14 +1622,13 @@ class CSVMappingApp(ctk.CTk):
             path_property: str = os.path.join(output_dir, "pat_property.csv")
             path_property_map: str = os.path.join(output_dir, "pat_property_map.csv")
 
-            df_pat_property.to_csv(path_property, index=False, sep=";", encoding="utf-8-sig")
-            df_pat_property_map.to_csv(path_property_map, index=False, sep=";", encoding="utf-8-sig")
+            df_pat_property.to_csv(path_property, index=False, sep=";", encoding=enc_choice)
+            df_pat_property_map.to_csv(path_property_map, index=False, sep=";", encoding=enc_choice)
 
         # SHA-256 Fingerabdrücke und Revisions-Statistiken aufbereiten
         source_sha256 = compute_file_sha256(self.source_file_path) if hasattr(self, 'source_file_path') and self.source_file_path else "N/A"
 
         _, ext = os.path.splitext(export_path)
-        enc_choice = self.combo_encoding.get().split()[0] if hasattr(self, 'combo_encoding') else "utf-8-sig"
         schema_sheet_name = self.combo_schema.get().capitalize()
 
         if ext.lower() == ".xlsx":
