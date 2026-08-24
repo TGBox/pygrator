@@ -34,7 +34,7 @@ from tkinter import filedialog, messagebox
 # TODO: Add a way to implement input schemas for specific export types from different other software companies.
     # TODO: Add a way to add new schemas based on the currently processed input table.
 
-from auto_complete import extract_title_and_clean_name, try_to_fix_insurance_number, try_to_fix_email
+from auto_complete import extract_title_and_clean_name, try_to_fix_insurance_number, try_to_fix_email, try_to_fix_salutation
 from db_util import (
     format_date_iso, 
     generate_id, 
@@ -1038,6 +1038,19 @@ class CSVMappingApp(ctk.CTk):
                                     record_change(r_i, target_col, orig_k, cleaned_k, RULE_NAMES.get("clean_kvnr", "KVNR-Format bereinigen"))
                             self.source_df[src_c] = self.source_df[src_c].astype(str).str.upper().str.replace("O", "0")
 
+            if self.autocomplete_settings.get("clean_salutation", True):
+                for target_col, dropdown in self.mapping_dropdowns.items():
+                    if 'anrede' in target_col.lower() or 'salutation' in target_col.lower() or target_col in ('p_anrede', 'anrede'):
+                        src_c = dropdown.get()
+                        if src_c and src_c in self.source_df.columns:
+                            for r_i in range(row_count):
+                                orig_sal = str(raw_source_df.at[r_i, src_c])
+                                is_fixed, fixed_sal = try_to_fix_salutation(orig_sal)
+                                if is_fixed:
+                                    track_rule_execution("clean_salutation")
+                                    record_change(r_i, target_col, orig_sal, fixed_sal, RULE_NAMES.get("clean_salutation", "Anrede vereinheitlichen"))
+                                    self.source_df.at[r_i, src_c] = fixed_sal
+
         for target_col, _ in target_schema.items():
             rule: Dict[str, Any] = self.transformations.get(target_col, {})
             rule_type: Optional[str] = rule.get('type') if rule else None
@@ -1163,7 +1176,11 @@ class CSVMappingApp(ctk.CTk):
                     r_idx = row.name
                     val: Any = row[source_col] if (source_col and source_col in self.source_df.columns) else None
                     if pd.notna(val) and str(val).strip():
-                        return str(val).strip().zfill(PADDING_S)
+                        v_str = str(val).strip()
+                        cleaned_v = re.sub(r'^(D|DE)-', '', re.sub(r'\.0$', '', v_str), flags=re.IGNORECASE)
+                        if cleaned_v.isdigit() and len(cleaned_v) <= 5:
+                            return cleaned_v.zfill(5)
+                        return cleaned_v
                     if city_source_col and city_source_col in self.source_df.columns:
                         city_val: Any = row[city_source_col]
                         if pd.notna(city_val) and str(city_val).strip():
@@ -1320,19 +1337,27 @@ class CSVMappingApp(ctk.CTk):
                         val_str: str = str(val).strip() if pd.notna(val) else ""
                         if not val_str or val_str.lower() in ['nan', 'null', 'none', '']:
                             return ""
-                        cleaned: str = re.sub(r'\.0$', '', val_str)
-                        if cleaned.isdigit() and len(cleaned) <= PADDING_S:
-                            return cleaned.zfill(PADDING_S)
+                        cleaned: str = re.sub(r'^(D|DE)-', '', re.sub(r'\.0$', '', val_str), flags=re.IGNORECASE)
+                        if cleaned.isdigit() and len(cleaned) <= 5:
+                            return cleaned.zfill(5)
                         return cleaned
                     series = series.apply(format_plz)
 
                 elif rule_type == "gender":
+                    should_clean_sal = self.autocomplete_settings.get("clean_salutation", True) if hasattr(self, 'autocomplete_settings') else True
                     mapping_dict: Dict[str, str] = {
-                        "M": "Herr", "m": "Herr", "HERR": "Herr", "Herr": "Herr", "männlich": "Herr", "1": "Herr",
-                        "W": "Frau", "w": "Frau", "FRAU": "Frau", "Frau": "Frau", "weiblich": "Frau", "F": "Frau", "f": "Frau", "2": "Frau"
+                        "M": "Herr", "m": "Herr", "HERR": "Herr", "Herr": "Herr", "männlich": "Herr", "1": "Herr", "H": "Herr", "h": "Herr", "Hr": "Herr", "hr": "Herr", "Herrn": "Herr",
+                        "W": "Frau", "w": "Frau", "FRAU": "Frau", "Frau": "Frau", "weiblich": "Frau", "F": "Frau", "f": "Frau", "2": "Frau", "Fr": "Frau", "fr": "Frau", "Fräulein": "Frau", "fraulein": "Frau", "Frl": "Frau",
+                        "D": "Divers", "d": "Divers", "Di": "Divers", "di": "Divers", "Div": "Divers", "div": "Divers", "Divers": "Divers", "X": "Divers", "x": "Divers"
                     }
                     def _map_gender(val: Any) -> str:
+                        if pd.isna(val) or not str(val).strip():
+                            return default_empty_value
                         s_val = str(val).strip()
+                        if should_clean_sal:
+                            is_fixed, fixed_s = try_to_fix_salutation(s_val)
+                            if is_fixed:
+                                return fixed_s
                         return mapping_dict.get(s_val, s_val if s_val else default_empty_value)
                         
                     series = series.apply(_map_gender)

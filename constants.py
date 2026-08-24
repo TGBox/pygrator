@@ -23,7 +23,8 @@ RULE_NAMES: Dict[str, str] = {
     "validate_ik": "IK-Nummer prüfen",
     "validate_kvnr": "Versichertennr. prüfen",
     "validate_email": "E-Mail prüfen",
-    "auto_sequence_6": "Lineare Nummerierung (6-stellig)"
+    "auto_sequence_6": "Lineare Nummerierung (6-stellig)",
+    "clean_salutation": "Anrede vereinheitlichen"
 }
 
 RULE_DESCRIPTIONS: Dict[str, str] = {
@@ -50,6 +51,7 @@ RULE_DESCRIPTIONS: Dict[str, str] = {
     "infer_salutation": "Leitet automatisch die passende Anrede (Herr/Frau) basierend auf dem Vornamen oder Geschlecht ab.",
     "clean_kvnr": "Korrigiert typische Eingabefehler in Krankenversichertennummern automatisch.",
     "clean_email": "Korrigiert fehlerhaft formatierte E-Mail-Adressen automatisch.",
+    "clean_salutation": "Normalisiert uneinheitliche Anreden (z. B. 'Fr'/'Fräulein' zu 'Frau', 'Hr'/'Herrn' zu 'Herr', 'D'/'Div' zu 'Divers') automatisch.",
     "varchar_limit": "Kürzt Werte, die das maximale Zeichenlimit des Zielfelds in der Ziel-Datenbank überschreiten.",
     "string_cleanup": "Bereinigt Steuerzeichen, doppelte Leerzeichen und unerwünschte Sonderzeichen aus Freitextfeldern."
 }
@@ -149,6 +151,7 @@ DEFAULT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
     "clean_email": False,
     "convert_googlemail": False,
     "clean_umlaute": False,
+    "clean_salutation": True,
 }
 
 # Default Auto-Complete UI Einstellungen (ImportApp)
@@ -164,10 +167,12 @@ DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS: Dict[str, bool] = {
     "clean_email": False,
     "convert_googlemail": False,
     "clean_umlaute": False,
+    "clean_salutation": True,
 }
 
 # Optionen für das Auto-Complete Einstellungsfenster
 AUTOCOMPLETE_OPTIONS_LIST: List[Tuple[str, str]] = [
+    ("clean_salutation", "✉️ Anreden automatisch vereinheitlichen ('Fr'/'Fräulein'->'Frau', 'Hr'/'Herrn'->'Herr', 'D'/'Div'->'Divers')"),
     ("infer_gender", "⚥ Geschlecht anhand des Vornamens erraten"),
     ("infer_salutation", "✉️ Anrede (Herr/Frau) aus Geschlecht/Name abstatten"),
     ("clean_kvnr", "🆔 KVNR-Ablesefehler automatisch korrigieren ('O' -> '0', Modulo-10 Auto-Fix)"),

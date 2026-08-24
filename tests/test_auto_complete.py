@@ -5,6 +5,7 @@ from auto_complete import (
     infer_gender_and_salutation,
     try_to_fix_insurance_number,
     try_to_fix_email,
+    try_to_fix_salutation,
 )
 
 
@@ -132,3 +133,33 @@ class TestTryToFixEmail:
         assert try_to_fix_email("") == (False, "")
         assert try_to_fix_email(None) == (False, "")
         assert try_to_fix_email(float("nan")) == (False, "")
+
+
+class TestTryToFixSalutation:
+    def test_female_salutations(self):
+        for val in ["Fr", "F", "Fräulein", "Fraulein", "Frl.", "w", "weiblich"]:
+            fixed, res = try_to_fix_salutation(val)
+            assert fixed is True
+            assert res == "Frau"
+
+    def test_male_salutations(self):
+        for val in ["Herrn", "H", "Hr", "Hr.", "m", "männlich"]:
+            fixed, res = try_to_fix_salutation(val)
+            assert fixed is True
+            assert res == "Herr"
+
+    def test_diverse_salutations(self):
+        for val in ["D", "Di", "Div", "Div.", "divers", "x"]:
+            fixed, res = try_to_fix_salutation(val)
+            assert fixed is True
+            assert res == "Divers"
+
+    def test_already_standardized(self):
+        assert try_to_fix_salutation("Frau") == (False, "Frau")
+        assert try_to_fix_salutation("Herr") == (False, "Herr")
+        assert try_to_fix_salutation("Divers") == (False, "Divers")
+
+    def test_empty_and_none(self):
+        assert try_to_fix_salutation("") == (False, "")
+        assert try_to_fix_salutation(None) == (False, "")
+

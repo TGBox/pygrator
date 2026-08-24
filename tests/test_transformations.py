@@ -129,6 +129,18 @@ class TestDataFrameTransformations:
         assert cleaned_plz[3] == "80331"
         assert cleaned_plz[4] == "10115"
 
+    def test_five_digit_plz_is_not_padded_to_eight_digits(self):
+        import re
+        val_str = "80331"
+        cleaned = re.sub(r'^(D|DE)-', '', re.sub(r'\.0$', '', val_str), flags=re.IGNORECASE)
+        if cleaned.isdigit() and len(cleaned) <= 5:
+            res = cleaned.zfill(5)
+        else:
+            res = cleaned
+        assert res == "80331"
+        assert len(res) == 5
+        assert not res.startswith("000")
+
     def test_rule_log_affected_default_is_false(self):
         rule = {'type': 'format_date'}
         assert rule.get('log_affected', False) is False

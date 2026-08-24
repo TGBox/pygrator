@@ -199,3 +199,32 @@ def try_to_fix_email(email: Any, convert_googlemail: bool = False, clean_umlaute
         return True, cleaned_email
 
     return False, orig
+
+
+def try_to_fix_salutation(salutation: Any) -> tuple[bool, str]:
+    """Normalisiert uneinheitliche oder abgekürzte Anreden (z. B. 'Fr', 'Fräulein' -> 'Frau', 'Hr', 'Herrn' -> 'Herr', 'D', 'Div' -> 'Divers')."""
+    if not salutation:
+        return False, ""
+    s_str = str(salutation).strip()
+    if not s_str or s_str.lower() in NULL_STRING_VALUES:
+        return False, ""
+
+    s_lower = s_str.lower().rstrip(".")
+
+    female_variants = {"fr", "f", "fräulein", "fraulein", "frl", "frau", "weiblich", "w"}
+    male_variants = {"hr", "h", "herrn", "herr", "männlich", "maennlich", "m"}
+    diverse_variants = {"d", "di", "div", "divers", "diverses", "x", "d/x"}
+
+    if s_lower in female_variants:
+        normalized = "Frau"
+    elif s_lower in male_variants:
+        normalized = "Herr"
+    elif s_lower in diverse_variants:
+        normalized = "Divers"
+    else:
+        return False, s_str
+
+    if s_str != normalized:
+        return True, normalized
+    return False, s_str
+
