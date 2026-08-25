@@ -1,6 +1,6 @@
 import os
 import tempfile
-import pytest
+import pytest # type: ignore
 from db_util import (
     validate_insurance_number,
     validate_ik_number,

@@ -12,6 +12,7 @@ tests/__init__.py
 tests/test_affected_rows_export.py
 tests/test_auto_complete.py
 tests/test_color_contrast.py
+tests/test_comprehensive_edge_cases.py
 tests/test_db_util.py
 tests/test_edge_cases.py
 tests/test_export_and_audit.py
