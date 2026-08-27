@@ -69,7 +69,7 @@ class IKLookupService:
         """
         if not ik:
             return None
-        cleaned_ik = str(ik).strip()
+        cleaned_ik = ik.strip()
         return self.ik_to_provider.get(cleaned_ik, None)
 
     def get_ik_by_provider(self, name: str, cutoff: float = 0.6, fuzzy: bool = True) -> Tuple[Optional[str], Optional[str], float]:
