@@ -3,8 +3,8 @@
 (B) 2026-07-31 Matching Regeln für Spalten sollten so aufgebaut werden, dass immer auch nach Teilstrings gesucht wird, wenn das exakte Matching nicht geklappt hat. Aktuell wird z.B. "IK_Nr" nicht als Spalte "IK" erkannt. +Validation @code
 (B) 2026-07-31 Feldwert-Validierung für weitere Felder implementieren +Validation @code
 (C) 2026-07-31 Input-Schemas für Export-Typen anderer Softwarehersteller unterstützen (inkl. Schema-Erstellung aus Eingabetabelle) +DataImport @code
-(C) 2026-07-31 Output-Schemas für weitere Datenbanktabellen erstellen. +DataExport @code
 (C) 2026-07-31 Code-Dokumentation und Kommentare erweitern +Docs @code
+x 2026-07-31 Output-Schemas für weitere Datenbanktabellen erstellen. +DataExport @code
 x 2026-07-31 Standard-Verbindungen zwischen Spalten überprüfen
 x 2026-07-31 Namen des Kostenträgers automatisch aus IK-Nummer ermitteln +Validation @code
 x 2026-07-31 Stadtname aus PLZ ermitteln und umgekehrt +Validation @code
