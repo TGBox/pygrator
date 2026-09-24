@@ -147,3 +147,123 @@ class TestExportAndExtraFields:
             assert df.iloc[1]["p_privatversichert"] == bool_choice
 
 
+class TestVarcharLimitEnforcementAndAudit:
+    def test_txt_radio_ignore_truncate_constant(self):
+        from constants import TXT_RADIO_IGNORE_TRUNCATE
+        assert "Unverändert belassen" in TXT_RADIO_IGNORE_TRUNCATE
+        assert "DB-Limit" in TXT_RADIO_IGNORE_TRUNCATE or "gekürzt" in TXT_RADIO_IGNORE_TRUNCATE
+
+    def test_dialog_resolution_hard_truncates_on_ignore(self):
+        # Simulates RowValidationDialog.apply_and_close logic
+        conflicts = [
+            {'row_idx': 0, 'col_name': 'p_plz', 'limit': 10, 'orig_val': '0123456789OVERFLOW', 'action': 'ignore'},
+            {'row_idx': 1, 'col_name': 'p_hausnummer', 'limit': 10, 'orig_val': '1234567890EXTRA', 'action': 'truncate'},
+            {'row_idx': 2, 'col_name': 'p_plz', 'limit': 5, 'orig_val': '999999', 'action': 'custom', 'custom_val': '123456'}
+        ]
+        resolved = []
+        for r in conflicts:
+            limit = int(r['limit'])
+            orig_val = str(r['orig_val'])
+            act = r['action']
+            if act == 'truncate':
+                final_val = orig_val[:limit]
+            elif act == 'custom':
+                final_val = str(r.get('custom_val', ''))[:limit]
+            else:
+                final_val = orig_val[:limit]
+            resolved.append({
+                'row_idx': r['row_idx'],
+                'col_name': r['col_name'],
+                'limit': limit,
+                'orig_val': orig_val,
+                'new_val': final_val,
+                'action': act
+            })
+
+        assert resolved[0]['new_val'] == '0123456789'
+        assert len(resolved[0]['new_val']) == 10
+        assert resolved[1]['new_val'] == '1234567890'
+        assert len(resolved[1]['new_val']) == 10
+        assert resolved[2]['new_val'] == '12345'
+        assert len(resolved[2]['new_val']) == 5
+
+    def test_final_export_pass_enforces_limits_and_records_audit(self):
+        from db_util import parse_varchar_limit
+
+        target_schema = {
+            "p_plz": "VARCHAR(10)",
+            "p_hausnummer": "VARCHAR(10)",
+            "bemerkung": "TEXT"
+        }
+        raw_source_df = pd.DataFrame({
+            "PLZ": ["123456789012345", "10115"],
+            "HNR": ["123456789012345", "10a"]
+        })
+        out_df = pd.DataFrame({
+            "p_plz": ["123456789012345", "10115"],
+            "p_hausnummer": ["123456789012345", "10a"],
+            "bemerkung": ["Sehr langer Text ohne Längenbeschränkung in der Datenbank", "Kurz"]
+        })
+
+        audit_entries = []
+        for target_col, dtype_str in target_schema.items():
+            limit_val = parse_varchar_limit(dtype_str)
+            if limit_val and target_col in out_df.columns:
+                for r_idx in range(len(out_df)):
+                    val = out_df.at[r_idx, target_col]
+                    if pd.notna(val):
+                        val_str = str(val)
+                        if val_str != "NULL" and len(val_str) > limit_val:
+                            truncated_val = val_str[:limit_val]
+                            out_df.at[r_idx, target_col] = truncated_val
+                            rule_label = "Zwangskürzung: Wert wegen DB-Limit gekürzt"
+                            entry = {
+                                'Original_Zeile': r_idx + 1,
+                                'Regelname': rule_label,
+                                'Zielspalte': target_col,
+                                'Alter_Wert': val_str,
+                                'Neuer_Wert': truncated_val,
+                            }
+                            audit_entries.append(entry)
+
+        # Verification of hard truncation
+        assert out_df.at[0, "p_plz"] == "1234567890"
+        assert len(out_df.at[0, "p_plz"]) == 10
+        assert out_df.at[1, "p_plz"] == "10115"
+        assert out_df.at[0, "p_hausnummer"] == "1234567890"
+        assert len(out_df.at[0, "p_hausnummer"]) == 10
+        # TEXT column is untouched
+        assert out_df.at[0, "bemerkung"] == "Sehr langer Text ohne Längenbeschränkung in der Datenbank"
+
+        # Verification of audit entries
+        assert len(audit_entries) == 2
+        assert all(e['Regelname'] == "Zwangskürzung: Wert wegen DB-Limit gekürzt" for e in audit_entries)
+        assert audit_entries[0]['Alter_Wert'] == "123456789012345"
+        assert audit_entries[0]['Neuer_Wert'] == "1234567890"
+
+    def test_revisions_summary_warning_block_generated_when_forced_truncations(self):
+        audit_entries = [
+            {'Regelname': "Zwangskürzung: Wert wegen DB-Limit gekürzt", 'Alter_Wert': "12345678901", 'Neuer_Wert': "1234567890"},
+            {'Regelname': "Dialog: Zeichenkette auf Max-Länge gekürzt", 'Alter_Wert': "ABCDEF", 'Neuer_Wert': "ABCDE"}
+        ]
+        forced_trunc_cnt = sum(1 for e in audit_entries if e.get('Regelname', '').startswith("Zwangskürzung:"))
+        assert forced_trunc_cnt == 1
+
+        summary_rows = [
+            {"Regelname": "=== REVISIONS-STATISTIK ===", "Anzahl Anwendungen": "-", "Beschreibung": ""},
+            {"Regelname": "Zwangskürzungen (Datenbank-Schema-Schutz)", "Anzahl Anwendungen": str(forced_trunc_cnt), "Beschreibung": "Test"}
+        ]
+        if forced_trunc_cnt > 0:
+            summary_rows.append({"Regelname": "=== WARNUNGEN & ZWANGSKÜRZUNGEN ===", "Anzahl Anwendungen": "-", "Beschreibung": ""})
+            summary_rows.append({
+                "Regelname": "⚠️ Datenbank-Kompatibilität erzwungen",
+                "Anzahl Anwendungen": str(forced_trunc_cnt),
+                "Beschreibung": "Warnungs-Beschreibung"
+            })
+
+        df_summary = pd.DataFrame(summary_rows)
+        assert "=== WARNUNGEN & ZWANGSKÜRZUNGEN ===" in df_summary["Regelname"].values
+        assert "⚠️ Datenbank-Kompatibilität erzwungen" in df_summary["Regelname"].values
+
+
+

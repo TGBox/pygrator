@@ -60,6 +60,7 @@ from constants import (
     TITLE_AUTOCOMPLETE_SETTINGS_DIALOG,
     TXT_BULK_TRUNCATE,
     TXT_BULK_IGNORE,
+    TXT_RADIO_IGNORE_TRUNCATE,
     TXT_BULK_KEEP,
     TXT_BULK_CLEAR,
     TXT_BULK_CLEAN,
@@ -171,7 +172,10 @@ class RowValidationDialog(ctk.CTkToplevel):
             var_action = ctk.StringVar(value="truncate")
 
             entry_custom = ctk.CTkEntry(action_frame, width=REPLACEMENT_INPUT_WIDTH)
-            entry_custom.insert(0, orig_val)
+            entry_custom.insert(0, orig_val[:limit])
+
+            vcmd = (self.register(lambda P, lim=limit: len(P) <= lim), '%P')
+            entry_custom.configure(validate="key", validatecommand=vcmd)
 
             def on_entry_click(event: Any = None, v_act: ctk.StringVar = var_action) -> None:
                 if v_act.get() != "custom":
@@ -201,7 +205,7 @@ class RowValidationDialog(ctk.CTkToplevel):
 
             r_ignore = ctk.CTkRadioButton(
                 action_frame, 
-                text="Unverändert belassen", 
+                text=TXT_RADIO_IGNORE_TRUNCATE, 
                 variable=var_action, 
                 value="ignore"
             )
@@ -259,13 +263,15 @@ class RowValidationDialog(ctk.CTkToplevel):
             if action == "truncate":
                 final_val = orig_val[:limit]
             elif action == "custom":
-                final_val = r['entry_custom'].get()
+                final_val = r['entry_custom'].get()[:limit]
             else:
-                final_val = orig_val
+                # "ignore": Wird beim Export zwingend auf DB-Limit gekürzt
+                final_val = orig_val[:limit]
 
             self.resolved_results.append({
                 'row_idx': r['row_idx'],
                 'col_name': r['col_name'],
+                'limit': limit,
                 'orig_val': orig_val,
                 'new_val': final_val,
                 'action': action

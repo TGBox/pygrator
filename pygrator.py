@@ -1585,15 +1585,23 @@ class CSVMappingApp(ctk.CTk):
                 out_df.at[r_idx, col] = new_v
 
                 act: str = str(res.get('action', 'truncate'))
+                limit = res.get('limit')
+                if limit and len(str(new_v)) > int(limit):
+                    new_v = str(new_v)[:int(limit)]
+                out_df.at[r_idx, col] = new_v
+
                 if act == 'custom':
                     rule_label = "Dialog: Manuelle Eingabe (Längen-Konflikt)"
                     track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Von Ihnen im Dialog manuell eingegebener Ersatzwert.")
-                elif act == 'truncate' or (act != 'ignore' and str(orig_v) != str(new_v)):
+                elif act == 'truncate':
                     rule_label = "Dialog: Zeichenkette auf Max-Länge gekürzt"
                     track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Von Ihnen im Dialog bestätigte Kürzung eines Feldes auf das Limit.")
+                elif act == 'ignore':
+                    rule_label = "Zwangskürzung: Wert wegen DB-Limit gekürzt"
+                    track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Trotz Auswahl 'Unverändert belassen' automatisch auf Schema-Limit gekürzt, um Datenbank-Importfehler zu verhindern.")
                 else:
-                    rule_label = "Dialog: Überlangen Wert trotz Limit beibehalten"
-                    track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Explizite Nutzerentscheidung: Zeichenlimit für diesen Wert übergehen.")
+                    rule_label = "Zwangskürzung: Wert wegen DB-Limit gekürzt"
+                    track_rule_execution(rule_label, count=1, custom_name=rule_label, custom_desc="Automatisch auf Schema-Limit gekürzt, um Datenbank-Importfehler zu verhindern.")
 
                 if bool(self.chk_audit_export.get()):
                     entry: Dict[str, Any] = {
@@ -1686,6 +1694,38 @@ class CSVMappingApp(ctk.CTk):
             df_pat_property.to_csv(path_property, index=False, sep=";", encoding=enc_choice)
             df_pat_property_map.to_csv(path_property_map, index=False, sep=";", encoding=enc_choice)
 
+        # Letzte Sicherheitsprüfung vor dem Schreiben: Alle Spalten aus target_schema auf VARCHAR-Limits prüfen
+        for target_col, dtype_str in target_schema.items():
+            limit_val: Optional[int] = parse_varchar_limit(dtype_str)
+            if limit_val and target_col in out_df.columns:
+                for r_idx in range(len(out_df)):
+                    val = out_df.at[r_idx, target_col]
+                    if pd.notna(val):
+                        val_str = str(val)
+                        if val_str != "NULL" and len(val_str) > limit_val:
+                            truncated_val = val_str[:limit_val]
+                            out_df.at[r_idx, target_col] = truncated_val
+                            rule_label = "Zwangskürzung: Wert wegen DB-Limit gekürzt"
+                            track_rule_execution(
+                                rule_label, 
+                                count=1, 
+                                custom_name=rule_label, 
+                                custom_desc="Automatische Zwangskürzung zur Sicherung der Datenbankkompatibilität."
+                            )
+                            if bool(self.chk_audit_export.get()):
+                                entry = {
+                                    'Original_Zeile': r_idx + 1,
+                                    'Regelname': rule_label,
+                                    'Zielspalte': target_col,
+                                    'Alter_Wert': val_str,
+                                    'Neuer_Wert': truncated_val,
+                                }
+                                for orig_col in raw_source_df.columns:
+                                    orig_val_col = raw_source_df.at[r_idx, orig_col]
+                                    key_name = orig_col if orig_col not in ['Original_Zeile', 'Regelname', 'Zielspalte', 'Alter_Wert', 'Neuer_Wert'] else f"Quellspalte_{orig_col}"
+                                    entry[key_name] = "" if pd.isna(orig_val_col) else str(orig_val_col)
+                                audit_entries.append(entry)
+
         # SHA-256 Fingerabdrücke und Revisions-Statistiken aufbereiten
         source_sha256 = compute_file_sha256(self.source_file_path) if hasattr(self, 'source_file_path') and self.source_file_path else "N/A"
 
@@ -1703,7 +1743,8 @@ class CSVMappingApp(ctk.CTk):
 
         total_rows_cnt = len(self.source_df)
         total_audit_cnt = len(audit_entries)
-        auto_changes_cnt = sum(1 for e in audit_entries if not str(e.get('Regelname', '')).startswith("Dialog:") and str(e.get('Alter_Wert', '')) != str(e.get('Neuer_Wert', '')))
+        forced_trunc_cnt = sum(1 for e in audit_entries if str(e.get('Regelname', '')).startswith("Zwangskürzung:"))
+        auto_changes_cnt = sum(1 for e in audit_entries if not str(e.get('Regelname', '')).startswith("Dialog:") and not str(e.get('Regelname', '')).startswith("Zwangskürzung:") and str(e.get('Alter_Wert', '')) != str(e.get('Neuer_Wert', '')))
         manual_changes_cnt = sum(1 for e in audit_entries if str(e.get('Regelname', '')).startswith("Dialog:") and str(e.get('Alter_Wert', '')) != str(e.get('Neuer_Wert', '')))
         manual_kept_cnt = sum(1 for e in audit_entries if str(e.get('Regelname', '')).startswith("Dialog:") and str(e.get('Alter_Wert', '')) == str(e.get('Neuer_Wert', '')))
 
@@ -1717,8 +1758,16 @@ class CSVMappingApp(ctk.CTk):
             {"Regelname": "Automatische Regel-Korrekturen", "Anzahl Anwendungen": str(auto_changes_cnt), "Beschreibung": "Automatisch durch Transformationsregeln durchgeführte Anpassungen."},
             {"Regelname": "Manuelle Dialog-Korrekturen", "Anzahl Anwendungen": str(manual_changes_cnt), "Beschreibung": "Manuell von Ihnen im Dialog geänderte Werte."},
             {"Regelname": "Manuell beibehaltene Abweichungen (Keep)", "Anzahl Anwendungen": str(manual_kept_cnt), "Beschreibung": "Im Dialog von Ihnen explizit unverändert belassene Werte."},
-            {"Regelname": "=== AUSGEFÜHRTE TRANSFORMATIONS- & DIALOG-REGELN ===", "Anzahl Anwendungen": "-", "Beschreibung": ""},
+            {"Regelname": "Zwangskürzungen (Datenbank-Schema-Schutz)", "Anzahl Anwendungen": str(forced_trunc_cnt), "Beschreibung": "Werte, die das DB-Limit überschritten haben und zur Sicherung der Import-Kompatibilität gekürzt wurden."},
         ]
+
+        if forced_trunc_cnt > 0:
+            summary_rows.append({"Regelname": "=== WARNUNGEN & ZWANGSKÜRZUNGEN ===", "Anzahl Anwendungen": "-", "Beschreibung": ""})
+            summary_rows.append({
+                "Regelname": "⚠️ Datenbank-Kompatibilität erzwungen",
+                "Anzahl Anwendungen": str(forced_trunc_cnt),
+                "Beschreibung": "Achtung: Es wurden überlange Werte gekürzt, um Fehler beim DB-Import (VARCHAR-Limits) zu verhindern. Siehe Änderungsprotokoll für Details."
+            })
         for r_name, count in rule_counts.items():
             if count > 0:
                 r_desc = rule_descriptions.get(r_name, "Ausgeführte Transformationsregel oder Dialog-Aktion.")
