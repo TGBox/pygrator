@@ -1637,7 +1637,10 @@ class CSVMappingApp(ctk.CTk):
             if extra_dialog.is_accepted:
                 extra_fields_mappings = extra_dialog.result_mappings
 
+        suggested_filename: str = self.combo_schema.get().strip() if hasattr(self, 'combo_schema') and self.combo_schema.get() else ""
+
         export_path: str = filedialog.asksaveasfilename(
+            initialfile=suggested_filename,
             defaultextension=".csv",
             filetypes=[("CSV Dateien", "*.csv"), ("Excel Dateien", "*.xlsx")]
         )

@@ -265,5 +265,32 @@ class TestVarcharLimitEnforcementAndAudit:
         assert "=== WARNUNGEN & ZWANGSKÜRZUNGEN ===" in df_summary["Regelname"].values
         assert "⚠️ Datenbank-Kompatibilität erzwungen" in df_summary["Regelname"].values
 
+    def test_export_filedialog_suggests_schema_name(self, monkeypatch):
+        """Prüft, dass der Speichern-Dialog standardmäßig den Namen des gewählten Schemas als Dateinamen vorschlägt."""
+        from unittest.mock import patch, MagicMock
+        from pygrator import CSVMappingApp
+
+        captured_kwargs = {}
+        app = CSVMappingApp()
+        try:
+            with patch("tkinter.filedialog.asksaveasfilename", side_effect=lambda **kwargs: (captured_kwargs.update(kwargs), "")[1]), \
+                 patch("pygrator.ExtraFieldsDialog") as mock_extra_dlg, \
+                 patch.object(app, "wait_window"):
+                mock_extra_dlg.return_value.is_accepted = False
+                app.source_df = pd.DataFrame({"id": ["000001"]})
+
+                # Test für Schema 'patienten'
+                app.combo_schema.set("patienten")
+                app.process_and_export()
+                assert captured_kwargs.get("initialfile") == "patienten"
+
+                # Test für Schema 'adressen'
+                app.combo_schema.set("adressen")
+                app.process_and_export()
+                assert captured_kwargs.get("initialfile") == "adressen"
+        finally:
+            app.destroy()
+
+
 
 
