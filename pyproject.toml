@@ -9,10 +9,8 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "pandas",
-    "email-validator",
     "customtkinter",
     "openpyxl",
-    "rapidfuzz",
     "mypy"
 ]
 

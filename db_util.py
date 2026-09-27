@@ -8,8 +8,6 @@ import random
 import string
 from typing import Any, Dict, List, cast
 import pandas as pd
-
-import email_validator as eval
 from constants import (
     BASE36_ALPHABET,
     IK_CHECK_WEIGHTS,
@@ -29,14 +27,12 @@ def encode_base36(num: int) -> str:
     arr.reverse()
     return "".join(arr)
 
-def generate_rolf_id() -> str:
+def generate_id() -> str:
     """Generiert eine eindeutige 10-stellige ROLF-ID (z.B. 'O9F1L-00A2B')."""
     part1 = f"O{encode_base36(int(time.time() * 1000))[-4:]}"
     part2 = "".join(random.choices(BASE36_ALPHABET, k=5))
     
     return f"{part1}-{part2}".upper()
-
-generate_id = generate_rolf_id
 
 def parse_varchar_limit(datatype_str: Any) -> int | None:
     """Extrahiert das Limit aus einem Typ-String wie 'VARCHAR(40)' -> 40. Bei 'TEXT' -> None."""
@@ -130,18 +126,17 @@ def validate_insurance_number(kvnr: Any) -> bool:
 
     return calc_check_digit == actual_check_digit
 
+EMAIL_REGEX = re.compile(
+    r"^[a-zA-Z0-9_+-]+(?:\.[a-zA-Z0-9_+-]+)*@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$"
+)
+
 def validate_email(email: Any) -> bool:
     if not email or pd.isna(email):
         return False
     email_str = str(email).strip()
     if not email_str:
         return False
-    try:
-        # Normalisiert die E-Mail (z.B. Kleinbuchstaben für Domains) und prüft Syntax
-        _valid = eval.validate_email(email_str, check_deliverability=False)
-        return True
-    except (eval.EmailNotValidError, Exception):
-        return False
+    return bool(EMAIL_REGEX.match(email_str))
     
 def apply_rule_transform(val_str: str, rule_type: Any, target_col: Any) -> str:
     """
@@ -197,11 +192,7 @@ def extract_flagged_records(
             source_col = m['source_col']
             target_col = m['target_col']
             limit = m['limit']
-            tmp_rule_type = m.get('rule_type')
-            if type(tmp_rule_type) == str: 
-                rule_type = str(m.get('rule_type'))
-            else:
-                rule_type = "" #TODO: Check if this causes problems!
+            rule_type = (m.get('rule_type') or "")
                 
 
             if source_col not in df.columns:
@@ -274,39 +265,7 @@ def extract_flagged_records(
 
     return result_df
 
-def apply_id_and_lanr_rules(
-    target_df: pd.DataFrame, 
-    source_df: pd.DataFrame, 
-    mapping: dict[str, str]
-) -> pd.DataFrame:
-    """
-    Sorgt dafür, dass bestehende LANRs und externe IDs sicher übernommen werden.
-    Greift auto_sequence_6 nur als Fallback für leere IDs/p_nrs. (+DataImport @code)
-    """
-    row_count = len(target_df)
 
-    # 1. LANR und ext_id aus Quell-Tabelle übernehmen (wenn gemappt)
-    for col_target in ["ext_id", "lanr", "p_nr"]:
-        if col_target in mapping and mapping[col_target]:
-            source_col = mapping[col_target]
-            # Werte als String übernehmen und Leereinträge als None normalisieren
-            target_df[col_target] = source_df[source_col].astype(str).str.strip()
-            target_df[col_target] = target_df[col_target].replace(["", "nan", "None"], None)
-
-    # 2. Regel "auto_sequence_6" auf p_nr anwenden (wenn Regel aktiv ist)
-    # Füllt Mangel-IDs auf, behält aber existierende Quell-IDs bei
-    if "p_nr" in target_df.columns:
-        current_pnr = target_df["p_nr"]
-        
-        # Generiere Sequenz 000001 bis N
-        generated_sequence = [str(i + 1).zfill(6) for i in range(row_count)]
-        
-        # Nur Einträge überschreiben, bei denen vorher keine Quell-ID gefunden wurde
-        target_df["p_nr"] = current_pnr.fillna(
-            pd.Series(generated_sequence, index=target_df.index)
-        )
-
-    return target_df
 
 def compute_file_sha256(file_path: str) -> str:
     """Berechnet den SHA-256 Fingerabdruck einer Datei."""
@@ -345,4 +304,4 @@ def filter_near_empty_rows(df: pd.DataFrame, min_alnum: int = 3) -> pd.DataFrame
 
     mask = df.apply(keep_row, axis=1)
     filtered_df = cast(pd.DataFrame, df[mask].reset_index(drop=True))
-    return filtered_df
+    return filtered_df

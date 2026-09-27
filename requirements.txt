@@ -1,7 +1,5 @@
 pandas
 customtkinter
 openpyxl
-rapidfuzz
-email-validator
 mypy
 pytest

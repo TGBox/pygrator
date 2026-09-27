@@ -1,9 +1,8 @@
 import os
 import re
 import sys
-from typing import Optional, List, Dict, Tuple, cast, Any
-from difflib import get_close_matches
-from rapidfuzz import process, fuzz
+from typing import Optional, List, Dict, Tuple
+from difflib import get_close_matches, SequenceMatcher
 
 
 class IKLookupService:
@@ -22,7 +21,7 @@ class IKLookupService:
                 filepath = os.path.join(getattr(sys, '_MEIPASS'), "services", "gkv", "gkvliste.txt")
             else:
                 filepath = "./services/gkv/gkvliste.txt"
-
+        assert filepath
         if os.path.exists(filepath):
             self._load_file(filepath)
         else:
@@ -92,21 +91,12 @@ class IKLookupService:
             matched_name = self.ik_to_provider[exact_match_ik]
             return exact_match_ik, matched_name, 1.0
 
-        # 2. Fuzzy Matching
-        if fuzzy:
-            # Schneller und intelligenter über rapidfuzz (falls vorhanden)
-            match = process.extractOne(cleaned_name, self.provider_names_list, scorer=cast(Any, fuzz.WRatio)) # Typecast for fixing type error from overloaded function call.
-            if match and match[1] >= (cutoff * 100):
-                best_name = match[0]
-                score = match[1] / 100.0
-                matched_ik = self.provider_to_ik.get(best_name.lower())
-                return matched_ik, best_name, score
-        else:
-            # Inseitige Standard-Bibliothek (difflib)
-            matches = get_close_matches(cleaned_name, self.provider_names_list, n=1, cutoff=cutoff)
-            if matches:
-                best_name = matches[0]
-                matched_ik = self.provider_to_ik.get(best_name.lower())
-                return matched_ik, best_name, cutoff  # Approximation
+        # 2. Fuzzy Matching über Standard-Bibliothek (difflib)
+        matches = get_close_matches(cleaned_name, self.provider_names_list, n=1, cutoff=cutoff)
+        if matches:
+            best_name = matches[0]
+            matched_ik = self.provider_to_ik.get(best_name.lower())
+            score = SequenceMatcher(None, cleaned_name.lower(), best_name.lower()).ratio() if fuzzy else cutoff
+            return matched_ik, best_name, score
 
         return None, None, 0.0

@@ -1,4 +1,3 @@
-from constants import COL_PURPLE
 import os
 import re
 import csv
@@ -995,10 +994,6 @@ class CSVMappingApp(ctk.CTk):
 
         copy_rules: Dict[str, str] = {}
         invalid_records: List[Dict[str, Any]] = []
-        
-        if not hasattr(self, 'plz_service'):
-            from services.plz_lookup import PLZLookupService
-            self.plz_service = PLZLookupService()
 
         rule_counts: Dict[str, int] = defaultdict(int)
         rule_descriptions: Dict[str, str] = {}
@@ -1256,14 +1251,13 @@ class CSVMappingApp(ctk.CTk):
             elif rule_type == "lookup_ik_provider":
                 ik_source_col: Optional[str] = str(param) if (param and str(param) in self.source_df.columns) else source_col
                 if ik_source_col and ik_source_col in self.source_df.columns:
-                    ik_service: Any = getattr(self, 'ik_service', None)
                     res_ik: List[str] = []
                     for r_idx, val in self.source_df[ik_source_col].items():
                         if pd.isna(val) or not str(val).strip():
                             res_ik.append(default_empty_value)
                         else:
                             cleaned_ik: str = str(val).strip().split('.')[0]
-                            provider_name: Optional[str] = ik_service.get_provider_by_ik(cleaned_ik) if ik_service else None
+                            provider_name: Optional[str] = self.ik_service.get_provider_by_ik(cleaned_ik)
                             if provider_name:
                                 track_rule_execution("lookup_ik_provider")
                                 record_change(int(cast(Any, r_idx)), target_col, val, provider_name, RULE_NAMES.get("lookup_ik_provider", "Krankenkasse aus IK"))

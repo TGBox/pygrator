@@ -59,47 +59,16 @@ def try_to_fix_insurance_number(vnr: Any) -> tuple[bool, str]:
     vnr = vnr_str
     
     if len(vnr) == 10:
-        # Case 1: Form wie JO12345678 => J012345678
         if vnr[0].isalpha() and vnr[1] == "O":
             tmp_fix = f"{vnr[0]}0{vnr[2:]}"
             if validate_insurance_number(tmp_fix):
                 return True, tmp_fix
-            
-        # Case 2: Form wie 0123456789 => O123456789
-        elif vnr.isnumeric() and vnr.startswith("0"):
-            tmp_fix = f"O{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-        
-        # Case 3: Form wie 1200006986 => I200006986
-        elif vnr.isnumeric() and vnr.startswith("1"):
-            tmp_fix = f"I{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-        
-        # Case 4: Form wie )823672510 => O823672510
-        elif vnr[1:].isnumeric() and vnr.startswith(")"):
-            tmp_fix = f"O{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-        
-        # Case 5: Form wie (823672510 => I823672510
-        elif vnr[1:].isnumeric() and vnr.startswith("("):
-            tmp_fix = f"I{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-        
-        # Case 6: Form wie =823672510 => P823672510
-        elif vnr[1:].isnumeric() and vnr.startswith("="):
-            tmp_fix = f"P{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
-        
-        # Case 7: Form wie /823672510 => U823672510
-        elif vnr[1:].isnumeric() and vnr.startswith("/"):
-            tmp_fix = f"U{vnr[1:]}"
-            if validate_insurance_number(tmp_fix):
-                return True, tmp_fix
+        else:
+            prefix_map = {"0": "O", "1": "I", ")": "O", "(": "I", "=": "P", "/": "U"}
+            if vnr[0] in prefix_map and (vnr.isnumeric() or vnr[1:].isnumeric()):
+                tmp_fix = f"{prefix_map[vnr[0]]}{vnr[1:]}"
+                if validate_insurance_number(tmp_fix):
+                    return True, tmp_fix
             
     return False, vnr
 

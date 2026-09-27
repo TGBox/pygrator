@@ -9,8 +9,6 @@ from constants import (
     VALIDATION_DIALOG_HEIGHT,
     STRING_CLEANUP_DIALOG_WIDTH,
     STRING_CLEANUP_DIALOG_HEIGHT,
-    AUTO_COMPLETE_DIALOG_WIDTH,
-    AUTO_COMPLETE_DIALOG_HEIGHT,
     PADDING_XXS,
     PADDING_XS,
     PADDING_S,
@@ -51,13 +49,10 @@ from constants import (
     RADIO_BUTTON_LABEL_WIDTH,
     REPLACEMENT_WRAP_LENGTH,
     EXTRA_FIELDS_PROPTYPES,
-    AUTOCOMPLETE_OPTIONS_LIST,
-    DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS,
     TITLE_ROW_VALIDATION_DIALOG,
     TITLE_EXTRA_FIELDS_DIALOG,
     TITLE_VALIDATION_FIX_DIALOG,
     TITLE_STRING_CLEANUP_DIALOG,
-    TITLE_AUTOCOMPLETE_SETTINGS_DIALOG,
     TXT_BULK_TRUNCATE,
     TXT_BULK_IGNORE,
     TXT_RADIO_IGNORE_TRUNCATE,
@@ -71,7 +66,6 @@ from constants import (
     TXT_APPLY_CONFIRM,
     TXT_CANCEL,
     TXT_SKIP,
-    TXT_SAVE,
 )
 
 
@@ -724,46 +718,7 @@ class StringCleanupPreviewDialog(ctk.CTkToplevel):
                 })
         self.destroy()
 
+
     def _on_cancel(self) -> None:
         self.result = None
-        self.destroy()
-
-
-class ImportApp(ctk.CTk):
-    def __init__(self) -> None:
-        super().__init__()
-        self.autocomplete_settings = DEFAULT_IMPORT_AUTOCOMPLETE_SETTINGS.copy()
-
-    def open_autocomplete_settings_dialog(self) -> None:
-        """Dialogfenster zur An- und Abwahl der Auto-Vervollständigungen"""
-        dialog = ctk.CTkToplevel(self)
-        dialog.title(TITLE_AUTOCOMPLETE_SETTINGS_DIALOG)
-        center_window(dialog, AUTO_COMPLETE_DIALOG_WIDTH, AUTO_COMPLETE_DIALOG_HEIGHT)
-        dialog.grab_set()
-
-        ctk.CTkLabel(
-            dialog, 
-            text="Welche Felder sollen automatisch vervollständigt werden?", 
-            font=LARGER_LABEL_FONT_BOLD
-        ).pack(anchor="w", padx=PADDING_XL, pady=(PADDING_XL, PADDING_M))
-
-        vars_dict: Dict[str, ctk.BooleanVar] = {}
-        options = AUTOCOMPLETE_OPTIONS_LIST
-
-        for key, label_text in options:
-            var = ctk.BooleanVar(value=self.autocomplete_settings.get(key, True))
-            chk = ctk.CTkCheckBox(dialog, text=label_text, variable=var)
-            chk.pack(anchor="w", padx=PADDING_XXL, pady=PADDING_S)
-            vars_dict[key] = var
-
-        def save_and_close() -> None:
-            for key in vars_dict:
-                self.autocomplete_settings[key] = vars_dict[key].get()
-            dialog.destroy()
-
-        btn_save = ctk.CTkButton(
-            dialog, 
-            text=TXT_SAVE, 
-            command=save_and_close
-        )
-        btn_save.pack(pady=(PADDING_XL, 0))
+        self.destroy()
