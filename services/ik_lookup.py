@@ -23,6 +23,7 @@ class IKLookupService:
             else:
                 filepath = "./services/gkv/gkvliste.txt"
 
+        assert filepath is not None
         if os.path.exists(filepath):
             self._load_file(filepath)
         else:
