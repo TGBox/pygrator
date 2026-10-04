@@ -27,6 +27,42 @@ RULE_NAMES: Dict[str, str] = {
     "clean_salutation": "Anrede vereinheitlichen"
 }
 
+# Categories for grouping transformation and validation rules
+CAT_VALIDATION = "Prüfung & Validierung"
+CAT_FORMAT = "Formatierung & Bereinigung"
+CAT_SPLIT = "Aufteilung & Trennung"
+CAT_GENERATE = "Generierung & Zuweisung"
+
+RULE_CATEGORIES: Dict[str, str] = {
+    # Validierung
+    "validate_ik": CAT_VALIDATION,
+    "validate_kvnr": CAT_VALIDATION,
+    "validate_email": CAT_VALIDATION,
+    
+    # Formatierung & Bereinigung
+    "format_date": CAT_FORMAT,
+    "clean_plz": CAT_FORMAT,
+    "gender": CAT_FORMAT,
+    "clean_salutation": CAT_FORMAT,
+    
+    # Aufteilung & Trennung
+    "split_street": CAT_SPLIT,
+    "split_number": CAT_SPLIT,
+    "split_title": CAT_SPLIT,
+    "split_name_without_title": CAT_SPLIT,
+    
+    # Generierung & Zuweisung
+    "generate_uid": CAT_GENERATE,
+    "auto_sequence_6": CAT_GENERATE,
+    "copy_target": CAT_GENERATE,
+    "default_value": CAT_GENERATE,
+    "static_value": CAT_GENERATE,
+    "merge_columns": CAT_GENERATE,
+    "lookup_ik_provider": CAT_GENERATE,
+    "lookup_plz_by_city": CAT_GENERATE,
+    "lookup_city_by_plz": CAT_GENERATE,
+}
+
 RULE_DESCRIPTIONS: Dict[str, str] = {
     "generate_uid": "Erzeugt eine eindeutige, 12-stellige alphanumerische Kennung (UID) für jeden Datensatz.",
     "copy_target": "Übernimmt den bereinigten Wert aus einer anderen bereits verarbeiteten Zielspalte.",
@@ -207,9 +243,22 @@ TITLE_TRANS_DIALOG = "Spezielle Regel & Transformation wählen"
 
 TXT_LOAD_CSV = "Quelldatei laden (CSV)"
 TXT_AUTO_COMPLETE_SETTINGS = "⚙️ Auto-Vervollständigung"
+TXT_TOGGLE_FULLSCREEN = "🗖 Vollbild"
+TXT_TOGGLE_WINDOWED = "🗗 Fenstermodus"
 LBL_TARGET_SCHEMA = "Zielschema:"
 LBL_NO_FILE_SELECTED = "Keine Datei ausgewählt"
 LBL_COLUMN_MAPPING_FRAME = "Spalten-Zuordnung & Schema-Limits"
+LBL_WORKSPACE_SOURCE_PANEL = "📊 Quelldatei & Datenvorschau"
+LBL_WORKSPACE_MAPPING_PANEL = "🎯 Zielschema-Zuordnung & Regeln"
+LBL_DATA_PREVIEW_TITLE = "Live-Datenvorschau (Erste 5 Zeilen)"
+LBL_NO_PREVIEW_DATA = "Lade eine CSV- oder Excel-Datei, um die Datenvorschau zu aktivieren."
+LBL_SOURCE_COLUMNS_TITLE = "Erkannte Quellspalten"
+LBL_FILTER_ALL = "Alle"
+LBL_FILTER_UNMAPPED = "Offen"
+LBL_FILTER_MAPPED = "Zugeordnet"
+LBL_FILTER_WITH_RULES = "Mit Regeln"
+TXT_SEARCH_COLUMNS = "Zielspalte suchen..."
+LBL_MAPPING_STATUS_TEMPLATE = "{mapped} / {total} Feldern gemappt ({percent}%)"
 CHK_FILL_NULL = "Unbelegte Felder mit 'NULL' auffüllen (statt leerem Text)"
 CHK_CLEAN_STRINGS = "String-Werte bereinigen (Trim & Steuerzeichen entfernen)"
 LBL_EXPORT_FORMAT = "Export-Format:"
@@ -303,7 +352,7 @@ NULL_STRING_VALUES: Set[str] = {"nan", "none", "null", "<na>", ""}
 # GUI Styling & Layout Constants
 # =============================================================================
 
-APP_WIDTH = 1140
+APP_WIDTH = 1280
 APP_HEIGHT = 880
 FONT_TYPE = "Roboto"
 LABEL_FONT_BOLD: Tuple[str, int, str] = (FONT_TYPE, 11, "bold")
@@ -371,8 +420,8 @@ COL_ORANGE = COLOR_ACCENT_WARNING
 COL_DARK_ORANGE = COLOR_TEXT_WARNING
 COL_LIGHT_GREEN = COLOR_ACCENT_SUCCESS
 
-TRANSFORMATION_DIALOG_WIDTH = 580
-TRANSFORMATION_DIALOG_HEIGHT = 640
+TRANSFORMATION_DIALOG_WIDTH = 640
+TRANSFORMATION_DIALOG_HEIGHT = 740
 VALUE_FIELD_WIDTH = 200
 ROW_VALIDATION_DIALOG_WIDTH = 1080
 ROW_VALIDATION_DIALOG_HEIGHT = 730
