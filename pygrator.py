@@ -643,7 +643,7 @@ class CSVMappingApp(ctk.CTk):
         start = self.preview_page * self.preview_page_size
         end = min(start + self.preview_page_size, total_rows)
         slice_df = self.source_df.iloc[start:end]
-        cols = [str(c) for c in self.source_df.columns]
+        cols = [c for c in self.source_df.columns]
 
         # Spalten konfigurieren (falls Spaltenliste sich geändert hat)
         if list(self.preview_tree["columns"]) != cols:
