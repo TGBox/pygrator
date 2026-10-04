@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Set, cast
 from openpyxl import Workbook
 import pandas as pd
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 
 # DONE TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
 # DONE TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
@@ -78,6 +78,14 @@ class CSVMappingApp(ctk.CTk):
     is_fullscreen: bool
     btn_fullscreen: ctk.CTkButton
     preview_scroll_frame: ctk.CTkScrollableFrame
+    preview_container: ctk.CTkFrame
+    preview_tree: ttk.Treeview
+    btn_preview_prev: ctk.CTkButton
+    btn_preview_next: ctk.CTkButton
+    lbl_preview_page_info: ctk.CTkLabel
+    combo_preview_size: ctk.CTkOptionMenu
+    preview_page: int
+    preview_page_size: int
     source_cols_scroll: ctk.CTkScrollableFrame
     lbl_stats_rows: ctk.CTkLabel
     lbl_stats_cols: ctk.CTkLabel
@@ -108,6 +116,8 @@ class CSVMappingApp(ctk.CTk):
         self.cleanup_dialog = None
         self._current_toast_frame = None
         self._current_toast_timer = None
+        self.preview_page = 0
+        self.preview_page_size = 50
         self.mapping_row_widgets = {}
         self.active_filter = LBL_FILTER_ALL
         self.search_query = ""
@@ -207,21 +217,86 @@ class CSVMappingApp(ctk.CTk):
         self.lbl_stats_enc = ctk.CTkLabel(self.stats_card, text="Encoding: -", font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED)
         self.lbl_stats_enc.grid(row=1, column=1, padx=PADDING_M, pady=(0, PADDING_XS), sticky="w")
 
-        # Live-Datenvorschau
+        # Live-Datenvorschau Header & Controls
         preview_header = ctk.CTkFrame(left_panel, fg_color="transparent")
         preview_header.pack(fill="x", padx=PADDING_M, pady=(PADDING_M, PADDING_XXS))
         ctk.CTkLabel(preview_header, text=LBL_DATA_PREVIEW_TITLE, font=BUTTON_FONT).pack(side="left")
 
-        self.preview_scroll_frame = ctk.CTkScrollableFrame(left_panel, orientation="horizontal", height=190)
-        self.preview_scroll_frame.pack(fill="both", expand=True, padx=PADDING_M, pady=PADDING_XS)
+        # Paginierungs- & Größenauswahl-Leiste
+        preview_ctrls = ctk.CTkFrame(preview_header, fg_color="transparent")
+        preview_ctrls.pack(side="right")
+
+        self.btn_preview_prev = ctk.CTkButton(
+            preview_ctrls,
+            text=BTN_PREVIEW_PREV,
+            width=24,
+            height=22,
+            font=SMALL_LABEL_FONT_BOLD,
+            fg_color=COLOR_BTN_SECONDARY_BG,
+            hover_color=COLOR_BTN_SECONDARY_HOVER,
+            text_color=COLOR_BTN_SECONDARY_TEXT,
+            state="disabled",
+            command=self.on_preview_prev_page
+        )
+        self.btn_preview_prev.pack(side="left", padx=(0, PADDING_XXS))
+
+        self.lbl_preview_page_info = ctk.CTkLabel(
+            preview_ctrls,
+            text="- / -",
+            font=SMALL_LABEL_FONT,
+            text_color=COLOR_TEXT_MUTED
+        )
+        self.lbl_preview_page_info.pack(side="left", padx=PADDING_XS)
+
+        self.btn_preview_next = ctk.CTkButton(
+            preview_ctrls,
+            text=BTN_PREVIEW_NEXT,
+            width=24,
+            height=22,
+            font=SMALL_LABEL_FONT_BOLD,
+            fg_color=COLOR_BTN_SECONDARY_BG,
+            hover_color=COLOR_BTN_SECONDARY_HOVER,
+            text_color=COLOR_BTN_SECONDARY_TEXT,
+            state="disabled",
+            command=self.on_preview_next_page
+        )
+        self.btn_preview_next.pack(side="left", padx=(PADDING_XXS, PADDING_S))
+
+        self.combo_preview_size = ctk.CTkOptionMenu(
+            preview_ctrls,
+            values=PREVIEW_PAGE_SIZES,
+            width=64,
+            height=22,
+            font=SMALL_LABEL_FONT,
+            command=self.on_preview_size_change
+        )
+        self.combo_preview_size.set(str(self.preview_page_size))
+        self.combo_preview_size.pack(side="left")
+
+        # Treeview Container mit beidseitigen Scrollbars
+        self.preview_container = ctk.CTkFrame(left_panel, height=200, fg_color=COLOR_CARD_BG, corner_radius=8)
+        self.preview_container.pack(fill="both", expand=True, padx=PADDING_M, pady=PADDING_XS)
+        self.preview_scroll_frame = cast(ctk.CTkScrollableFrame, cast(Any, self.preview_container))
+
+        self._init_treeview_style()
+        self.preview_tree = ttk.Treeview(self.preview_container, show="headings", selectmode="browse")
+        self.preview_vsb = ctk.CTkScrollbar(self.preview_container, orientation="vertical", command=self.preview_tree.yview)
+        self.preview_hsb = ctk.CTkScrollbar(self.preview_container, orientation="horizontal", command=self.preview_tree.xview)
+        self.preview_tree.configure(yscrollcommand=self.preview_vsb.set, xscrollcommand=self.preview_hsb.set)
+
+        self.preview_tree.grid(row=0, column=0, sticky="nsew", padx=(PADDING_XXS, 0), pady=(PADDING_XXS, 0))
+        self.preview_vsb.grid(row=0, column=1, sticky="ns", padx=(PADDING_XXS, PADDING_XXS), pady=(PADDING_XXS, 0))
+        self.preview_hsb.grid(row=1, column=0, sticky="ew", padx=(PADDING_XXS, 0), pady=(PADDING_XXS, PADDING_XXS))
+        self.preview_container.grid_columnconfigure(0, weight=1)
+        self.preview_container.grid_rowconfigure(0, weight=1)
 
         self.lbl_preview_empty = ctk.CTkLabel(
-            self.preview_scroll_frame,
+            self.preview_container,
             text=f"📋  {LBL_NO_PREVIEW_DATA}",
             text_color=COLOR_TEXT_MUTED,
             font=LABEL_FONT
         )
-        self.lbl_preview_empty.pack(padx=PADDING_M, pady=PADDING_XL)
+        self.lbl_preview_empty.place(relx=0.5, rely=0.5, anchor="center")
 
         # Quellspalten-Schnellansicht
         source_cols_header = ctk.CTkFrame(left_panel, fg_color="transparent")
@@ -480,61 +555,131 @@ class CSVMappingApp(ctk.CTk):
         )
         self.progress_mapping.set(mapped / total)
 
-    def render_data_preview(self) -> None:
-        """Rendert die ersten 5 Zeilen der Quell-CSV tabellarisch in der linken Spalte."""
-        if not hasattr(self, 'preview_scroll_frame'):
-            return
+    def _init_treeview_style(self) -> None:
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
 
-        for widget in self.preview_scroll_frame.winfo_children():
-            widget.destroy()
+        # CustomTkinter Dark / Slate Theme Farben
+        bg_card = "#1E293B"
+        bg_hdr = "#0F172A"
+        fg_text = "#F8FAFC"
+        accent_sel = "#047857"
+
+        style.configure(
+            "Treeview",
+            background=bg_card,
+            foreground=fg_text,
+            fieldbackground=bg_card,
+            rowheight=24,
+            font=(FONT_TYPE, 10),
+            borderwidth=0,
+            relief="flat"
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=bg_hdr,
+            foreground=fg_text,
+            font=(FONT_TYPE, 10, "bold"),
+            borderwidth=1,
+            relief="flat",
+            padding=(6, 4)
+        )
+        style.map("Treeview.Heading", background=[("active", bg_card)])
+        style.map("Treeview", background=[("selected", accent_sel)], foreground=[("selected", "#FFFFFF")])
+
+    def on_preview_prev_page(self) -> None:
+        if self.preview_page > 0:
+            self.preview_page -= 1
+            self.render_data_preview()
+
+    def on_preview_next_page(self) -> None:
+        if self.source_df is not None:
+            max_page = max(0, (len(self.source_df) - 1) // self.preview_page_size)
+            if self.preview_page < max_page:
+                self.preview_page += 1
+                self.render_data_preview()
+
+    def on_preview_size_change(self, choice: str) -> None:
+        try:
+            new_size = int(choice)
+            if new_size > 0:
+                self.preview_page_size = new_size
+                self.preview_page = 0
+                self.render_data_preview()
+        except ValueError:
+            pass
+
+    def render_data_preview(self) -> None:
+        """Rendert die Zeilen der Quell-CSV tabellarisch mit ttk.Treeview und Paginierung."""
+        if not hasattr(self, 'preview_tree'):
+            return
 
         if self.source_df is None or self.source_df.empty:
-            lbl = ctk.CTkLabel(
-                self.preview_scroll_frame,
-                text=f"📋  {LBL_NO_PREVIEW_DATA}",
-                text_color=COLOR_TEXT_MUTED,
-                font=LABEL_FONT
-            )
-            lbl.pack(padx=PADDING_M, pady=PADDING_XL)
+            self.preview_tree.delete(*self.preview_tree.get_children())
+            self.preview_tree["columns"] = ()
+            if hasattr(self, 'lbl_preview_empty'):
+                self.lbl_preview_empty.place(relx=0.5, rely=0.5, anchor="center")
+            if hasattr(self, 'lbl_preview_page_info'):
+                self.lbl_preview_page_info.configure(text="- / -")
+            if hasattr(self, 'btn_preview_prev'):
+                self.btn_preview_prev.configure(state="disabled")
+            if hasattr(self, 'btn_preview_next'):
+                self.btn_preview_next.configure(state="disabled")
             return
 
-        sample_df = self.source_df.head(5)
-        cols = list(sample_df.columns)
+        if hasattr(self, 'lbl_preview_empty'):
+            self.lbl_preview_empty.place_forget()
 
-        grid_frame = ctk.CTkFrame(self.preview_scroll_frame, fg_color="transparent")
-        grid_frame.pack(fill="both", expand=True)
+        total_rows = len(self.source_df)
+        max_page = max(0, (total_rows - 1) // self.preview_page_size)
+        if self.preview_page > max_page:
+            self.preview_page = max_page
+        if self.preview_page < 0:
+            self.preview_page = 0
 
-        for c_idx, col_name in enumerate(cols):
-            hdr = ctk.CTkLabel(
-                grid_frame,
-                text=col_name,
-                font=SMALL_LABEL_FONT_BOLD,
-                anchor="w",
-                fg_color=COLOR_CONTAINER_BG_DARK,
-                corner_radius=4,
-                padx=PADDING_S,
-                pady=PADDING_XXS
-            )
-            hdr.grid(row=0, column=c_idx, padx=2, pady=2, sticky="nsew")
+        start = self.preview_page * self.preview_page_size
+        end = min(start + self.preview_page_size, total_rows)
+        slice_df = self.source_df.iloc[start:end]
+        cols = [str(c) for c in self.source_df.columns]
 
-        for r_idx in range(len(sample_df)):
-            row_bg = COLOR_CARD_BG if r_idx % 2 == 0 else "transparent"
-            for c_idx, col_name in enumerate(cols):
-                raw_val = sample_df.iloc[r_idx, c_idx]
-                val_str = "" if pd.isna(raw_val) else str(raw_val)
-                if len(val_str) > 28:
-                    val_str = val_str[:25] + "..."
-                cell = ctk.CTkLabel(
-                    grid_frame,
-                    text=val_str,
-                    font=SMALL_LABEL_FONT,
-                    anchor="w",
-                    fg_color=row_bg,
-                    corner_radius=2,
-                    padx=PADDING_S,
-                    pady=PADDING_XXS
+        # Spalten konfigurieren (falls Spaltenliste sich geändert hat)
+        if list(self.preview_tree["columns"]) != cols:
+            self.preview_tree["columns"] = cols
+            for col_name in cols:
+                self.preview_tree.heading(col_name, text=col_name)
+                # Berechne angenehme Spaltenbreite
+                approx_width = max(80, min(240, max(len(col_name) * 10, 100)))
+                self.preview_tree.column(col_name, width=approx_width, minwidth=60, stretch=False)
+
+        # Zeilen leeren und befüllen
+        self.preview_tree.delete(*self.preview_tree.get_children())
+        self.preview_tree.tag_configure("even", background="#1E293B")
+        self.preview_tree.tag_configure("odd", background="#24334A")
+
+        for r_idx in range(len(slice_df)):
+            tag = "even" if r_idx % 2 == 0 else "odd"
+            row_vals = []
+            for col in self.source_df.columns:
+                raw_val = slice_df.iloc[r_idx][col]
+                row_vals.append("" if pd.isna(raw_val) else str(raw_val))
+            self.preview_tree.insert("", "end", values=row_vals, tags=(tag,))
+
+        # Paginierungs-Status aktualisieren
+        if hasattr(self, 'lbl_preview_page_info'):
+            self.lbl_preview_page_info.configure(
+                text=LBL_PREVIEW_PAGINATION_TEMPLATE.format(
+                    start=start + 1 if total_rows > 0 else 0,
+                    end=end,
+                    total=f"{total_rows:,}".replace(",", ".")
                 )
-                cell.grid(row=r_idx + 1, column=c_idx, padx=2, pady=1, sticky="nsew")
+            )
+        if hasattr(self, 'btn_preview_prev'):
+            self.btn_preview_prev.configure(state="normal" if self.preview_page > 0 else "disabled")
+        if hasattr(self, 'btn_preview_next'):
+            self.btn_preview_next.configure(state="normal" if end < total_rows else "disabled")
 
     def render_source_columns_list(self) -> None:
         """Rendert die Liste der erkannten Quellspalten mit Zeilenzählern und Stichproben."""
@@ -637,6 +782,7 @@ class CSVMappingApp(ctk.CTk):
                 self.lbl_stats_cols.configure(text=f"Spalten: {len(loaded_df.columns)}")
                 self.lbl_stats_sep.configure(text=f"Trenner: '{detected_sep}'")
                 self.lbl_stats_enc.configure(text=f"Encoding: {used_encoding}")
+            self.preview_page = 0
             self.render_data_preview()
             self.render_source_columns_list()
             self.render_mapping_rows()

@@ -79,13 +79,46 @@ class TestUIUXFeatures:
 
         assert app.lbl_stats_rows.cget("text") == "Zeilen: 3"
         assert app.lbl_stats_cols.cget("text") == "Spalten: 4"
-        assert app.preview_scroll_frame._orientation == "horizontal"
-        assert hasattr(app.preview_scroll_frame, "_scrollbar")
-        assert len(app.preview_scroll_frame.winfo_children()) > 0
-        grid_frame = app.preview_scroll_frame.winfo_children()[0]
-        # 4 Spaltenheader + (3 Zeilen * 4 Spalten) = 16 Labels
-        assert len(grid_frame.winfo_children()) == 16
+        assert hasattr(app, "preview_tree")
+        assert list(app.preview_tree["columns"]) == ["Vorname", "Nachname", "PLZ", "IK"]
+        assert len(app.preview_tree.get_children()) == 3
+        assert "1 - 3 / 3" in app.lbl_preview_page_info.cget("text")
         assert len(app.source_cols_scroll.winfo_children()) == 4
+
+        # Größeres DataFrame testen (60 Zeilen) für Paginierung
+        df_large = pd.DataFrame({
+            "A": [f"val_a_{i}" for i in range(60)],
+            "B": [f"val_b_{i}" for i in range(60)]
+        })
+        app.source_df = df_large
+        app.preview_page_size = 50
+        app.preview_page = 0
+        app.render_data_preview()
+
+        # Seite 1: 50 Zeilen
+        assert len(app.preview_tree.get_children()) == 50
+        assert app.btn_preview_prev.cget("state") == "disabled"
+        assert app.btn_preview_next.cget("state") == "normal"
+        assert "1 - 50 / 60" in app.lbl_preview_page_info.cget("text")
+
+        # Seite 2: 10 Zeilen
+        app.on_preview_next_page()
+        assert app.preview_page == 1
+        assert len(app.preview_tree.get_children()) == 10
+        assert app.btn_preview_prev.cget("state") == "normal"
+        assert app.btn_preview_next.cget("state") == "disabled"
+        assert "51 - 60 / 60" in app.lbl_preview_page_info.cget("text")
+
+        # Zurück zu Seite 1
+        app.on_preview_prev_page()
+        assert app.preview_page == 0
+        assert len(app.preview_tree.get_children()) == 50
+
+        # Seitengröße ändern auf 25
+        app.on_preview_size_change("25")
+        assert app.preview_page_size == 25
+        assert len(app.preview_tree.get_children()) == 25
+        assert "1 - 25 / 60" in app.lbl_preview_page_info.cget("text")
 
     def test_mapping_progress_calculation(self, app):
         """Prüft die korrekte Berechnung des Zuordnungsfortschritts."""
