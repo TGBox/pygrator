@@ -19,3 +19,4 @@ tests/test_export_and_audit.py
 tests/test_pygrator_engine.py
 tests/test_services.py
 tests/test_transformations.py
+tests/test_ui_ux_features.py

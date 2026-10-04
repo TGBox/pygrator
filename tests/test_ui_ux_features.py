@@ -79,7 +79,12 @@ class TestUIUXFeatures:
 
         assert app.lbl_stats_rows.cget("text") == "Zeilen: 3"
         assert app.lbl_stats_cols.cget("text") == "Spalten: 4"
+        assert app.preview_scroll_frame._orientation == "horizontal"
+        assert hasattr(app.preview_scroll_frame, "_scrollbar")
         assert len(app.preview_scroll_frame.winfo_children()) > 0
+        grid_frame = app.preview_scroll_frame.winfo_children()[0]
+        # 4 Spaltenheader + (3 Zeilen * 4 Spalten) = 16 Labels
+        assert len(grid_frame.winfo_children()) == 16
         assert len(app.source_cols_scroll.winfo_children()) == 4
 
     def test_mapping_progress_calculation(self, app):

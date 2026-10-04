@@ -6,8 +6,10 @@ Author-email: Daniel Rösch <droesch91@gmail.com>
 Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 Requires-Dist: pandas
+Requires-Dist: email-validator
 Requires-Dist: customtkinter
 Requires-Dist: openpyxl
+Requires-Dist: rapidfuzz
 Requires-Dist: mypy
 
 # Pygrator — CSV Data Mapper & Schema Validator

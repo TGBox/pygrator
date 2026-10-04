@@ -212,7 +212,7 @@ class CSVMappingApp(ctk.CTk):
         preview_header.pack(fill="x", padx=PADDING_M, pady=(PADDING_M, PADDING_XXS))
         ctk.CTkLabel(preview_header, text=LBL_DATA_PREVIEW_TITLE, font=BUTTON_FONT).pack(side="left")
 
-        self.preview_scroll_frame = ctk.CTkScrollableFrame(left_panel, orientation="both", height=190)
+        self.preview_scroll_frame = ctk.CTkScrollableFrame(left_panel, orientation="horizontal", height=190)
         self.preview_scroll_frame.pack(fill="both", expand=True, padx=PADDING_M, pady=PADDING_XS)
 
         self.lbl_preview_empty = ctk.CTkLabel(
@@ -509,12 +509,13 @@ class CSVMappingApp(ctk.CTk):
                 grid_frame,
                 text=col_name,
                 font=SMALL_LABEL_FONT_BOLD,
+                anchor="w",
                 fg_color=COLOR_CONTAINER_BG_DARK,
                 corner_radius=4,
                 padx=PADDING_S,
                 pady=PADDING_XXS
             )
-            hdr.grid(row=0, column=c_idx, padx=2, pady=2, sticky="ew")
+            hdr.grid(row=0, column=c_idx, padx=2, pady=2, sticky="nsew")
 
         for r_idx in range(len(sample_df)):
             row_bg = COLOR_CARD_BG if r_idx % 2 == 0 else "transparent"
@@ -530,10 +531,10 @@ class CSVMappingApp(ctk.CTk):
                     anchor="w",
                     fg_color=row_bg,
                     corner_radius=2,
-                    padx=PADDING_XS,
+                    padx=PADDING_S,
                     pady=PADDING_XXS
                 )
-                cell.grid(row=r_idx + 1, column=c_idx, padx=2, pady=1, sticky="w")
+                cell.grid(row=r_idx + 1, column=c_idx, padx=2, pady=1, sticky="nsew")
 
     def render_source_columns_list(self) -> None:
         """Rendert die Liste der erkannten Quellspalten mit Zeilenzählern und Stichproben."""
