@@ -3,11 +3,11 @@ import os
 import re
 import csv
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, cast
 from openpyxl import Workbook
 import pandas as pd
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 
 # DONE TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
 # DONE TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
@@ -56,6 +56,16 @@ ctk.set_appearance_mode(APP_APPEARANCE_MODE)
 ctk.set_default_color_theme(APP_COLOR_THEME)
 
 
+def format_thousands(value: int) -> str:
+    """Formatiert Ganzzahlen mit deutschem Tausendertrenner (z. B. 12345 -> '12.345')."""
+    return f"{value:,}".replace(",", ".")
+
+
+def resolve_theme_color(color: Tuple[str, str]) -> str:
+    """Wählt aus einem (light, dark)-Farbtupel die Farbe des aktuell aktiven Erscheinungsbilds."""
+    return color[1] if ctk.get_appearance_mode() == "Dark" else color[0]
+
+
 class CSVMappingApp(ctk.CTk):
     source_df: Optional[pd.DataFrame]
     source_file_path: str
@@ -75,6 +85,28 @@ class CSVMappingApp(ctk.CTk):
     plz_service: Any
     _current_toast_frame: Optional[ctk.CTkFrame]
     _current_toast_timer: Optional[str]
+    is_fullscreen: bool
+    btn_fullscreen: ctk.CTkButton
+    preview_container: ctk.CTkFrame
+    preview_tree: ttk.Treeview
+    btn_preview_prev: ctk.CTkButton
+    btn_preview_next: ctk.CTkButton
+    lbl_preview_page_info: ctk.CTkLabel
+    combo_preview_size: ctk.CTkOptionMenu
+    preview_page: int
+    preview_page_size: int
+    source_cols_scroll: ctk.CTkScrollableFrame
+    lbl_stats_rows: ctk.CTkLabel
+    lbl_stats_cols: ctk.CTkLabel
+    lbl_stats_sep: ctk.CTkLabel
+    lbl_stats_enc: ctk.CTkLabel
+    lbl_mapping_status: ctk.CTkLabel
+    progress_mapping: ctk.CTkProgressBar
+    entry_search: ctk.CTkEntry
+    seg_filter: ctk.CTkSegmentedButton
+    active_filter: str
+    search_query: str
+    mapping_row_widgets: Dict[str, List[Any]]
 
     def __init__(self) -> None:
         super().__init__()
@@ -93,6 +125,15 @@ class CSVMappingApp(ctk.CTk):
         self.cleanup_dialog = None
         self._current_toast_frame = None
         self._current_toast_timer = None
+        self.preview_page = 0
+        self.preview_page_size = 50
+        self.mapping_row_widgets = {}
+        self.active_filter = LBL_FILTER_ALL
+        self.search_query = ""
+        self.is_fullscreen = False
+
+        self.bind("<F11>", self.toggle_fullscreen)
+        self.bind("<Escape>", self.exit_fullscreen)
         
         self.var_clean_strings = ctk.BooleanVar(value=True)
         
@@ -113,6 +154,18 @@ class CSVMappingApp(ctk.CTk):
         action_row.pack(fill="x", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
 
         ctk.CTkButton(action_row, text=TXT_LOAD_CSV, command=self.load_csv).pack(side="left")
+
+        # Vollbild / Fenster Toggle Button
+        self.btn_fullscreen = ctk.CTkButton(
+            action_row,
+            text=TXT_TOGGLE_FULLSCREEN,
+            width=110,
+            fg_color=COLOR_BTN_NEUTRAL_BG,
+            hover_color=COLOR_BTN_NEUTRAL_HOVER,
+            text_color=COLOR_BTN_SECONDARY_TEXT,
+            command=self.toggle_fullscreen
+        )
+        self.btn_fullscreen.pack(side="left", padx=PADDING_M)
 
         self.btn_auto_settings = ctk.CTkButton(
             action_row,
@@ -138,8 +191,174 @@ class CSVMappingApp(ctk.CTk):
         self.lbl_file = ctk.CTkLabel(info_row, text=LBL_NO_FILE_SELECTED, text_color="gray", anchor="w")
         self.lbl_file.pack(side="left", fill="x", expand=True)
 
-        self.scroll_frame = ctk.CTkScrollableFrame(self, label_text=LBL_COLUMN_MAPPING_FRAME)
-        self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_L, pady=PADDING_M)
+        # -------------------------------------------------------------
+        # HAUPT-WORKSPACE (2-SPALTEN-LAYOUT)
+        # -------------------------------------------------------------
+        workspace_frame = ctk.CTkFrame(self, fg_color="transparent")
+        workspace_frame.pack(fill="both", expand=True, padx=PADDING_L, pady=(0, PADDING_M))
+        workspace_frame.grid_columnconfigure(0, weight=4)  # Linke Spalte ~38%
+        workspace_frame.grid_columnconfigure(1, weight=6)  # Rechte Spalte ~62%
+        workspace_frame.grid_rowconfigure(0, weight=1)
+
+        # -------------------------------------------------------------
+        # LINKE SPALTE: DATEI-INSPEKTION & LIVE-DATENVORSCHAU
+        # -------------------------------------------------------------
+        left_panel = ctk.CTkFrame(workspace_frame)
+        left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, PADDING_S), pady=0)
+
+        left_header = ctk.CTkFrame(left_panel, fg_color="transparent")
+        left_header.pack(fill="x", padx=PADDING_M, pady=(PADDING_M, PADDING_XS))
+        ctk.CTkLabel(left_header, text=LBL_WORKSPACE_SOURCE_PANEL, font=LARGER_LABEL_FONT_BOLD).pack(side="left")
+
+        # Metadaten-Kärtchen
+        self.stats_card = ctk.CTkFrame(left_panel, fg_color=COLOR_CARD_BG, corner_radius=8)
+        self.stats_card.pack(fill="x", padx=PADDING_M, pady=PADDING_XS)
+
+        self.lbl_stats_rows = ctk.CTkLabel(self.stats_card, text=LBL_STATS_ROWS_TEMPLATE.format(value=LBL_STATS_PLACEHOLDER), font=SMALL_LABEL_FONT_BOLD)
+        self.lbl_stats_rows.grid(row=0, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+
+        self.lbl_stats_cols = ctk.CTkLabel(self.stats_card, text=LBL_STATS_COLS_TEMPLATE.format(value=LBL_STATS_PLACEHOLDER), font=SMALL_LABEL_FONT_BOLD)
+        self.lbl_stats_cols.grid(row=0, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+
+        self.lbl_stats_sep = ctk.CTkLabel(self.stats_card, text=LBL_STATS_SEP_TEMPLATE.format(value=LBL_STATS_PLACEHOLDER), font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED)
+        self.lbl_stats_sep.grid(row=1, column=0, padx=PADDING_M, pady=(0, PADDING_XS), sticky="w")
+
+        self.lbl_stats_enc = ctk.CTkLabel(self.stats_card, text=LBL_STATS_ENC_TEMPLATE.format(value=LBL_STATS_PLACEHOLDER), font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED)
+        self.lbl_stats_enc.grid(row=1, column=1, padx=PADDING_M, pady=(0, PADDING_XS), sticky="w")
+
+        # Live-Datenvorschau Header & Controls
+        preview_header = ctk.CTkFrame(left_panel, fg_color="transparent")
+        preview_header.pack(fill="x", padx=PADDING_M, pady=(PADDING_M, PADDING_XXS))
+        ctk.CTkLabel(preview_header, text=LBL_DATA_PREVIEW_TITLE, font=BUTTON_FONT).pack(side="left")
+
+        # Paginierungs- & Größenauswahl-Leiste
+        preview_ctrls = ctk.CTkFrame(preview_header, fg_color="transparent")
+        preview_ctrls.pack(side="right")
+
+        self.btn_preview_prev = ctk.CTkButton(
+            preview_ctrls,
+            text=BTN_PREVIEW_PREV,
+            width=24,
+            height=22,
+            font=SMALL_LABEL_FONT_BOLD,
+            fg_color=COLOR_BTN_SECONDARY_BG,
+            hover_color=COLOR_BTN_SECONDARY_HOVER,
+            text_color=COLOR_BTN_SECONDARY_TEXT,
+            state="disabled",
+            command=self.on_preview_prev_page
+        )
+        self.btn_preview_prev.pack(side="left", padx=(0, PADDING_XXS))
+
+        self.lbl_preview_page_info = ctk.CTkLabel(
+            preview_ctrls,
+            text=LBL_PREVIEW_PAGINATION_EMPTY,
+            font=SMALL_LABEL_FONT,
+            text_color=COLOR_TEXT_MUTED
+        )
+        self.lbl_preview_page_info.pack(side="left", padx=PADDING_XS)
+
+        self.btn_preview_next = ctk.CTkButton(
+            preview_ctrls,
+            text=BTN_PREVIEW_NEXT,
+            width=24,
+            height=22,
+            font=SMALL_LABEL_FONT_BOLD,
+            fg_color=COLOR_BTN_SECONDARY_BG,
+            hover_color=COLOR_BTN_SECONDARY_HOVER,
+            text_color=COLOR_BTN_SECONDARY_TEXT,
+            state="disabled",
+            command=self.on_preview_next_page
+        )
+        self.btn_preview_next.pack(side="left", padx=(PADDING_XXS, PADDING_S))
+
+        self.combo_preview_size = ctk.CTkOptionMenu(
+            preview_ctrls,
+            values=PREVIEW_PAGE_SIZES,
+            width=64,
+            height=22,
+            font=SMALL_LABEL_FONT,
+            command=self.on_preview_size_change
+        )
+        self.combo_preview_size.set(str(self.preview_page_size))
+        self.combo_preview_size.pack(side="left")
+
+        # Treeview Container mit beidseitigen Scrollbars
+        self.preview_container = ctk.CTkFrame(left_panel, height=200, fg_color=COLOR_CARD_BG, corner_radius=8)
+        self.preview_container.pack(fill="both", expand=True, padx=PADDING_M, pady=PADDING_XS)
+
+        self.preview_tree = ttk.Treeview(self.preview_container, show="headings", selectmode="browse")
+        self._init_treeview_style()
+        self.preview_vsb = ctk.CTkScrollbar(self.preview_container, orientation="vertical", command=self.preview_tree.yview)
+        self.preview_hsb = ctk.CTkScrollbar(self.preview_container, orientation="horizontal", command=self.preview_tree.xview)
+        self.preview_tree.configure(yscrollcommand=self.preview_vsb.set, xscrollcommand=self.preview_hsb.set)
+
+        self.preview_tree.grid(row=0, column=0, sticky="nsew", padx=(PADDING_XXS, 0), pady=(PADDING_XXS, 0))
+        self.preview_vsb.grid(row=0, column=1, sticky="ns", padx=(PADDING_XXS, PADDING_XXS), pady=(PADDING_XXS, 0))
+        self.preview_hsb.grid(row=1, column=0, sticky="ew", padx=(PADDING_XXS, 0), pady=(PADDING_XXS, PADDING_XXS))
+        self.preview_container.grid_columnconfigure(0, weight=1)
+        self.preview_container.grid_rowconfigure(0, weight=1)
+
+        self.lbl_preview_empty = ctk.CTkLabel(
+            self.preview_container,
+            text=f"📋  {LBL_NO_PREVIEW_DATA}",
+            text_color=COLOR_TEXT_MUTED,
+            font=LABEL_FONT
+        )
+        self.lbl_preview_empty.place(relx=0.5, rely=0.5, anchor="center")
+
+        # Quellspalten-Schnellansicht
+        source_cols_header = ctk.CTkFrame(left_panel, fg_color="transparent")
+        source_cols_header.pack(fill="x", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
+        ctk.CTkLabel(source_cols_header, text=LBL_SOURCE_COLUMNS_TITLE, font=BUTTON_FONT).pack(side="left")
+
+        self.source_cols_scroll = ctk.CTkScrollableFrame(left_panel, height=150)
+        self.source_cols_scroll.pack(fill="x", padx=PADDING_M, pady=(PADDING_XXS, PADDING_M))
+        
+        self.lbl_source_cols_empty = ctk.CTkLabel(
+            self.source_cols_scroll,
+            text=LBL_NO_SOURCE_COLUMNS,
+            text_color=COLOR_TEXT_MUTED,
+            font=SMALL_LABEL_FONT
+        )
+        self.lbl_source_cols_empty.pack(padx=PADDING_M, pady=PADDING_S)
+
+        # -------------------------------------------------------------
+        # RECHTE SPALTE: ZIELSCHEMA & MAPPING
+        # -------------------------------------------------------------
+        right_panel = ctk.CTkFrame(workspace_frame)
+        right_panel.grid(row=0, column=1, sticky="nsew", padx=(PADDING_S, 0), pady=0)
+
+        right_header = ctk.CTkFrame(right_panel, fg_color="transparent")
+        right_header.pack(fill="x", padx=PADDING_M, pady=(PADDING_M, PADDING_XS))
+        ctk.CTkLabel(right_header, text=LBL_WORKSPACE_MAPPING_PANEL, font=LARGER_LABEL_FONT_BOLD).pack(side="left")
+
+        # Fortschrittsbalken und Statusanzeige
+        progress_box = ctk.CTkFrame(right_header, fg_color="transparent")
+        progress_box.pack(side="right")
+        self.lbl_mapping_status = ctk.CTkLabel(progress_box, text=LBL_MAPPING_STATUS_TEMPLATE.format(mapped=0, total=0, percent=0), font=SMALL_LABEL_FONT_BOLD)
+        self.lbl_mapping_status.pack(side="left", padx=PADDING_S)
+        self.progress_mapping = ctk.CTkProgressBar(progress_box, width=130)
+        self.progress_mapping.pack(side="left")
+        self.progress_mapping.set(0)
+
+        # Filter- und Suchleiste
+        filter_toolbar = ctk.CTkFrame(right_panel, fg_color="transparent")
+        filter_toolbar.pack(fill="x", padx=PADDING_M, pady=PADDING_XS)
+
+        self.entry_search = ctk.CTkEntry(filter_toolbar, placeholder_text=TXT_SEARCH_COLUMNS, width=160)
+        self.entry_search.pack(side="left", padx=(0, PADDING_M))
+        self.entry_search.bind("<KeyRelease>", self.on_search_change)
+
+        self.seg_filter = ctk.CTkSegmentedButton(
+            filter_toolbar,
+            values=[LBL_FILTER_ALL, LBL_FILTER_UNMAPPED, LBL_FILTER_MAPPED, LBL_FILTER_WITH_RULES],
+            command=self.on_filter_change
+        )
+        self.seg_filter.set(LBL_FILTER_ALL)
+        self.seg_filter.pack(side="left")
+
+        self.scroll_frame = ctk.CTkScrollableFrame(right_panel, label_text=LBL_COLUMN_MAPPING_FRAME)
+        self.scroll_frame.pack(fill="both", expand=True, padx=PADDING_M, pady=(PADDING_XS, PADDING_M))
 
         # UNTERE BEDIENLEISTE (EXPORT-OPTIONS)
         bottom_frame = ctk.CTkFrame(self)
@@ -254,7 +473,284 @@ class CSVMappingApp(ctk.CTk):
             self.combo_encoding.configure(state="disabled")
         else:
             self.combo_encoding.configure(state="normal")
-    
+
+    def toggle_fullscreen(self, event: Optional[Any] = None) -> None:
+        """Schaltet zwischen Vollbildmodus und Fenstermodus um."""
+        self.is_fullscreen = not self.is_fullscreen
+        self.attributes("-fullscreen", self.is_fullscreen)
+        if hasattr(self, "btn_fullscreen"):
+            if self.is_fullscreen:
+                self.btn_fullscreen.configure(text=TXT_TOGGLE_WINDOWED)
+            else:
+                self.btn_fullscreen.configure(text=TXT_TOGGLE_FULLSCREEN)
+                center_window(cast(ctk.CTkToplevel, cast(Any, self)), APP_WIDTH, APP_HEIGHT)
+
+    def exit_fullscreen(self, event: Optional[Any] = None) -> None:
+        """Verlässt den Vollbildmodus bei Betätigung der Escape-Taste."""
+        if self.is_fullscreen:
+            self.toggle_fullscreen()
+
+    def on_search_change(self, event: Optional[Any] = None) -> None:
+        """Reagiert auf Eingaben im Zielspalten-Suchfeld."""
+        if hasattr(self, "entry_search"):
+            self.search_query = self.entry_search.get().strip().lower()
+            self.apply_mapping_filter()
+
+    def on_filter_change(self, choice: str) -> None:
+        """Reagiert auf Filter-Schaltflächen (Alle, Offen, Zugeordnet, Mit Regeln)."""
+        self.active_filter = choice
+        self.apply_mapping_filter()
+
+    def on_column_mapped(self, target_col: str, choice: str) -> None:
+        """Wird aufgerufen, wenn im Quellspalten-Dropdown eine Auswahl getroffen wird."""
+        self.update_mapping_progress()
+        self.apply_mapping_filter()
+
+    def apply_mapping_filter(self) -> None:
+        """Blendet Mapping-Zeilen basierend auf Suche und aktivem Status-Filter ein oder aus."""
+        if not hasattr(self, 'mapping_row_widgets') or not self.mapping_row_widgets:
+            return
+
+        query: str = getattr(self, 'search_query', '')
+        f_type: str = getattr(self, 'active_filter', LBL_FILTER_ALL)
+
+        for target_col, widgets in self.mapping_row_widgets.items():
+            matches_search: bool = (not query) or (query in target_col.lower())
+
+            combo = self.mapping_dropdowns.get(target_col)
+            curr_val: str = combo.get() if combo else ""
+            is_mapped: bool = bool(curr_val and curr_val != TXT_SPECIAL_RULE_OPTION)
+            has_rule: bool = (self.transformations.get(target_col, {}).get('type', 'none') not in ('none', ''))
+
+            matches_filter: bool = True
+            if f_type == LBL_FILTER_UNMAPPED:
+                matches_filter = (not is_mapped) and (not has_rule)
+            elif f_type == LBL_FILTER_MAPPED:
+                matches_filter = is_mapped or has_rule
+            elif f_type == LBL_FILTER_WITH_RULES:
+                matches_filter = has_rule
+
+            is_visible: bool = matches_search and matches_filter
+            for w in widgets:
+                if is_visible:
+                    w.grid()
+                else:
+                    w.grid_remove()
+
+    def update_mapping_progress(self) -> None:
+        """Berechnet den Zuordnungsfortschritt und aktualisiert die Statusanzeige."""
+        if not hasattr(self, 'combo_schema') or not hasattr(self, 'lbl_mapping_status') or not hasattr(self, 'progress_mapping'):
+            return
+
+        schema_key = self.combo_schema.get()
+        target_schema = SCHEMAS.get(schema_key, {})
+        total = len(target_schema)
+        if total == 0:
+            return
+
+        mapped = 0
+        for target_col in target_schema.keys():
+            combo = self.mapping_dropdowns.get(target_col)
+            curr_val = combo.get() if combo else ""
+            is_mapped = bool(curr_val and curr_val != TXT_SPECIAL_RULE_OPTION)
+            has_rule = (self.transformations.get(target_col, {}).get('type', 'none') not in ('none', ''))
+            if is_mapped or has_rule:
+                mapped += 1
+
+        percent = int((mapped / total) * 100)
+        self.lbl_mapping_status.configure(
+            text=LBL_MAPPING_STATUS_TEMPLATE.format(mapped=mapped, total=total, percent=percent)
+        )
+        self.progress_mapping.set(mapped / total)
+
+    def _init_treeview_style(self) -> None:
+        style = ttk.Style(self)
+        try:
+            style.theme_use("clam")
+        except Exception:
+            pass
+        self._apply_treeview_colors()
+
+    def _apply_treeview_colors(self) -> None:
+        """Setzt die Farben der Datenvorschau passend zum aktiven Light-/Dark-Mode.
+
+        ttk.Treeview versteht keine (light, dark)-Tupel wie CustomTkinter, daher wird die
+        Farbe hier explizit aufgelöst und bei jedem Moduswechsel erneut gesetzt.
+        """
+        style = ttk.Style(self)
+        bg = resolve_theme_color(COLOR_TREE_BG)
+        hdr_bg = resolve_theme_color(COLOR_TREE_HEADER_BG)
+        fg = resolve_theme_color(COLOR_TREE_TEXT)
+
+        style.configure(
+            "Treeview",
+            background=bg,
+            foreground=fg,
+            fieldbackground=bg,
+            rowheight=24,
+            font=(FONT_TYPE, 10),
+            borderwidth=0,
+            relief="flat"
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=hdr_bg,
+            foreground=fg,
+            font=(FONT_TYPE, 10, "bold"),
+            borderwidth=1,
+            relief="flat",
+            padding=(6, 4)
+        )
+        style.map("Treeview.Heading", background=[("active", bg)])
+        style.map(
+            "Treeview",
+            background=[("selected", resolve_theme_color(COLOR_TREE_SELECTED_BG))],
+            foreground=[("selected", resolve_theme_color(COLOR_TREE_SELECTED_TEXT))]
+        )
+
+        if hasattr(self, "preview_tree"):
+            self.preview_tree.tag_configure("even", background=bg)
+            self.preview_tree.tag_configure("odd", background=resolve_theme_color(COLOR_TREE_ROW_ALT))
+
+    def _set_appearance_mode(self, mode_string: str) -> None:
+        """Wird von CustomTkinter bei jedem Wechsel des Erscheinungsbilds aufgerufen (auch bei 'system')."""
+        parent_handler = getattr(super(), "_set_appearance_mode", None)
+        if parent_handler is not None:
+            parent_handler(mode_string)
+        self._apply_treeview_colors()
+
+    def on_preview_prev_page(self) -> None:
+        if self.preview_page > 0:
+            self.preview_page -= 1
+            self.render_data_preview()
+
+    def on_preview_next_page(self) -> None:
+        if self.source_df is not None:
+            max_page = max(0, (len(self.source_df) - 1) // self.preview_page_size)
+            if self.preview_page < max_page:
+                self.preview_page += 1
+                self.render_data_preview()
+
+    def on_preview_size_change(self, choice: str) -> None:
+        try:
+            new_size = int(choice)
+            if new_size > 0:
+                self.preview_page_size = new_size
+                self.preview_page = 0
+                self.render_data_preview()
+        except ValueError:
+            pass
+
+    def render_data_preview(self) -> None:
+        """Rendert die Zeilen der Quell-CSV tabellarisch mit ttk.Treeview und Paginierung."""
+        if not hasattr(self, 'preview_tree'):
+            return
+
+        if self.source_df is None or self.source_df.empty:
+            self.preview_tree.delete(*self.preview_tree.get_children())
+            self.preview_tree["columns"] = ()
+            if hasattr(self, 'lbl_preview_empty'):
+                self.lbl_preview_empty.place(relx=0.5, rely=0.5, anchor="center")
+            if hasattr(self, 'lbl_preview_page_info'):
+                self.lbl_preview_page_info.configure(text=LBL_PREVIEW_PAGINATION_EMPTY)
+            if hasattr(self, 'btn_preview_prev'):
+                self.btn_preview_prev.configure(state="disabled")
+            if hasattr(self, 'btn_preview_next'):
+                self.btn_preview_next.configure(state="disabled")
+            return
+
+        if hasattr(self, 'lbl_preview_empty'):
+            self.lbl_preview_empty.place_forget()
+
+        total_rows = len(self.source_df)
+        max_page = max(0, (total_rows - 1) // self.preview_page_size)
+        if self.preview_page > max_page:
+            self.preview_page = max_page
+        if self.preview_page < 0:
+            self.preview_page = 0
+
+        start = self.preview_page * self.preview_page_size
+        end = min(start + self.preview_page_size, total_rows)
+        slice_df = self.source_df.iloc[start:end]
+        cols = [c for c in self.source_df.columns]
+
+        # Spalten konfigurieren (falls Spaltenliste sich geändert hat)
+        if list(self.preview_tree["columns"]) != cols:
+            self.preview_tree["columns"] = cols
+            for col_name in cols:
+                self.preview_tree.heading(col_name, text=col_name)
+                # Berechne angenehme Spaltenbreite
+                approx_width = max(80, min(240, max(len(col_name) * 10, 100)))
+                self.preview_tree.column(col_name, width=approx_width, minwidth=60, stretch=False)
+
+        # Zeilen leeren und befüllen
+        self.preview_tree.delete(*self.preview_tree.get_children())
+
+        # Vektorisiert statt Zelle für Zelle per iloc (deutlich schneller bei vielen Spalten)
+        rows: List[List[str]] = slice_df.astype(object).where(slice_df.notna(), "").astype(str).values.tolist()
+        for r_idx, row_vals in enumerate(rows):
+            tag = "even" if r_idx % 2 == 0 else "odd"
+            self.preview_tree.insert("", "end", values=row_vals, tags=(tag,))
+
+        # Paginierungs-Status aktualisieren
+        if hasattr(self, 'lbl_preview_page_info'):
+            self.lbl_preview_page_info.configure(
+                text=LBL_PREVIEW_PAGINATION_TEMPLATE.format(
+                    start=start + 1 if total_rows > 0 else 0,
+                    end=end,
+                    total=format_thousands(total_rows)
+                )
+            )
+        if hasattr(self, 'btn_preview_prev'):
+            self.btn_preview_prev.configure(state="normal" if self.preview_page > 0 else "disabled")
+        if hasattr(self, 'btn_preview_next'):
+            self.btn_preview_next.configure(state="normal" if end < total_rows else "disabled")
+
+    def render_source_columns_list(self) -> None:
+        """Rendert die Liste der erkannten Quellspalten mit Zeilenzählern und Stichproben."""
+        if not hasattr(self, 'source_cols_scroll'):
+            return
+
+        for widget in self.source_cols_scroll.winfo_children():
+            widget.destroy()
+
+        if self.source_df is None or self.source_df.empty:
+            lbl = ctk.CTkLabel(
+                self.source_cols_scroll,
+                text=LBL_NO_SOURCE_COLUMNS,
+                text_color=COLOR_TEXT_MUTED,
+                font=SMALL_LABEL_FONT
+            )
+            lbl.pack(padx=PADDING_M, pady=PADDING_S)
+            return
+
+        for col in self.source_df.columns:
+            non_null_count = self.source_df[col].notna().sum()
+            first_val = ""
+            for v in self.source_df[col].dropna():
+                if str(v).strip():
+                    first_val = str(v).strip()
+                    break
+            sample_hint = f" ('{first_val[:16]}...')" if len(first_val) > 16 else (f" ('{first_val}')" if first_val else "")
+
+            row_card = ctk.CTkFrame(self.source_cols_scroll, fg_color=COLOR_CARD_BG, corner_radius=4)
+            row_card.pack(fill="x", padx=PADDING_XS, pady=2)
+
+            ctk.CTkLabel(
+                row_card,
+                text=col,
+                font=SMALL_LABEL_FONT_BOLD,
+                anchor="w"
+            ).pack(side="left", padx=PADDING_S, pady=PADDING_XXS)
+
+            ctk.CTkLabel(
+                row_card,
+                text=LBL_SOURCE_COL_COUNT_TEMPLATE.format(count=format_thousands(non_null_count), sample=sample_hint),
+                font=SMALL_LABEL_FONT,
+                text_color=COLOR_TEXT_MUTED,
+                anchor="e"
+            ).pack(side="right", padx=PADDING_S, pady=PADDING_XXS)
+
     def load_csv(self) -> None:
         file_path: str = filedialog.askopenfilename(filetypes=[("CSV/Excel Files", "*.csv;*.txt;*.xlsx;*.xls")])
         if not file_path:
@@ -306,17 +802,29 @@ class CSVMappingApp(ctk.CTk):
                 text=f"📁 Datei: {os.path.basename(file_path)}  |  Trennzeichen: '{detected_sep}'  |  Encoding: {used_encoding}", 
                 text_color=COLOR_TEXT_PRIMARY
             )
+            if hasattr(self, 'lbl_stats_rows'):
+                self.lbl_stats_rows.configure(text=LBL_STATS_ROWS_TEMPLATE.format(value=format_thousands(len(loaded_df))))
+                self.lbl_stats_cols.configure(text=LBL_STATS_COLS_TEMPLATE.format(value=len(loaded_df.columns)))
+                self.lbl_stats_sep.configure(text=LBL_STATS_SEP_TEMPLATE.format(value=f"'{detected_sep}'"))
+                self.lbl_stats_enc.configure(text=LBL_STATS_ENC_TEMPLATE.format(value=used_encoding))
+            self.preview_page = 0
+            self.render_data_preview()
+            self.render_source_columns_list()
             self.render_mapping_rows()
+            self.update_mapping_progress()
         else:
             messagebox.showerror(MSG_ERR_LOAD_EXCEL_TITLE, MSG_ERR_LOAD_FILE)
 
     def on_schema_change(self, choice: str) -> None:
         if self.source_df is not None:
             self.render_mapping_rows()
+            self.update_mapping_progress()
 
     def render_mapping_rows(self) -> None:
         for widget in self.scroll_frame.winfo_children():
             widget.destroy()
+
+        self.mapping_row_widgets = {}
 
         if self.source_df is None:
             return
@@ -324,9 +832,12 @@ class CSVMappingApp(ctk.CTk):
         source_cols: List[str] = [TXT_SPECIAL_RULE_OPTION] + list(self.source_df.columns)
         target_schema: Dict[str, str] = SCHEMAS[self.combo_schema.get()]
 
-        ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_TARGET_COL, font=BUTTON_FONT).grid(row=0, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
-        ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_SOURCE_COL, font=BUTTON_FONT).grid(row=0, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
-        ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_TRANSFORMATION, font=BUTTON_FONT).grid(row=0, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+        hdr_target = ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_TARGET_COL, font=BUTTON_FONT)
+        hdr_target.grid(row=0, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+        hdr_source = ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_SOURCE_COL, font=BUTTON_FONT)
+        hdr_source.grid(row=0, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+        hdr_trans = ctk.CTkLabel(self.scroll_frame, text=LBL_HEADER_TRANSFORMATION, font=BUTTON_FONT)
+        hdr_trans.grid(row=0, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
 
         self.mapping_dropdowns = {}
         self.trans_buttons = {}
@@ -336,9 +847,14 @@ class CSVMappingApp(ctk.CTk):
 
         for idx, (target_col, dtype) in enumerate(target_schema.items(), start=1):
             label_text: str = f"{target_col} ({dtype})"
-            ctk.CTkLabel(self.scroll_frame, text=label_text, font=SMALL_LABEL_FONT).grid(row=idx, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
+            lbl_col = ctk.CTkLabel(self.scroll_frame, text=label_text, font=SMALL_LABEL_FONT)
+            lbl_col.grid(row=idx, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
 
-            combo: ctk.CTkOptionMenu = ctk.CTkOptionMenu(self.scroll_frame, values=source_cols)
+            combo: ctk.CTkOptionMenu = ctk.CTkOptionMenu(
+                self.scroll_frame, 
+                values=source_cols,
+                command=lambda choice, col=target_col: self.on_column_mapped(col, choice)
+            )
             combo.grid(row=idx, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
             
             target_lower: str = target_col.lower()
@@ -475,6 +991,8 @@ class CSVMappingApp(ctk.CTk):
             btn_trans.grid(row=idx, column=2, padx=PADDING_M, pady=PADDING_XS, sticky="w")
             self.trans_buttons[target_col] = btn_trans
 
+            self.mapping_row_widgets[target_col] = [lbl_col, combo, btn_trans]
+
             # Rechtsklick-Event zum direkten Entfernen/Deselektieren der Regel binden
             def _make_right_click_handler(col: str) -> Any:
                 def _handler(event: Any) -> str:
@@ -493,6 +1011,8 @@ class CSVMappingApp(ctk.CTk):
                 btn_trans._text_label.bind("<Button-2>", handler)
 
         self.update_all_rule_button_states()
+        self.update_mapping_progress()
+        self.apply_mapping_filter()
 
     def show_toast(self, message: str, duration_ms: int = 2500, icon: str = "ℹ️") -> None:
         """Zeigt eine elegante, nicht-modale In-App Toast-Benachrichtigung am unteren Rand an."""
@@ -543,15 +1063,17 @@ class CSVMappingApp(ctk.CTk):
             rule_title = RULE_NAMES.get(rule_type, rule_type)
             del self.transformations[target_col]
             self.update_rule_button_state(target_col)
+            self.update_mapping_progress()
+            self.apply_mapping_filter()
             self.show_toast(f"Regel '{rule_title}' für '{target_col}' entfernt", icon="🗑️")
         else:
             self.show_toast(f"Keine Regel für '{target_col}' vorhanden", icon="ℹ️")
-            
+
     def update_all_rule_button_states(self) -> None:
         if hasattr(self, 'trans_buttons'):
             for target_col in self.trans_buttons.keys():
                 self.update_rule_button_state(target_col)
-            
+
     def update_rule_button_state(self, target_col: str) -> None:
         btn: Optional[ctk.CTkButton] = self.trans_buttons.get(target_col)
         if not btn:
@@ -590,15 +1112,9 @@ class CSVMappingApp(ctk.CTk):
         dialog.grab_set()
 
         # 1. Header (Oben fixiert)
-        ctk.CTkLabel(dialog, text=f"Regel definieren für: '{target_col}'", font=BUTTON_FONT).pack(pady=PADDING_S)
-
-        # 2. Fußzeile für Aktions-Buttons (Unten fixiert, bleibt IMMER sichtbar!)
-        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-        btn_frame.pack(side="bottom", fill="x", pady=PADDING_M)
-
-        # 3. Mittlerer scrollbarer Inhaltsbereich
-        scroll_frame = ctk.CTkScrollableFrame(dialog)
-        scroll_frame.pack(fill="both", expand=True, padx=PADDING_M, pady=PADDING_XS)
+        hdr_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        hdr_frame.pack(fill="x", padx=PADDING_M, pady=(PADDING_M, PADDING_XXS))
+        ctk.CTkLabel(hdr_frame, text=f"Regel definieren für: '{target_col}'", font=LARGER_LABEL_FONT_BOLD).pack(anchor="w")
 
         existing_rule: Dict[str, Any] = self.transformations.get(target_col, {})
         
@@ -634,13 +1150,117 @@ class CSVMappingApp(ctk.CTk):
         current_type: str = str(existing_rule.get('type', default_rule))
         rule_type: ctk.StringVar = ctk.StringVar(value=current_type)
 
-        r0 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_GENERATE_UID, variable=rule_type, value="generate_uid")
-        r0.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-        
-        r_copy = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_COPY_TARGET, variable=rule_type, value="copy_target")
-        r_copy.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+        # Kategorien-Umschaltung
+        cat_bar = ctk.CTkFrame(dialog, fg_color="transparent")
+        cat_bar.pack(fill="x", padx=PADDING_M, pady=(PADDING_XS, PADDING_S))
 
-        copy_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        category_cards: Dict[str, ctk.CTkFrame] = {}
+
+        def on_cat_switch(selected_cat: str) -> None:
+            for cat_name, card_widget in category_cards.items():
+                if selected_cat == LBL_FILTER_ALL or selected_cat == cat_name:
+                    card_widget.pack(fill="x", padx=PADDING_S, pady=PADDING_S)
+                else:
+                    card_widget.pack_forget()
+
+        seg_categories = ctk.CTkSegmentedButton(
+            cat_bar,
+            values=[LBL_FILTER_ALL, CAT_VALIDATION, CAT_FORMAT, CAT_SPLIT, CAT_GENERATE],
+            command=on_cat_switch
+        )
+        seg_categories.pack(fill="x")
+
+        # 2. Fußzeile für Aktions-Buttons (Unten fixiert, bleibt IMMER sichtbar!)
+        btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+        btn_frame.pack(side="bottom", fill="x", pady=PADDING_M)
+
+        # 3. Mittlerer scrollbarer Inhaltsbereich
+        scroll_frame = ctk.CTkScrollableFrame(dialog)
+        scroll_frame.pack(fill="both", expand=True, padx=PADDING_M, pady=PADDING_XS)
+
+        source_cols_list: List[str] = [c for c in self.source_df.columns] if self.source_df is not None else []
+
+        # =========================================================================
+        # KATEGORIE 1: VALIDIERUNG
+        # =========================================================================
+        card_val = ctk.CTkFrame(scroll_frame, fg_color=COLOR_CARD_BG, corner_radius=8)
+        category_cards[CAT_VALIDATION] = card_val
+        ctk.CTkLabel(card_val, text=f"🛡️  {CAT_VALIDATION}", font=BUTTON_FONT).pack(anchor="w", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
+
+        r_val_ik = ctk.CTkRadioButton(card_val, text=TXT_RULE_VALIDATE_IK, variable=rule_type, value="validate_ik")
+        r_val_ik.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r_val_kvnr = ctk.CTkRadioButton(card_val, text=TXT_RULE_VALIDATE_KVNR, variable=rule_type, value="validate_kvnr")
+        r_val_kvnr.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r_val_mail = ctk.CTkRadioButton(card_val, text=TXT_RULE_VALIDATE_EMAIL, variable=rule_type, value="validate_email")
+        r_val_mail.pack(anchor="w", padx=PADDING_L, pady=(PADDING_XS, PADDING_S))
+
+        # =========================================================================
+        # KATEGORIE 2: FORMATIERUNG & BEREINIGUNG
+        # =========================================================================
+        card_fmt = ctk.CTkFrame(scroll_frame, fg_color=COLOR_CARD_BG, corner_radius=8)
+        category_cards[CAT_FORMAT] = card_fmt
+        ctk.CTkLabel(card_fmt, text=f"✨  {CAT_FORMAT}", font=BUTTON_FONT).pack(anchor="w", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
+
+        r_date = ctk.CTkRadioButton(card_fmt, text=TXT_RULE_FORMAT_DATE, variable=rule_type, value="format_date")
+        r_date.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        date_frame = ctk.CTkFrame(card_fmt, fg_color="transparent")
+        date_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
+        ctk.CTkLabel(date_frame, text=LBL_DEFAULT_DATE_HINT, font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED).pack(side="left", padx=PADDING_XS)
+        entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
+        entry_date_default.pack(side="left")
+        if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
+            entry_date_default.insert(0, str(existing_rule.get('param')))
+        elif 'birth' in target_col.lower() or 'geb' in target_col.lower():
+            entry_date_default.insert(0, "1900-01-01")
+
+        r_plz = ctk.CTkRadioButton(card_fmt, text=TXT_RULE_CLEAN_PLZ, variable=rule_type, value="clean_plz")
+        r_plz.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r1 = ctk.CTkRadioButton(card_fmt, text=TXT_RULE_GENDER, variable=rule_type, value="gender")
+        r1.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r_salutation = ctk.CTkRadioButton(card_fmt, text=TXT_RULE_CLEAN_SALUTATION, variable=rule_type, value="clean_salutation")
+        r_salutation.pack(anchor="w", padx=PADDING_L, pady=(PADDING_XS, PADDING_S))
+
+        # =========================================================================
+        # KATEGORIE 3: AUFTEILUNG & TRENNUNG
+        # =========================================================================
+        card_splt = ctk.CTkFrame(scroll_frame, fg_color=COLOR_CARD_BG, corner_radius=8)
+        category_cards[CAT_SPLIT] = card_splt
+        ctk.CTkLabel(card_splt, text=f"✂️  {CAT_SPLIT}", font=BUTTON_FONT).pack(anchor="w", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
+
+        r2 = ctk.CTkRadioButton(card_splt, text=TXT_RULE_SPLIT_STREET, variable=rule_type, value="split_street")
+        r2.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r3 = ctk.CTkRadioButton(card_splt, text=TXT_RULE_SPLIT_NUMBER, variable=rule_type, value="split_number")
+        r3.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r_title = ctk.CTkRadioButton(card_splt, text=TXT_RULE_SPLIT_TITLE, variable=rule_type, value="split_title")
+        r_title.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r_merge = ctk.CTkRadioButton(card_splt, text=TXT_RULE_SPLIT_NAME_NO_TITLE, variable=rule_type, value="split_name_without_title")
+        r_merge.pack(anchor="w", padx=PADDING_L, pady=(PADDING_XS, PADDING_S))
+
+        # =========================================================================
+        # KATEGORIE 4: GENERIERUNG & ZUWEISUNG
+        # =========================================================================
+        card_gen = ctk.CTkFrame(scroll_frame, fg_color=COLOR_CARD_BG, corner_radius=8)
+        category_cards[CAT_GENERATE] = card_gen
+        ctk.CTkLabel(card_gen, text=f"🔑  {CAT_GENERATE}", font=BUTTON_FONT).pack(anchor="w", padx=PADDING_M, pady=(PADDING_S, PADDING_XXS))
+
+        r0 = ctk.CTkRadioButton(card_gen, text=TXT_RULE_GENERATE_UID, variable=rule_type, value="generate_uid")
+        r0.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r_seq = ctk.CTkRadioButton(card_gen, text=TXT_RULE_AUTO_SEQ6, variable=rule_type, value="auto_sequence_6")
+        r_seq.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        r_copy = ctk.CTkRadioButton(card_gen, text=TXT_RULE_COPY_TARGET, variable=rule_type, value="copy_target")
+        r_copy.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        copy_frame = ctk.CTkFrame(card_gen, fg_color="transparent")
         copy_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(copy_frame, text=LBL_COPY_FROM).pack(side="left", padx=PADDING_XS)
         combo_copy_target = ctk.CTkOptionMenu(copy_frame, values=other_target_cols if other_target_cols else ["Keine"])
@@ -650,26 +1270,10 @@ class CSVMappingApp(ctk.CTk):
         elif target_col == 'p_nr' and 'id' in other_target_cols:
             combo_copy_target.set('id')
 
-        r_date = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_FORMAT_DATE, variable=rule_type, value="format_date")
-        r_date.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+        r_default = ctk.CTkRadioButton(card_gen, text=TXT_RULE_DEFAULT_VAL, variable=rule_type, value="default_value")
+        r_default.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
 
-        date_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-        date_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(date_frame, text=LBL_DEFAULT_DATE_HINT, font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED).pack(side="left", padx=PADDING_XS)
-        entry_date_default = ctk.CTkEntry(date_frame, width=OPTIONS_MENU_WIDTH, placeholder_text="z. B. 1900-01-01")
-        entry_date_default.pack(side="left")
-        if existing_rule.get('type') == 'format_date' and existing_rule.get('param'):
-            entry_date_default.insert(0, str(existing_rule.get('param')))
-        elif 'birth' in target_col.lower() or 'geb' in target_col.lower():
-            entry_date_default.insert(0, "1900-01-01")
-        
-        separator = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
-        separator.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
-
-        r_default = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_DEFAULT_VAL, variable=rule_type, value="default_value")
-        r_default.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-
-        default_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        default_frame = ctk.CTkFrame(card_gen, fg_color="transparent")
         default_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(default_frame, text=LBL_REPLACEMENT_VAL).pack(side="left", padx=PADDING_XS)
         entry_default_val = ctk.CTkEntry(default_frame, width=VALUE_FIELD_WIDTH, placeholder_text="z. B. Unbekannt")
@@ -677,10 +1281,10 @@ class CSVMappingApp(ctk.CTk):
         if existing_rule.get('type') == 'default_value':
             entry_default_val.insert(0, str(existing_rule.get('param', '')))
 
-        r_static = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_STATIC_VAL, variable=rule_type, value="static_value")
-        r_static.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+        r_static = ctk.CTkRadioButton(card_gen, text=TXT_RULE_STATIC_VAL, variable=rule_type, value="static_value")
+        r_static.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
 
-        static_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        static_frame = ctk.CTkFrame(card_gen, fg_color="transparent")
         static_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(static_frame, text=LBL_VALUE).pack(side="left", padx=PADDING_XS)
         entry_static_val = ctk.CTkEntry(static_frame, width=VALUE_FIELD_WIDTH)
@@ -688,25 +1292,25 @@ class CSVMappingApp(ctk.CTk):
         if existing_rule.get('type') == 'static_value':
             entry_static_val.insert(0, str(existing_rule.get('param', '')))
 
-        separator2 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
-        separator2.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
-        
-        r_ik_lookup = ctk.CTkRadioButton(
-            scroll_frame, 
-            text=TXT_RULE_LOOKUP_IK, 
-            variable=rule_type, 
-            value="lookup_ik_provider"
-        )
-        r_ik_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+        r_merge2 = ctk.CTkRadioButton(card_gen, text=TXT_RULE_MERGE_COLUMNS, variable=rule_type, value="merge_columns")
+        r_merge2.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
 
-        ik_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        merge_frame = ctk.CTkFrame(card_gen, fg_color="transparent")
+        merge_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
+        ctk.CTkLabel(merge_frame, text=LBL_SECOND_SOURCE_COL).pack(side="left", padx=PADDING_XS)
+        combo_merge_source = ctk.CTkOptionMenu(merge_frame, values=source_cols_list if source_cols_list else ["Keine"])
+        combo_merge_source.pack(side="left")
+        if existing_rule.get('type') == 'merge_columns' and str(existing_rule.get('param')) in source_cols_list:
+            combo_merge_source.set(str(existing_rule.get('param')))
+
+        r_ik_lookup = ctk.CTkRadioButton(card_gen, text=TXT_RULE_LOOKUP_IK, variable=rule_type, value="lookup_ik_provider")
+        r_ik_lookup.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
+
+        ik_frame = ctk.CTkFrame(card_gen, fg_color="transparent")
         ik_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(ik_frame, text=LBL_IK_SOURCE_COL).pack(side="left", padx=PADDING_XS)
-
-        source_cols_list: List[str] = [c for c in self.source_df.columns] if self.source_df is not None else []
         combo_ik_source = ctk.CTkOptionMenu(ik_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_ik_source.pack(side="left")
-
         if existing_rule.get('type') == 'lookup_ik_provider' and str(existing_rule.get('param')) in source_cols_list:
             combo_ik_source.set(str(existing_rule.get('param')))
         elif self.source_df is not None:
@@ -714,56 +1318,15 @@ class CSVMappingApp(ctk.CTk):
                 if 'ik' in c.lower():
                     combo_ik_source.set(c)
                     break
-                
-        r_val_ik = ctk.CTkRadioButton(
-            scroll_frame, 
-            text=TXT_RULE_VALIDATE_IK, 
-            variable=rule_type, 
-            value="validate_ik"
-        )
-        r_val_ik.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
 
-        r_val_kvnr = ctk.CTkRadioButton(
-            scroll_frame, 
-            text=TXT_RULE_VALIDATE_KVNR, 
-            variable=rule_type, 
-            value="validate_kvnr"
-        )
-        r_val_kvnr.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-        
-        r_val_mail = ctk.CTkRadioButton(
-            scroll_frame, 
-            text=TXT_RULE_VALIDATE_EMAIL, 
-            variable=rule_type, 
-            value="validate_email"
-        )
-        r_val_mail.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+        r_plz_lookup = ctk.CTkRadioButton(card_gen, text=TXT_RULE_LOOKUP_PLZ, variable=rule_type, value="lookup_plz_by_city")
+        r_plz_lookup.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
 
-        r_plz = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_CLEAN_PLZ, variable=rule_type, value="clean_plz")
-        r_plz.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-        
-        r_seq = ctk.CTkRadioButton(
-            scroll_frame, 
-            text=TXT_RULE_AUTO_SEQ6, 
-            variable=rule_type, 
-            value="auto_sequence_6"
-        )
-        r_seq.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-        
-        r_plz_lookup = ctk.CTkRadioButton(
-            scroll_frame, 
-            text=TXT_RULE_LOOKUP_PLZ, 
-            variable=rule_type, 
-            value="lookup_plz_by_city"
-        )
-        r_plz_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-
-        plz_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        plz_frame = ctk.CTkFrame(card_gen, fg_color="transparent")
         plz_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(plz_frame, text=LBL_CITY_SOURCE_COL).pack(side="left", padx=PADDING_XS)
         combo_city_source = ctk.CTkOptionMenu(plz_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_city_source.pack(side="left")
-
         if existing_rule.get('type') == 'lookup_plz_by_city' and str(existing_rule.get('param')) in source_cols_list:
             combo_city_source.set(str(existing_rule.get('param')))
         elif self.source_df is not None:
@@ -772,20 +1335,14 @@ class CSVMappingApp(ctk.CTk):
                     combo_city_source.set(c)
                     break
 
-        r_city_lookup = ctk.CTkRadioButton(
-            scroll_frame, 
-            text=TXT_RULE_LOOKUP_CITY, 
-            variable=rule_type, 
-            value="lookup_city_by_plz"
-        )
-        r_city_lookup.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
+        r_city_lookup = ctk.CTkRadioButton(card_gen, text=TXT_RULE_LOOKUP_CITY, variable=rule_type, value="lookup_city_by_plz")
+        r_city_lookup.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
 
-        city_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
+        city_frame = ctk.CTkFrame(card_gen, fg_color="transparent")
         city_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
         ctk.CTkLabel(city_frame, text=LBL_PLZ_SOURCE_COL).pack(side="left", padx=PADDING_XS)
         combo_plz_source = ctk.CTkOptionMenu(city_frame, values=source_cols_list if source_cols_list else ["Keine"])
         combo_plz_source.pack(side="left")
-
         if existing_rule.get('type') == 'lookup_city_by_plz' and str(existing_rule.get('param')) in source_cols_list:
             combo_plz_source.set(str(existing_rule.get('param')))
         elif self.source_df is not None:
@@ -794,39 +1351,10 @@ class CSVMappingApp(ctk.CTk):
                     combo_plz_source.set(c)
                     break
 
-        r1 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_GENDER, variable=rule_type, value="gender")
-        r1.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-        
-        separator3 = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
-        separator3.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
-
-        r2 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_STREET, variable=rule_type, value="split_street")
-        r2.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-
-        r3 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_NUMBER, variable=rule_type, value="split_number")
-        r3.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-
-        r_title = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_TITLE, variable=rule_type, value="split_title")
-        r_title.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-
-        r_merge = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_SPLIT_NAME_NO_TITLE, variable=rule_type, value="split_name_without_title")
-        r_merge.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-        
-        r_merge2 = ctk.CTkRadioButton(scroll_frame, text=TXT_RULE_MERGE_COLUMNS, variable=rule_type, value="merge_columns")
-        r_merge2.pack(anchor="w", padx=PADDING_XL, pady=PADDING_XS)
-
-        merge_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
-        merge_frame.pack(anchor="w", padx=PADDING_XXXL, pady=2)
-        ctk.CTkLabel(merge_frame, text=LBL_SECOND_SOURCE_COL).pack(side="left", padx=PADDING_XS)
-
-        combo_merge_source = ctk.CTkOptionMenu(merge_frame, values=source_cols_list if source_cols_list else ["Keine"])
-        combo_merge_source.pack(side="left")
-
-        if existing_rule.get('type') == 'merge_columns' and str(existing_rule.get('param')) in source_cols_list:
-            combo_merge_source.set(str(existing_rule.get('param')))
-
-        separator_bottom = ctk.CTkFrame(scroll_frame, height=2, fg_color=COLOR_SEPARATOR)
-        separator_bottom.pack(fill="x", padx=PADDING_XL, pady=PADDING_M)
+        # Initialisiere sichtbare Karten
+        initial_cat = RULE_CATEGORIES.get(current_type, LBL_FILTER_ALL)
+        seg_categories.set(initial_cat)
+        on_cat_switch(initial_cat)
 
         var_log_affected = ctk.BooleanVar(value=bool(existing_rule.get('log_affected', True)))
         chk_log_affected = ctk.CTkCheckBox(
@@ -862,6 +1390,8 @@ class CSVMappingApp(ctk.CTk):
                 'log_affected': var_log_affected.get()
             }
             self.update_rule_button_state(target_col)
+            self.update_mapping_progress()
+            self.apply_mapping_filter()
             rule_title: str = RULE_NAMES.get(t_type, t_type)
             self.show_toast(f"Regel '{rule_title}' für '{target_col}' hinterlegt.", icon="✓")
             dialog.destroy()
@@ -870,6 +1400,8 @@ class CSVMappingApp(ctk.CTk):
             if target_col in self.transformations:
                 del self.transformations[target_col]
             self.update_rule_button_state(target_col)
+            self.update_mapping_progress()
+            self.apply_mapping_filter()
             self.show_toast(f"Keine Regel mehr für '{target_col}' aktiv.", icon="🗑️")
             dialog.destroy()
 
@@ -1393,6 +1925,19 @@ class CSVMappingApp(ctk.CTk):
                         return mapping_dict.get(s_val, s_val if s_val else default_empty_value)
                         
                     series = series.apply(_map_gender)
+
+                elif rule_type == "clean_salutation":
+                    def _clean_salutation(val: Any) -> Any:
+                        is_fixed, fixed_sal = try_to_fix_salutation(val)
+                        return fixed_sal if is_fixed else val
+
+                    for r_i, val in enumerate(self.source_df[source_col]):
+                        is_fixed, fixed_sal = try_to_fix_salutation(val)
+                        if is_fixed:
+                            track_rule_execution("clean_salutation")
+                            record_change(r_i, target_col, val, fixed_sal, RULE_NAMES.get("clean_salutation", "Anrede vereinheitlichen"))
+
+                    series = series.apply(_clean_salutation)
 
                 elif rule_type == "split_street":
                     def get_street_name(val: Any) -> str:

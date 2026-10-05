@@ -17,5 +17,7 @@ tests/test_db_util.py
 tests/test_edge_cases.py
 tests/test_export_and_audit.py
 tests/test_pygrator_engine.py
+tests/test_rule_dispatch.py
 tests/test_services.py
 tests/test_transformations.py
+tests/test_ui_ux_features.py

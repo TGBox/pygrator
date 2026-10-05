@@ -27,6 +27,42 @@ RULE_NAMES: Dict[str, str] = {
     "clean_salutation": "Anrede vereinheitlichen"
 }
 
+# Categories for grouping transformation and validation rules
+CAT_VALIDATION = "Prüfung & Validierung"
+CAT_FORMAT = "Formatierung & Bereinigung"
+CAT_SPLIT = "Aufteilung & Trennung"
+CAT_GENERATE = "Generierung & Zuweisung"
+
+RULE_CATEGORIES: Dict[str, str] = {
+    # Validierung
+    "validate_ik": CAT_VALIDATION,
+    "validate_kvnr": CAT_VALIDATION,
+    "validate_email": CAT_VALIDATION,
+    
+    # Formatierung & Bereinigung
+    "format_date": CAT_FORMAT,
+    "clean_plz": CAT_FORMAT,
+    "gender": CAT_FORMAT,
+    "clean_salutation": CAT_FORMAT,
+    
+    # Aufteilung & Trennung
+    "split_street": CAT_SPLIT,
+    "split_number": CAT_SPLIT,
+    "split_title": CAT_SPLIT,
+    "split_name_without_title": CAT_SPLIT,
+    
+    # Generierung & Zuweisung
+    "generate_uid": CAT_GENERATE,
+    "auto_sequence_6": CAT_GENERATE,
+    "copy_target": CAT_GENERATE,
+    "default_value": CAT_GENERATE,
+    "static_value": CAT_GENERATE,
+    "merge_columns": CAT_GENERATE,
+    "lookup_ik_provider": CAT_GENERATE,
+    "lookup_plz_by_city": CAT_GENERATE,
+    "lookup_city_by_plz": CAT_GENERATE,
+}
+
 RULE_DESCRIPTIONS: Dict[str, str] = {
     "generate_uid": "Erzeugt eine eindeutige, 12-stellige alphanumerische Kennung (UID) für jeden Datensatz.",
     "copy_target": "Übernimmt den bereinigten Wert aus einer anderen bereits verarbeiteten Zielspalte.",
@@ -207,9 +243,34 @@ TITLE_TRANS_DIALOG = "Spezielle Regel & Transformation wählen"
 
 TXT_LOAD_CSV = "Quelldatei laden (CSV)"
 TXT_AUTO_COMPLETE_SETTINGS = "⚙️ Auto-Vervollständigung"
+TXT_TOGGLE_FULLSCREEN = "🗖 Vollbild"
+TXT_TOGGLE_WINDOWED = "🗗 Fenstermodus"
 LBL_TARGET_SCHEMA = "Zielschema:"
 LBL_NO_FILE_SELECTED = "Keine Datei ausgewählt"
 LBL_COLUMN_MAPPING_FRAME = "Spalten-Zuordnung & Schema-Limits"
+LBL_WORKSPACE_SOURCE_PANEL = "📊 Quelldatei & Datenvorschau"
+LBL_WORKSPACE_MAPPING_PANEL = "🎯 Zielschema-Zuordnung & Regeln"
+LBL_DATA_PREVIEW_TITLE = "Live-Datenvorschau"
+LBL_PREVIEW_PAGINATION_TEMPLATE = "{start} - {end} / {total}"
+LBL_PREVIEW_PAGINATION_EMPTY = "- / -"
+LBL_STATS_ROWS_TEMPLATE = "Zeilen: {value}"
+LBL_STATS_COLS_TEMPLATE = "Spalten: {value}"
+LBL_STATS_SEP_TEMPLATE = "Trenner: {value}"
+LBL_STATS_ENC_TEMPLATE = "Encoding: {value}"
+LBL_STATS_PLACEHOLDER = "-"
+LBL_NO_SOURCE_COLUMNS = "Noch keine Quellspalten verfügbar."
+LBL_SOURCE_COL_COUNT_TEMPLATE = "{count} Zeilen{sample}"
+BTN_PREVIEW_PREV = "◀"
+BTN_PREVIEW_NEXT = "▶"
+PREVIEW_PAGE_SIZES: List[str] = ["25", "50", "100"]
+LBL_NO_PREVIEW_DATA = "Lade eine CSV- oder Excel-Datei, um die Datenvorschau zu aktivieren."
+LBL_SOURCE_COLUMNS_TITLE = "Erkannte Quellspalten"
+LBL_FILTER_ALL = "Alle"
+LBL_FILTER_UNMAPPED = "Offen"
+LBL_FILTER_MAPPED = "Zugeordnet"
+LBL_FILTER_WITH_RULES = "Mit Regeln"
+TXT_SEARCH_COLUMNS = "Zielspalte suchen..."
+LBL_MAPPING_STATUS_TEMPLATE = "{mapped} / {total} Feldern gemappt ({percent}%)"
 CHK_FILL_NULL = "Unbelegte Felder mit 'NULL' auffüllen (statt leerem Text)"
 CHK_CLEAN_STRINGS = "String-Werte bereinigen (Trim & Steuerzeichen entfernen)"
 LBL_EXPORT_FORMAT = "Export-Format:"
@@ -274,6 +335,7 @@ TXT_RULE_AUTO_SEQ6 = "🔢 Lineare Nummerierung (6-stellig, z. B. 000001)"
 TXT_RULE_LOOKUP_PLZ = "📮 PLZ basierend auf Ortsname-Quellspalte ergänzen"
 TXT_RULE_LOOKUP_CITY = "🏙️ Ort basierend auf PLZ-Quellspalte ergänzen"
 TXT_RULE_GENDER = "👫 Geschlecht mappen (M->Herr, W->Frau)"
+TXT_RULE_CLEAN_SALUTATION = "✨ Anrede vereinheitlichen (z. B. Fr/Fräulein -> Frau)"
 TXT_RULE_SPLIT_STREET = "🏠 Straße/(Hausnr.) trennen -> Nur Straßenname"
 TXT_RULE_SPLIT_NUMBER = "🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer"
 TXT_RULE_SPLIT_TITLE = "🎓 Titel/Name trennen -> Nur Titel (z. B. Dr. med.)"
@@ -303,7 +365,7 @@ NULL_STRING_VALUES: Set[str] = {"nan", "none", "null", "<na>", ""}
 # GUI Styling & Layout Constants
 # =============================================================================
 
-APP_WIDTH = 1140
+APP_WIDTH = 1280
 APP_HEIGHT = 880
 FONT_TYPE = "Roboto"
 LABEL_FONT_BOLD: Tuple[str, int, str] = (FONT_TYPE, 11, "bold")
@@ -346,6 +408,14 @@ COLOR_CONTAINER_BG_DARK: Tuple[str, str] = ("#F8FAFC", "#0F172A")  # Bar / heade
 COLOR_CARD_BG: Tuple[str, str] = ("#F1F5F9", "#1E293B")            # Card / frame background
 COLOR_SEPARATOR: Tuple[str, str] = ("#CBD5E1", "#334155")          # Divider lines & frame borders
 
+# Datenvorschau (ttk.Treeview kennt keine (light, dark)-Tupel -> wird zur Laufzeit aufgelöst)
+COLOR_TREE_BG: Tuple[str, str] = ("#FFFFFF", "#1E293B")            # Tabellenhintergrund / gerade Zeilen
+COLOR_TREE_ROW_ALT: Tuple[str, str] = ("#F1F5F9", "#24334A")       # Ungerade Zeilen (Zebra)
+COLOR_TREE_HEADER_BG: Tuple[str, str] = ("#E2E8F0", "#0F172A")     # Spaltenköpfe
+COLOR_TREE_TEXT: Tuple[str, str] = ("#0F172A", "#F8FAFC")          # Zellentext
+COLOR_TREE_SELECTED_BG: Tuple[str, str] = ("#047857", "#047857")   # Ausgewählte Zeile
+COLOR_TREE_SELECTED_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")
+
 COLOR_TOAST_BG: Tuple[str, str] = ("#0F172A", "#1E293B")           # Floating Toast Card (Dark Slate)
 COLOR_TOAST_BORDER: Tuple[str, str] = ("#059669", "#10B981")       # Subtle Emerald accent border
 COLOR_TOAST_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")         # High contrast white text
@@ -371,8 +441,8 @@ COL_ORANGE = COLOR_ACCENT_WARNING
 COL_DARK_ORANGE = COLOR_TEXT_WARNING
 COL_LIGHT_GREEN = COLOR_ACCENT_SUCCESS
 
-TRANSFORMATION_DIALOG_WIDTH = 580
-TRANSFORMATION_DIALOG_HEIGHT = 640
+TRANSFORMATION_DIALOG_WIDTH = 640
+TRANSFORMATION_DIALOG_HEIGHT = 740
 VALUE_FIELD_WIDTH = 200
 ROW_VALIDATION_DIALOG_WIDTH = 1080
 ROW_VALIDATION_DIALOG_HEIGHT = 730
@@ -411,4 +481,4 @@ PADDING_XXL = 25
 PADDING_XXXL = 45
 
 AUTO_COMPLETE_DIALOG_WIDTH = 470
-AUTO_COMPLETE_DIALOG_HEIGHT = 400
+AUTO_COMPLETE_DIALOG_HEIGHT = 400
