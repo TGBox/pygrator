@@ -745,7 +745,7 @@ class CSVMappingApp(ctk.CTk):
 
             ctk.CTkLabel(
                 row_card,
-                text=LBL_SOURCE_COL_COUNT_TEMPLATE.format(count=format_thousands(int(non_null_count)), sample=sample_hint),
+                text=LBL_SOURCE_COL_COUNT_TEMPLATE.format(count=format_thousands(non_null_count), sample=sample_hint),
                 font=SMALL_LABEL_FONT,
                 text_color=COLOR_TEXT_MUTED,
                 anchor="e"
