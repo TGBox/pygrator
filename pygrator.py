@@ -659,12 +659,10 @@ class CSVMappingApp(ctk.CTk):
         self.preview_tree.tag_configure("even", background="#1E293B")
         self.preview_tree.tag_configure("odd", background="#24334A")
 
-        for r_idx in range(len(slice_df)):
+        # Vektorisiert statt Zelle für Zelle per iloc (deutlich schneller bei vielen Spalten)
+        rows: List[List[str]] = slice_df.astype(object).where(slice_df.notna(), "").astype(str).values.tolist()
+        for r_idx, row_vals in enumerate(rows):
             tag = "even" if r_idx % 2 == 0 else "odd"
-            row_vals = []
-            for col in self.source_df.columns:
-                raw_val = slice_df.iloc[r_idx][col]
-                row_vals.append("" if pd.isna(raw_val) else str(raw_val))
             self.preview_tree.insert("", "end", values=row_vals, tags=(tag,))
 
         # Paginierungs-Status aktualisieren
@@ -1900,6 +1898,19 @@ class CSVMappingApp(ctk.CTk):
                         return mapping_dict.get(s_val, s_val if s_val else default_empty_value)
                         
                     series = series.apply(_map_gender)
+
+                elif rule_type == "clean_salutation":
+                    def _clean_salutation(val: Any) -> Any:
+                        is_fixed, fixed_sal = try_to_fix_salutation(val)
+                        return fixed_sal if is_fixed else val
+
+                    for r_i, val in enumerate(self.source_df[source_col]):
+                        is_fixed, fixed_sal = try_to_fix_salutation(val)
+                        if is_fixed:
+                            track_rule_execution("clean_salutation")
+                            record_change(r_i, target_col, val, fixed_sal, RULE_NAMES.get("clean_salutation", "Anrede vereinheitlichen"))
+
+                    series = series.apply(_clean_salutation)
 
                 elif rule_type == "split_street":
                     def get_street_name(val: Any) -> str:

@@ -120,6 +120,14 @@ class TestUIUXFeatures:
         assert len(app.preview_tree.get_children()) == 25
         assert "1 - 25 / 60" in app.lbl_preview_page_info.cget("text")
 
+    def test_preview_renders_missing_values_as_empty(self, app):
+        """Fehlende Werte erscheinen in der Vorschau leer statt als 'nan'/'None'."""
+        app.source_df = pd.DataFrame({"A": ["x", None], "B": [None, "y"]})
+        app.preview_page = 0
+        app.render_data_preview()
+        rows = [app.preview_tree.item(i, "values") for i in app.preview_tree.get_children()]
+        assert [list(r) for r in rows] == [["x", ""], ["", "y"]]
+
     def test_mapping_progress_calculation(self, app):
         """Prüft die korrekte Berechnung des Zuordnungsfortschritts."""
         df = pd.DataFrame({"id": ["1"], "name1": ["Mustermann"], "geb_dat": ["1980-01-01"]})
