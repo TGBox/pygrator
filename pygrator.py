@@ -3,7 +3,7 @@ import os
 import re
 import csv
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, cast
+from typing import Any, Dict, List, Optional, Set, Tuple, cast
 from openpyxl import Workbook
 import pandas as pd
 import customtkinter as ctk
@@ -56,6 +56,16 @@ ctk.set_appearance_mode(APP_APPEARANCE_MODE)
 ctk.set_default_color_theme(APP_COLOR_THEME)
 
 
+def format_thousands(value: int) -> str:
+    """Formatiert Ganzzahlen mit deutschem Tausendertrenner (z. B. 12345 -> '12.345')."""
+    return f"{value:,}".replace(",", ".")
+
+
+def resolve_theme_color(color: Tuple[str, str]) -> str:
+    """Wählt aus einem (light, dark)-Farbtupel die Farbe des aktuell aktiven Erscheinungsbilds."""
+    return color[1] if ctk.get_appearance_mode() == "Dark" else color[0]
+
+
 class CSVMappingApp(ctk.CTk):
     source_df: Optional[pd.DataFrame]
     source_file_path: str
@@ -77,7 +87,6 @@ class CSVMappingApp(ctk.CTk):
     _current_toast_timer: Optional[str]
     is_fullscreen: bool
     btn_fullscreen: ctk.CTkButton
-    preview_scroll_frame: ctk.CTkScrollableFrame
     preview_container: ctk.CTkFrame
     preview_tree: ttk.Treeview
     btn_preview_prev: ctk.CTkButton
@@ -205,16 +214,16 @@ class CSVMappingApp(ctk.CTk):
         self.stats_card = ctk.CTkFrame(left_panel, fg_color=COLOR_CARD_BG, corner_radius=8)
         self.stats_card.pack(fill="x", padx=PADDING_M, pady=PADDING_XS)
 
-        self.lbl_stats_rows = ctk.CTkLabel(self.stats_card, text="Zeilen: -", font=SMALL_LABEL_FONT_BOLD)
+        self.lbl_stats_rows = ctk.CTkLabel(self.stats_card, text=LBL_STATS_ROWS_TEMPLATE.format(value=LBL_STATS_PLACEHOLDER), font=SMALL_LABEL_FONT_BOLD)
         self.lbl_stats_rows.grid(row=0, column=0, padx=PADDING_M, pady=PADDING_XS, sticky="w")
 
-        self.lbl_stats_cols = ctk.CTkLabel(self.stats_card, text="Spalten: -", font=SMALL_LABEL_FONT_BOLD)
+        self.lbl_stats_cols = ctk.CTkLabel(self.stats_card, text=LBL_STATS_COLS_TEMPLATE.format(value=LBL_STATS_PLACEHOLDER), font=SMALL_LABEL_FONT_BOLD)
         self.lbl_stats_cols.grid(row=0, column=1, padx=PADDING_M, pady=PADDING_XS, sticky="w")
 
-        self.lbl_stats_sep = ctk.CTkLabel(self.stats_card, text="Trenner: -", font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED)
+        self.lbl_stats_sep = ctk.CTkLabel(self.stats_card, text=LBL_STATS_SEP_TEMPLATE.format(value=LBL_STATS_PLACEHOLDER), font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED)
         self.lbl_stats_sep.grid(row=1, column=0, padx=PADDING_M, pady=(0, PADDING_XS), sticky="w")
 
-        self.lbl_stats_enc = ctk.CTkLabel(self.stats_card, text="Encoding: -", font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED)
+        self.lbl_stats_enc = ctk.CTkLabel(self.stats_card, text=LBL_STATS_ENC_TEMPLATE.format(value=LBL_STATS_PLACEHOLDER), font=SMALL_LABEL_FONT, text_color=COLOR_TEXT_MUTED)
         self.lbl_stats_enc.grid(row=1, column=1, padx=PADDING_M, pady=(0, PADDING_XS), sticky="w")
 
         # Live-Datenvorschau Header & Controls
@@ -242,7 +251,7 @@ class CSVMappingApp(ctk.CTk):
 
         self.lbl_preview_page_info = ctk.CTkLabel(
             preview_ctrls,
-            text="- / -",
+            text=LBL_PREVIEW_PAGINATION_EMPTY,
             font=SMALL_LABEL_FONT,
             text_color=COLOR_TEXT_MUTED
         )
@@ -276,10 +285,9 @@ class CSVMappingApp(ctk.CTk):
         # Treeview Container mit beidseitigen Scrollbars
         self.preview_container = ctk.CTkFrame(left_panel, height=200, fg_color=COLOR_CARD_BG, corner_radius=8)
         self.preview_container.pack(fill="both", expand=True, padx=PADDING_M, pady=PADDING_XS)
-        self.preview_scroll_frame = cast(ctk.CTkScrollableFrame, cast(Any, self.preview_container))
 
-        self._init_treeview_style()
         self.preview_tree = ttk.Treeview(self.preview_container, show="headings", selectmode="browse")
+        self._init_treeview_style()
         self.preview_vsb = ctk.CTkScrollbar(self.preview_container, orientation="vertical", command=self.preview_tree.yview)
         self.preview_hsb = ctk.CTkScrollbar(self.preview_container, orientation="horizontal", command=self.preview_tree.xview)
         self.preview_tree.configure(yscrollcommand=self.preview_vsb.set, xscrollcommand=self.preview_hsb.set)
@@ -308,7 +316,7 @@ class CSVMappingApp(ctk.CTk):
         
         self.lbl_source_cols_empty = ctk.CTkLabel(
             self.source_cols_scroll,
-            text="Noch keine Quellspalten verfügbar.",
+            text=LBL_NO_SOURCE_COLUMNS,
             text_color=COLOR_TEXT_MUTED,
             font=SMALL_LABEL_FONT
         )
@@ -327,7 +335,7 @@ class CSVMappingApp(ctk.CTk):
         # Fortschrittsbalken und Statusanzeige
         progress_box = ctk.CTkFrame(right_header, fg_color="transparent")
         progress_box.pack(side="right")
-        self.lbl_mapping_status = ctk.CTkLabel(progress_box, text="0 / 0 gemappt (0%)", font=SMALL_LABEL_FONT_BOLD)
+        self.lbl_mapping_status = ctk.CTkLabel(progress_box, text=LBL_MAPPING_STATUS_TEMPLATE.format(mapped=0, total=0, percent=0), font=SMALL_LABEL_FONT_BOLD)
         self.lbl_mapping_status.pack(side="left", padx=PADDING_S)
         self.progress_mapping = ctk.CTkProgressBar(progress_box, width=130)
         self.progress_mapping.pack(side="left")
@@ -561,18 +569,24 @@ class CSVMappingApp(ctk.CTk):
             style.theme_use("clam")
         except Exception:
             pass
+        self._apply_treeview_colors()
 
-        # CustomTkinter Dark / Slate Theme Farben
-        bg_card = "#1E293B"
-        bg_hdr = "#0F172A"
-        fg_text = "#F8FAFC"
-        accent_sel = "#047857"
+    def _apply_treeview_colors(self) -> None:
+        """Setzt die Farben der Datenvorschau passend zum aktiven Light-/Dark-Mode.
+
+        ttk.Treeview versteht keine (light, dark)-Tupel wie CustomTkinter, daher wird die
+        Farbe hier explizit aufgelöst und bei jedem Moduswechsel erneut gesetzt.
+        """
+        style = ttk.Style(self)
+        bg = resolve_theme_color(COLOR_TREE_BG)
+        hdr_bg = resolve_theme_color(COLOR_TREE_HEADER_BG)
+        fg = resolve_theme_color(COLOR_TREE_TEXT)
 
         style.configure(
             "Treeview",
-            background=bg_card,
-            foreground=fg_text,
-            fieldbackground=bg_card,
+            background=bg,
+            foreground=fg,
+            fieldbackground=bg,
             rowheight=24,
             font=(FONT_TYPE, 10),
             borderwidth=0,
@@ -580,15 +594,30 @@ class CSVMappingApp(ctk.CTk):
         )
         style.configure(
             "Treeview.Heading",
-            background=bg_hdr,
-            foreground=fg_text,
+            background=hdr_bg,
+            foreground=fg,
             font=(FONT_TYPE, 10, "bold"),
             borderwidth=1,
             relief="flat",
             padding=(6, 4)
         )
-        style.map("Treeview.Heading", background=[("active", bg_card)])
-        style.map("Treeview", background=[("selected", accent_sel)], foreground=[("selected", "#FFFFFF")])
+        style.map("Treeview.Heading", background=[("active", bg)])
+        style.map(
+            "Treeview",
+            background=[("selected", resolve_theme_color(COLOR_TREE_SELECTED_BG))],
+            foreground=[("selected", resolve_theme_color(COLOR_TREE_SELECTED_TEXT))]
+        )
+
+        if hasattr(self, "preview_tree"):
+            self.preview_tree.tag_configure("even", background=bg)
+            self.preview_tree.tag_configure("odd", background=resolve_theme_color(COLOR_TREE_ROW_ALT))
+
+    def _set_appearance_mode(self, mode_string: str) -> None:
+        """Wird von CustomTkinter bei jedem Wechsel des Erscheinungsbilds aufgerufen (auch bei 'system')."""
+        parent_handler = getattr(super(), "_set_appearance_mode", None)
+        if parent_handler is not None:
+            parent_handler(mode_string)
+        self._apply_treeview_colors()
 
     def on_preview_prev_page(self) -> None:
         if self.preview_page > 0:
@@ -623,7 +652,7 @@ class CSVMappingApp(ctk.CTk):
             if hasattr(self, 'lbl_preview_empty'):
                 self.lbl_preview_empty.place(relx=0.5, rely=0.5, anchor="center")
             if hasattr(self, 'lbl_preview_page_info'):
-                self.lbl_preview_page_info.configure(text="- / -")
+                self.lbl_preview_page_info.configure(text=LBL_PREVIEW_PAGINATION_EMPTY)
             if hasattr(self, 'btn_preview_prev'):
                 self.btn_preview_prev.configure(state="disabled")
             if hasattr(self, 'btn_preview_next'):
@@ -656,8 +685,6 @@ class CSVMappingApp(ctk.CTk):
 
         # Zeilen leeren und befüllen
         self.preview_tree.delete(*self.preview_tree.get_children())
-        self.preview_tree.tag_configure("even", background="#1E293B")
-        self.preview_tree.tag_configure("odd", background="#24334A")
 
         # Vektorisiert statt Zelle für Zelle per iloc (deutlich schneller bei vielen Spalten)
         rows: List[List[str]] = slice_df.astype(object).where(slice_df.notna(), "").astype(str).values.tolist()
@@ -671,7 +698,7 @@ class CSVMappingApp(ctk.CTk):
                 text=LBL_PREVIEW_PAGINATION_TEMPLATE.format(
                     start=start + 1 if total_rows > 0 else 0,
                     end=end,
-                    total=f"{total_rows:,}".replace(",", ".")
+                    total=format_thousands(total_rows)
                 )
             )
         if hasattr(self, 'btn_preview_prev'):
@@ -690,7 +717,7 @@ class CSVMappingApp(ctk.CTk):
         if self.source_df is None or self.source_df.empty:
             lbl = ctk.CTkLabel(
                 self.source_cols_scroll,
-                text="Noch keine Quellspalten verfügbar.",
+                text=LBL_NO_SOURCE_COLUMNS,
                 text_color=COLOR_TEXT_MUTED,
                 font=SMALL_LABEL_FONT
             )
@@ -718,7 +745,7 @@ class CSVMappingApp(ctk.CTk):
 
             ctk.CTkLabel(
                 row_card,
-                text=f"{non_null_count} Zeilen{sample_hint}",
+                text=LBL_SOURCE_COL_COUNT_TEMPLATE.format(count=format_thousands(int(non_null_count)), sample=sample_hint),
                 font=SMALL_LABEL_FONT,
                 text_color=COLOR_TEXT_MUTED,
                 anchor="e"
@@ -776,10 +803,10 @@ class CSVMappingApp(ctk.CTk):
                 text_color=COLOR_TEXT_PRIMARY
             )
             if hasattr(self, 'lbl_stats_rows'):
-                self.lbl_stats_rows.configure(text=f"Zeilen: {len(loaded_df):,}".replace(",", "."))
-                self.lbl_stats_cols.configure(text=f"Spalten: {len(loaded_df.columns)}")
-                self.lbl_stats_sep.configure(text=f"Trenner: '{detected_sep}'")
-                self.lbl_stats_enc.configure(text=f"Encoding: {used_encoding}")
+                self.lbl_stats_rows.configure(text=LBL_STATS_ROWS_TEMPLATE.format(value=format_thousands(len(loaded_df))))
+                self.lbl_stats_cols.configure(text=LBL_STATS_COLS_TEMPLATE.format(value=len(loaded_df.columns)))
+                self.lbl_stats_sep.configure(text=LBL_STATS_SEP_TEMPLATE.format(value=f"'{detected_sep}'"))
+                self.lbl_stats_enc.configure(text=LBL_STATS_ENC_TEMPLATE.format(value=used_encoding))
             self.preview_page = 0
             self.render_data_preview()
             self.render_source_columns_list()
@@ -1131,14 +1158,14 @@ class CSVMappingApp(ctk.CTk):
 
         def on_cat_switch(selected_cat: str) -> None:
             for cat_name, card_widget in category_cards.items():
-                if selected_cat == "Alle" or selected_cat == cat_name:
+                if selected_cat == LBL_FILTER_ALL or selected_cat == cat_name:
                     card_widget.pack(fill="x", padx=PADDING_S, pady=PADDING_S)
                 else:
                     card_widget.pack_forget()
 
         seg_categories = ctk.CTkSegmentedButton(
             cat_bar,
-            values=["Alle", CAT_VALIDATION, CAT_FORMAT, CAT_SPLIT, CAT_GENERATE],
+            values=[LBL_FILTER_ALL, CAT_VALIDATION, CAT_FORMAT, CAT_SPLIT, CAT_GENERATE],
             command=on_cat_switch
         )
         seg_categories.pack(fill="x")
@@ -1195,7 +1222,7 @@ class CSVMappingApp(ctk.CTk):
         r1 = ctk.CTkRadioButton(card_fmt, text=TXT_RULE_GENDER, variable=rule_type, value="gender")
         r1.pack(anchor="w", padx=PADDING_L, pady=PADDING_XS)
 
-        r_salutation = ctk.CTkRadioButton(card_fmt, text="✨ Anrede vereinheitlichen (z. B. Fr/Fräulein -> Frau)", variable=rule_type, value="clean_salutation")
+        r_salutation = ctk.CTkRadioButton(card_fmt, text=TXT_RULE_CLEAN_SALUTATION, variable=rule_type, value="clean_salutation")
         r_salutation.pack(anchor="w", padx=PADDING_L, pady=(PADDING_XS, PADDING_S))
 
         # =========================================================================
@@ -1325,7 +1352,7 @@ class CSVMappingApp(ctk.CTk):
                     break
 
         # Initialisiere sichtbare Karten
-        initial_cat = RULE_CATEGORIES.get(current_type, "Alle")
+        initial_cat = RULE_CATEGORIES.get(current_type, LBL_FILTER_ALL)
         seg_categories.set(initial_cat)
         on_cat_switch(initial_cat)
 

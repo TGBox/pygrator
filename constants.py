@@ -252,6 +252,14 @@ LBL_WORKSPACE_SOURCE_PANEL = "📊 Quelldatei & Datenvorschau"
 LBL_WORKSPACE_MAPPING_PANEL = "🎯 Zielschema-Zuordnung & Regeln"
 LBL_DATA_PREVIEW_TITLE = "Live-Datenvorschau"
 LBL_PREVIEW_PAGINATION_TEMPLATE = "{start} - {end} / {total}"
+LBL_PREVIEW_PAGINATION_EMPTY = "- / -"
+LBL_STATS_ROWS_TEMPLATE = "Zeilen: {value}"
+LBL_STATS_COLS_TEMPLATE = "Spalten: {value}"
+LBL_STATS_SEP_TEMPLATE = "Trenner: {value}"
+LBL_STATS_ENC_TEMPLATE = "Encoding: {value}"
+LBL_STATS_PLACEHOLDER = "-"
+LBL_NO_SOURCE_COLUMNS = "Noch keine Quellspalten verfügbar."
+LBL_SOURCE_COL_COUNT_TEMPLATE = "{count} Zeilen{sample}"
 BTN_PREVIEW_PREV = "◀"
 BTN_PREVIEW_NEXT = "▶"
 PREVIEW_PAGE_SIZES: List[str] = ["25", "50", "100"]
@@ -327,6 +335,7 @@ TXT_RULE_AUTO_SEQ6 = "🔢 Lineare Nummerierung (6-stellig, z. B. 000001)"
 TXT_RULE_LOOKUP_PLZ = "📮 PLZ basierend auf Ortsname-Quellspalte ergänzen"
 TXT_RULE_LOOKUP_CITY = "🏙️ Ort basierend auf PLZ-Quellspalte ergänzen"
 TXT_RULE_GENDER = "👫 Geschlecht mappen (M->Herr, W->Frau)"
+TXT_RULE_CLEAN_SALUTATION = "✨ Anrede vereinheitlichen (z. B. Fr/Fräulein -> Frau)"
 TXT_RULE_SPLIT_STREET = "🏠 Straße/(Hausnr.) trennen -> Nur Straßenname"
 TXT_RULE_SPLIT_NUMBER = "🔢 (Straße)/Hausnr. trennen -> Nur Hausnummer"
 TXT_RULE_SPLIT_TITLE = "🎓 Titel/Name trennen -> Nur Titel (z. B. Dr. med.)"
@@ -399,6 +408,14 @@ COLOR_CONTAINER_BG_DARK: Tuple[str, str] = ("#F8FAFC", "#0F172A")  # Bar / heade
 COLOR_CARD_BG: Tuple[str, str] = ("#F1F5F9", "#1E293B")            # Card / frame background
 COLOR_SEPARATOR: Tuple[str, str] = ("#CBD5E1", "#334155")          # Divider lines & frame borders
 
+# Datenvorschau (ttk.Treeview kennt keine (light, dark)-Tupel -> wird zur Laufzeit aufgelöst)
+COLOR_TREE_BG: Tuple[str, str] = ("#FFFFFF", "#1E293B")            # Tabellenhintergrund / gerade Zeilen
+COLOR_TREE_ROW_ALT: Tuple[str, str] = ("#F1F5F9", "#24334A")       # Ungerade Zeilen (Zebra)
+COLOR_TREE_HEADER_BG: Tuple[str, str] = ("#E2E8F0", "#0F172A")     # Spaltenköpfe
+COLOR_TREE_TEXT: Tuple[str, str] = ("#0F172A", "#F8FAFC")          # Zellentext
+COLOR_TREE_SELECTED_BG: Tuple[str, str] = ("#047857", "#047857")   # Ausgewählte Zeile
+COLOR_TREE_SELECTED_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")
+
 COLOR_TOAST_BG: Tuple[str, str] = ("#0F172A", "#1E293B")           # Floating Toast Card (Dark Slate)
 COLOR_TOAST_BORDER: Tuple[str, str] = ("#059669", "#10B981")       # Subtle Emerald accent border
 COLOR_TOAST_TEXT: Tuple[str, str] = ("#FFFFFF", "#FFFFFF")         # High contrast white text
@@ -464,4 +481,4 @@ PADDING_XXL = 25
 PADDING_XXXL = 45
 
 AUTO_COMPLETE_DIALOG_WIDTH = 470
-AUTO_COMPLETE_DIALOG_HEIGHT = 400
+AUTO_COMPLETE_DIALOG_HEIGHT = 400
