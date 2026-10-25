@@ -9,11 +9,8 @@ authors = [
 requires-python = ">=3.14"
 dependencies = [
     "pandas",
-    "email-validator",
     "customtkinter",
     "openpyxl",
-    "rapidfuzz",
-    "mypy"
 ]
 
 [project.scripts]
@@ -32,6 +29,7 @@ extraPaths = ["."]
 
 [dependency-groups]
 dev = [
+    "mypy>=1.15.0",
     "pyinstaller>=6.22.2",
     "pytest>=9.1.1",
 ]

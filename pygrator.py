@@ -1,4 +1,3 @@
-from constants import COL_PURPLE
 import os
 import re
 import csv
@@ -9,33 +8,9 @@ import pandas as pd
 import customtkinter as ctk
 from tkinter import filedialog, messagebox, ttk
 
-# DONE TODO: Check and verify that the newly added assignments for default connections between columns has worked as intended.
-# DONE TODO: Add a way to automatically fill the insurance provider name from the ik number that is specified.
-# DONE TODO: Add a way to add the name of a city from its post code and vice versa. There might be a method like this already in the py-handelsregister repositry! CHECK THAT OUT!
-# DONE TODO: Add a verification for the IK number. (Only format [explicitly only numerical with length 9] or maybe with proper check of the IK?) => Last part maybe not feasible because these IKs are always private therapists and not commonly known institutions!
-# DONE TODO: Add a verification for the insurance number. (one letter followed by 9 digits)
-# DONE TODO: Add a way to map the left over fields to the additional fields, if the target is a patients table.
-# DONE TODO: Add a method that can get turned on optionally in the gui. The method should list all field values that have been altered or that would be altered. Also with batch select and single select options on how to handle these entries.
-# DONE TODO: Add rule for always copying the contents of "id" to "p_nr" or "ext_id" if these fields exist.
-# DONE TODO: BUG: The completion rules for finding the city via the post code and for finding the post code via the city name are not selecting the correct reference column by default.
-# DONE TODO: Add another dialog window, where a list with all elements gets shown, where the sanitize method will process the value. Then user selection single/batch for the operations that will get executed.
-# DONE TODO: Add email structure validation.
-# DONE TODO: Split this file into multiple parts.
-# DONE TODO: Move all magic numbers, color values and other hard coded values to a dedicated file to have a single source of truth where changes can be applied more easily.
-# DONE TODO: FEATURE: Add a check sum digit calculation for the IK as well.
-# DONE TODO: FEATURE: The corrections for the insurance number must only get applied, when we can be sure, that our correction is useful. So we need to add an additional check to calculate the check sum digit at the end, after we applied our correction. And only if the result is viable, we want to change this value!
-# DONE TODO: FEATURE: When a dataset export from another program already has a unique identifier for the individual elements, we want to transfer these values instead of just copying the rolf ID that was generated. (Also we may want to update the program in general, so that the p_nr will be a continuos counter that is easier for humans to reference.)
-# DONE TODO: FEATURE: For doctors, we can just use the LANR (Lebenslange Arztnummer) to have unique identifiers. For other input sources, we need to check what their IDs are called.
-    # TODO: The 2 todos above need to get verified with different source tables.
-# TODO: FEATURE: Currently we only account for an empty database on our side. But the program should also be applicable when the database already has values and we get an updated table to update the individual data entries with the new information. Should only update certain fields where a change can be expected. (Maybe add a way to let the user decide, which fields need to adapt to the new source of truth and which will stay the same.)
-# DONE TODO: Rename the constants to better reflect their usage throughout the application. Also the names should apply to the elements which are being represented by them and not with the description of the current value. (So we currently have "COL_GREEN", but this could get renamed to "COL_BTN_FG" for example. So that a future change in the appearance of the app wouldn't result in a faulty descriptor for this constant!)
-# TODO: Add validation for the values of the fields.
-# TODO: Add more comments to this file.
-# TODO: Add a way to implement input schemas for specific export types from different other software companies.
-    # TODO: Add a way to add new schemas based on the currently processed input table.
-
 from auto_complete import extract_title_and_clean_name, try_to_fix_insurance_number, try_to_fix_email, try_to_fix_salutation
 from db_util import (
+    apply_rule_transform,
     format_date_iso, 
     generate_id, 
     parse_varchar_limit, 
@@ -1912,10 +1887,10 @@ class CSVMappingApp(ctk.CTk):
 
                 elif rule_type == "gender":
                     should_clean_sal = self.autocomplete_settings.get("clean_salutation", True) if hasattr(self, 'autocomplete_settings') else True
-                    mapping_dict: Dict[str, str] = {
-                        "M": "Herr", "m": "Herr", "HERR": "Herr", "Herr": "Herr", "männlich": "Herr", "1": "Herr", "H": "Herr", "h": "Herr", "Hr": "Herr", "hr": "Herr", "Herrn": "Herr",
-                        "W": "Frau", "w": "Frau", "FRAU": "Frau", "Frau": "Frau", "weiblich": "Frau", "F": "Frau", "f": "Frau", "2": "Frau", "Fr": "Frau", "fr": "Frau", "Fräulein": "Frau", "fraulein": "Frau", "Frl": "Frau",
-                        "D": "Divers", "d": "Divers", "Di": "Divers", "di": "Divers", "Div": "Divers", "div": "Divers", "Divers": "Divers", "X": "Divers", "x": "Divers"
+                    gender_map: Dict[str, str] = {
+                        "m": "Herr", "herr": "Herr", "herrn": "Herr", "1": "Herr", "h": "Herr", "hr": "Herr", "männlich": "Herr", "maennlich": "Herr",
+                        "w": "Frau", "frau": "Frau", "fräulein": "Frau", "fraulein": "Frau", "2": "Frau", "f": "Frau", "fr": "Frau", "frl": "Frau", "weiblich": "Frau",
+                        "d": "Divers", "divers": "Divers", "diverses": "Divers", "di": "Divers", "div": "Divers", "x": "Divers", "d/x": "Divers"
                     }
                     def _map_gender(val: Any) -> str:
                         if pd.isna(val) or not str(val).strip():
@@ -1925,7 +1900,7 @@ class CSVMappingApp(ctk.CTk):
                             is_fixed, fixed_s = try_to_fix_salutation(s_val)
                             if is_fixed:
                                 return fixed_s
-                        return mapping_dict.get(s_val, s_val if s_val else default_empty_value)
+                        return gender_map.get(s_val.lower().rstrip("."), s_val if s_val else default_empty_value)
                         
                     series = series.apply(_map_gender)
 
@@ -1943,19 +1918,22 @@ class CSVMappingApp(ctk.CTk):
                     series = series.apply(_clean_salutation)
 
                 elif rule_type == "split_street":
-                    def get_street_name(val: Any) -> str:
-                        if pd.isna(val) or str(val).lower() in ['nan', 'null', 'none', '']:
-                            return ""
-                        return re.sub(r'\s*\d+.*$', '', str(val)).strip()
-                    series = series.apply(get_street_name)
+                    series = series.apply(
+                        lambda val: apply_rule_transform(
+                            str(val).strip() if pd.notna(val) and str(val).lower() not in NULL_STRING_VALUES else "",
+                            "split_street",
+                            target_col
+                        )
+                    )
 
                 elif rule_type == "split_number":
-                    def get_house_number(val: Any) -> str:
-                        if pd.isna(val) or str(val).lower() in ['nan', 'null', 'none', '']:
-                            return ""
-                        numbers: List[str] = re.findall(r'\d+.*$', str(val))
-                        return "".join(numbers).strip() if numbers else ""
-                    series = series.apply(get_house_number)
+                    series = series.apply(
+                        lambda val: apply_rule_transform(
+                            str(val).strip() if pd.notna(val) and str(val).lower() not in NULL_STRING_VALUES else "",
+                            "split_number",
+                            target_col
+                        )
+                    )
 
                 elif rule_type == "split_title":
                     def get_only_title(val: Any) -> str:
