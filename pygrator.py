@@ -687,7 +687,10 @@ class CSVMappingApp(ctk.CTk):
         self.preview_tree.delete(*self.preview_tree.get_children())
 
         # Vektorisiert statt Zelle für Zelle per iloc (deutlich schneller bei vielen Spalten)
-        rows: List[List[str]] = slice_df.astype(object).where(slice_df.notna(), "").astype(str).values.tolist()
+        rows: List[List[str]] = cast(
+            List[List[str]],
+            slice_df.astype(object).where(slice_df.notna(), "").astype(str).values.tolist(),
+        )
         for r_idx, row_vals in enumerate(rows):
             tag = "even" if r_idx % 2 == 0 else "odd"
             self.preview_tree.insert("", "end", values=row_vals, tags=(tag,))
