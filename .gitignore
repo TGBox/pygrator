@@ -10,3 +10,5 @@ testdata/
 data/
 .vscode
 Claude outputs
+*.egg-info
+pygrator.egg-info/

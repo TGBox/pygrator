@@ -1,3 +1,5 @@
+Claude outputs
+assets
 build
 dist
 services
