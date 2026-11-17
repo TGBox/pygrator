@@ -9,7 +9,6 @@ import string
 from typing import Any, Dict, List, cast
 import pandas as pd
 
-import email_validator as eval
 from constants import (
     BASE36_ALPHABET,
     IK_CHECK_WEIGHTS,
@@ -29,14 +28,13 @@ def encode_base36(num: int) -> str:
     arr.reverse()
     return "".join(arr)
 
-def generate_rolf_id() -> str:
+def generate_id() -> str:
     """Generiert eine eindeutige 10-stellige ROLF-ID (z.B. 'O9F1L-00A2B')."""
     part1 = f"O{encode_base36(int(time.time() * 1000))[-4:]}"
     part2 = "".join(random.choices(BASE36_ALPHABET, k=5))
-    
     return f"{part1}-{part2}".upper()
 
-generate_id = generate_rolf_id
+generate_rolf_id = generate_id
 
 def parse_varchar_limit(datatype_str: Any) -> int | None:
     """Extrahiert das Limit aus einem Typ-String wie 'VARCHAR(40)' -> 40. Bei 'TEXT' -> None."""
@@ -130,18 +128,15 @@ def validate_insurance_number(kvnr: Any) -> bool:
 
     return calc_check_digit == actual_check_digit
 
+EMAIL_REGEX = re.compile(
+    r"^(?!\.)(?!.*\.\.)[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$"
+)
+
 def validate_email(email: Any) -> bool:
     if not email or pd.isna(email):
         return False
     email_str = str(email).strip()
-    if not email_str:
-        return False
-    try:
-        # Normalisiert die E-Mail (z.B. Kleinbuchstaben für Domains) und prüft Syntax
-        _valid = eval.validate_email(email_str, check_deliverability=False)
-        return True
-    except (eval.EmailNotValidError, Exception):
-        return False
+    return bool(email_str and EMAIL_REGEX.match(email_str))
     
 def apply_rule_transform(val_str: str, rule_type: Any, target_col: Any) -> str:
     """
@@ -155,7 +150,7 @@ def apply_rule_transform(val_str: str, rule_type: Any, target_col: Any) -> str:
     target_str = str(target_col).lower()
 
     # Ist es eine Hausnummern-Spalte?
-    is_hnr = "hausnummer" in rule_str or "hnr" in rule_str or "hausnummer" in target_str or "hnr" in target_str
+    is_hnr = "hausnummer" in rule_str or "hnr" in rule_str or "number" in rule_str or "hausnummer" in target_str or "hnr" in target_str
     # Ist es eine Straßen-Spalte?
     is_street = "strasse" in rule_str or "street" in rule_str or "strasse" in target_str or "street" in target_str
 
@@ -187,8 +182,6 @@ def extract_flagged_records(
     # 1. Any erlauben, da row.to_dict() und Zeilennummern verschiedene Typen enthalten
     flagged_rows: list[dict[Hashable, Any]] = []
     
-    # Funktionsimport lokal statt global um Zirkuläre Abhängigkeiten zu vermeiden. !! Wurde entfernt?!
-    #from auto_complete import try_to_fix_insurance_number
 
     for idx, (_, row) in enumerate(df.iterrows()):
         row_flags: list[str] = []
